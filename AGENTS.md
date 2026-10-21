@@ -11,22 +11,26 @@ A personal, single-user planner after *The Present Day Planner*. The notebook UI
 ## Private data
 
 - The planner holds personal journal and to-do text. Never read, export, upload, or commit real user data. Test with synthetic fixtures only.
-- Today's data lives in the browser's localStorage under `duckbook:v1`, bound to the exact origin `http://localhost:5317`. A different host or port shows an empty notebook (the data is still there, just unreachable).
-- Any change that touches persistence, import, or migration must be non-destructive and show a way to recover.
+- Pages live in SQLite at `%LOCALAPPDATA%\Duckbook` (served by `server/` on `http://localhost:5317`). Never open, copy, or query the real data directory, and never run development servers on port 5317. Use `DUCKBOOK_PORT` with a spare port and `DUCKBOOK_DATA_DIR` with a temp dir.
+- The earlier version's data is in the browser's `localStorage['duckbook:v1']` at that exact origin. The app only reads it; removal is a user action after a verified move.
+- Any change that touches persistence, import, or migration must be non-destructive, show failures visibly, and keep a way to recover (backups before replace, verify after write).
+- The PIN is an access lock, not encryption. Don't describe it as more.
 - No network calls to third parties (fonts are self-hosted). No AI or cloud calls unless a decision says otherwise.
 
 ## Commands
 
 ```bash
 npm install
-npm run dev -- --port 5317 --strictPort   # same origin as the existing data
 npm run typecheck
+npm test               # node --test: server, storage, PIN, crash safety
 npm run build
+npm run test:browser   # puppeteer-core + local Chrome, throwaway server on :5399
 ```
 
 ## Conventions
 
-- TypeScript + React 19 + Vite. State is in `src/lib/store.ts`; views live in `src/views/`, and shared pieces in `src/components/`.
+- TypeScript + React 19 + Vite for the UI. The Node 24 server runs `.ts` directly (type stripping, erasable syntax only) with built-in `node:sqlite`.
+- `src/lib/schema.ts` is shared by browser and server (no DOM/Node imports). Client state and saving live in `src/lib/store.ts`; views in `src/views/`; shared pieces in `src/components/`.
 - Match the surrounding code: small files, few comments, no new dependency without a reason.
 - Commits are small and imperative ("Add focus map grid"). Use branches for anything larger than one sitting. `main` must always build.
 - Verify UI changes in a browser, not just with a typecheck.

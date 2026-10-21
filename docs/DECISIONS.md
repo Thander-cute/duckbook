@@ -8,20 +8,31 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 |---|---|---|
 | 2026-10-21 | Single local machine first; mobile later. | Owner: "Trên máy trước, mobile sau" |
 | 2026-10-21 | Set up Git and a lightweight repo template for ongoing work. | Owner |
+| 2026-10-22 | Make it usable for the owner first; shipping to other people later. Web UI in the browser, not an installed desktop app (no Tauri). | Owner: "làm cho t xài trước đi, chuyện ship cho người ta để sau chưa cần" |
+| 2026-10-22 | Browser-only storage (IndexedDB) is too risky. Keep the web UI, but store data outside the browser through a local background process. Future mobile can use SQLite. | Owner steering, then "ok làm đơn giản trước thôi" |
+| 2026-10-22 | Optional privacy lock in Settings: 6-digit PIN, minimal blank/blurred screen, correct PIN enters. Backup settings in Settings. | Owner |
+
+### How these were implemented (agent decisions within the approved scope)
+
+- Node server on loopback (`server/`, built-in `node:sqlite`, no native dependencies). It serves the built app at `http://localhost:5317`, the exact origin of the earlier localStorage data.
+- Data lives in `%LOCALAPPDATA%\Duckbook` (per user, outside the repo and the browser): `duckbook.sqlite`, `backups/`, `logs/`.
+- The PIN is an access lock checked by the server. It is **not** encryption. At-rest encryption, recovery flows, and vaults are deferred.
+- Migration from `localStorage['duckbook:v1']` only runs when the user clicks. It is verified page by page, and the browser copy is kept until the user removes it.
+- Launch with `Duckbook.cmd` (optionally a desktop shortcut). No terminal is needed for daily use.
+- The earlier IndexedDB/crypto drafts are archived on branch `archive/indexeddb-vault-draft`. They were never used or tested.
 
 ## Open (under discussion, not approved)
 
-- Local architecture: storage engine, local launch method, backups/restore, encryption boundary, migration of the existing localStorage data.
-- Owner ideas still being shaped:
-  - Focus Map (impact × difficulty) as an optional add-on beside the weekly Eisenhower matrix.
-  - Modular, optional features (no marketplace).
-  - Privacy of journal and to-do data.
-  - Optional AI (task breakdown, weekly recall/chat). No data is sent and no AI is enabled until this is decided.
-  - Year view: scope undefined.
-  - Memory photos and captions on the Day page, surfaced in Reflect and Month.
-  - Mobile layout, later.
+- Next slice candidate: Focus Map (impact × difficulty) as an optional add-on beside the weekly Eisenhower matrix. Ideas stay separate from tasks and are promoted into the week explicitly.
+- Modular, optional features (no marketplace).
+- At-rest encryption of the database and backups; off-machine backup location.
+- Optional AI (task breakdown, weekly recall/chat). No data is sent and no AI is enabled until this is decided.
+- Year view: scope undefined.
+- Memory photos and captions on the Day page, surfaced in Reflect and Month (the attachments folder belongs beside the database).
+- Mobile layout and sync.
 - Meaning of the two orange "Graphics" icons the owner shared: unclear, not adopted as a theme.
 
 ## Background
 
 - `IDEA.md`: original product analysis and design language (2026-10-19).
+- `docs/DATA-AND-PRIVACY.md`: where data lives, what the lock does and doesn't do, and backups.
