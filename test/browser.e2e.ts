@@ -47,7 +47,14 @@ async function step(name: string, fn: () => Promise<void>) {
 
 const textOf = (page: Page) => page.evaluate(() => document.body.innerText + [...document.querySelectorAll('textarea, input')].map((e) => (e as HTMLInputElement).value).join(' '))
 const valueOf = (page: Page, sel: string) => page.$eval(sel, (e) => (e as HTMLTextAreaElement).value)
-const waitSaved = (page: Page, timeout = 5000) => page.waitForSelector('[data-save="saved"]', { timeout })
+const waitSaved = async (page: Page, timeout = 5000) => {
+  try {
+    await page.waitForSelector('[data-save="saved"]', { timeout })
+  } catch (e) {
+    console.log("save state:", await page.evaluate(() => document.querySelector("[data-save]")?.getAttribute("data-save") + " / " + (document.querySelector(".banner")?.textContent ?? "")))
+    throw e
+  }
+}
 async function typeInto(page: Page, sel: string, text: string) {
   await page.click(sel, { count: 3 })
   await page.keyboard.type(text)
@@ -132,6 +139,32 @@ async function main() {
       await waitSaved(page)
     })
 
+    await step('restore is refused while an edit is unsaved; the edit survives', async () => {
+      await page.evaluate(async () => {
+        const data = (await (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).json()) as { docs: { key: string; rev: number; value: object }[] }
+        const d = data.docs.find((x) => x.key === 'day:2026-10-19')!
+        await fetch('/api/docs', {
+          method: 'PUT',
+          headers: { 'X-Duckbook': '1', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ changes: [{ key: d.key, baseRev: d.rev, value: { ...d.value, notes: 'second outside edit' } }] }),
+        })
+        await fetch('/api/backups', { method: 'POST', headers: { 'X-Duckbook': '1' } })
+      })
+      await typeInto(page, '.page-foot textarea', 'unsaved precious words')
+      await page.waitForSelector('.save-status.is-conflict', { timeout: 5000 })
+      await openSettings(page)
+      await page.waitForSelector('.backup-list li:first-child .text-link')
+      await page.click('.backup-list li:first-child .text-link')
+      const [restore] = await page.$$('xpath/.//li//button[normalize-space(.)="Restore"]')
+      await restore.click()
+      await page.waitForFunction(() => document.querySelector('.settings')!.textContent!.includes('aren’t saved yet'))
+      await page.click('button[aria-label="Close"]')
+      assert.equal(await valueOf(page, '.page-foot textarea'), 'unsaved precious words')
+      const [mine] = await page.$$('xpath/.//button[contains(., "Keep this tab")]')
+      await mine.click()
+      await waitSaved(page)
+    })
+
     await step('second tab sees saves from the first', async () => {
       const page2 = await browser.newPage()
       await page2.setViewport({ width: 1440, height: 900 })
@@ -208,14 +241,24 @@ async function main() {
       assert.equal(await valueOf(page, '.day-page .line textarea'), 'typed in tab one')
     })
 
-    await step('old browser copy can be removed after the verified move', async () => {
+    await step('after a restore the old browser copy is no longer called "safe"; re-move, then remove', async () => {
+      await page.waitForSelector('.banner')
       await openSettings(page)
-      const [rm] = await page.$$('xpath/.//button[contains(., "Remove old copy")]')
-      await rm.click()
+      assert.equal((await page.$$('xpath/.//button[contains(., "Remove old copy")]')).length, 0, 'no remove offer while the database differs')
+      const [move] = await page.$$('xpath/.//button[contains(., "Move them in")]')
+      await move.click()
+      await page.waitForSelector('.confirm-box')
+      const [replace] = await page.$$('xpath/.//button[contains(., "Replace with browser copy")]')
+      await replace.click()
+      await page.waitForFunction(() => document.querySelector('.settings')!.textContent!.includes('Moved and verified'))
+      const rm = await page.waitForSelector('xpath/.//button[contains(., "Remove old copy")]')
+      await rm!.click()
+      await page.waitForSelector('.confirm-box')
       const [yes] = await page.$$('xpath/.//div[contains(@class,"confirm-box")]//button[normalize-space(.)="Remove"]')
       await yes.click()
       assert.equal(await page.evaluate(() => localStorage.getItem('duckbook:v1')), null)
       await page.click('button[aria-label="Close"]')
+      assert.equal(await valueOf(page, '.day-page .line textarea'), 'fixture gratitude', 'browser copy content now in the database')
     })
 
     assert.deepEqual(errors, [], 'no console errors (including CSP)')

@@ -32,6 +32,7 @@ export interface Status {
   locked: boolean
   retryAfterMs: number
   docCount?: number
+  quarantineCount?: number
   dataDir?: string
   migration?: { at: string; sourceHash: string | null; summary: { days: number; weeks: number; months: number } } | null
   lastBackup?: { at: string } | null
@@ -64,7 +65,8 @@ const emit = () => listeners.forEach((l) => l())
 
 /** Server revision per page, and the exact value object last confirmed saved. */
 let revs = new Map<string, number>()
-let savedRefs = new Map<string, unknown>()
+// Default settings count as saved until changed.
+let savedRefs = new Map<string, unknown>([['settings', state.settings]])
 /** Edits that could not be sent before a lock; resent (with their original base revision) after unlock. */
 let parked: { key: string; baseRev: number; value: unknown }[] = []
 
@@ -110,13 +112,30 @@ export function useStore<T>(select: (s: State) => T): T {
   return useSyncExternalStore(subscribe, () => select(state))
 }
 
-function adoptDocs(docs: { key: string; rev: number; value: unknown }[], onlyClean: boolean) {
-  const dirty = new Set(onlyClean ? dirtyKeys() : [])
+type ServerDoc = { key: string; rev: number; value: unknown }
+
+/**
+ * Take pages from the server. Pages with unsaved local edits are always kept (they surface as a
+ * conflict on save if the server moved on). 'merge' ignores responses older than what this tab
+ * already has; 'replace' also drops pages the server no longer has (after an import or restore).
+ */
+function adoptDocs(docs: ServerDoc[], mode: 'merge' | 'replace') {
+  const dirty = new Set(dirtyKeys())
   const fresh = docsToState(docs)
+  const take = docs.filter((doc) => !dirty.has(doc.key) && (mode === 'replace' || doc.rev >= (revs.get(doc.key) ?? 0)))
+  const serverKeys = new Set(docs.map((d) => d.key))
   const next = produce(state, (d) => {
-    if (!onlyClean) Object.assign(d, emptyState())
-    for (const doc of docs) {
-      if (dirty.has(doc.key)) continue
+    if (mode === 'replace') {
+      for (const key of allKeys(state)) {
+        if (serverKeys.has(key) || dirty.has(key)) continue
+        const [kind, id] = key === 'settings' ? ['settings', ''] : key.split(':')
+        if (kind === 'month') delete d.months[id]
+        else if (kind === 'week') delete d.weeks[id]
+        else if (kind === 'day') delete d.days[id]
+        else d.settings = emptyState().settings
+      }
+    }
+    for (const doc of take) {
       const [kind, id] = doc.key === 'settings' ? ['settings', ''] : doc.key.split(':')
       if (kind === 'month') d.months[id] = fresh.months[id] as Draft<MonthData>
       else if (kind === 'week') d.weeks[id] = fresh.weeks[id] as Draft<WeekData>
@@ -124,14 +143,14 @@ function adoptDocs(docs: { key: string; rev: number; value: unknown }[], onlyCle
       else if (kind === 'settings') d.settings = fresh.settings
     }
   })
-  if (!onlyClean) {
-    revs = new Map()
-    // Default settings count as saved until changed.
-    savedRefs = new Map([['settings', next.settings]])
-  }
   state = next
-  for (const doc of docs) {
-    if (dirty.has(doc.key)) continue
+  if (mode === 'replace') {
+    for (const key of [...revs.keys()]) if (!dirty.has(key)) revs.delete(key)
+    for (const key of [...savedRefs.keys()]) if (!dirty.has(key)) savedRefs.delete(key)
+    // Default settings count as saved until changed.
+    if (!dirty.has('settings') && !serverKeys.has('settings')) savedRefs.set('settings', state.settings)
+  }
+  for (const doc of take) {
     revs.set(doc.key, doc.rev)
     savedRefs.set(doc.key, docRef(state, doc.key))
   }
@@ -139,16 +158,16 @@ function adoptDocs(docs: { key: string; rev: number; value: unknown }[], onlyCle
 }
 
 async function loadAll() {
-  const { docs } = await api<{ docs: { key: string; rev: number; value: unknown }[] }>('GET', '/api/data')
-  adoptDocs(docs, false)
+  const { docs } = await api<{ docs: ServerDoc[] }>('GET', '/api/data')
+  adoptDocs(docs, 'replace')
 }
 
-/** Pull pages changed elsewhere (another tab, a restore) without touching unsaved local edits. */
+/** Pull pages changed elsewhere (another tab) without touching unsaved local edits. */
 export async function refresh() {
   if (!isUnlocked()) return
   try {
-    const { docs } = await api<{ docs: { key: string; rev: number; value: unknown }[] }>('GET', '/api/data')
-    adoptDocs(docs, true)
+    const { docs } = await api<{ docs: ServerDoc[] }>('GET', '/api/data')
+    if (isUnlocked()) adoptDocs(docs, 'merge')
   } catch {
     /* save status already shows connectivity problems */
   }
@@ -166,19 +185,20 @@ function scheduleSave(delay = 400) {
   saveTimer = window.setTimeout(() => void flush(), delay)
 }
 
-export async function flush(force = false): Promise<void> {
+/** Save every unsaved page now. Resolves true only if everything is saved afterwards. */
+export async function flush(force = false): Promise<boolean> {
   window.clearTimeout(saveTimer)
+  if (!isUnlocked()) return false
   if (inflight) {
     await inflight
-    if (dirtyKeys().length) return flush(force)
-    return
+    return dirtyKeys().length ? flush(force) : saveStatus.get().kind === 'saved'
   }
   const st = saveStatus.get()
-  if (st.kind === 'conflict' && !force) return
+  if (st.kind === 'conflict' && !force) return false
   const keys = dirtyKeys()
   if (!keys.length) {
     if (st.kind !== 'saved') saveStatus.set({ kind: 'saved' })
-    return
+    return true
   }
   const sent = keys.map((key) => ({ key, baseRev: revs.get(key) ?? 0, value: docRef(state, key) }))
   saveStatus.set({ kind: 'saving' })
@@ -186,6 +206,12 @@ export async function flush(force = false): Promise<void> {
     try {
       const { revs: next } = await api<{ revs: Record<string, number> }>('PUT', '/api/docs', { changes: sent, force })
       for (const c of sent) {
+        // If the tab locked while this was in flight, the parked copy is either this exact edit
+        // (now saved) or a newer one whose base is now our own save.
+        const p = parked.find((x) => x.key === c.key)
+        if (p && p.value === c.value) parked = parked.filter((x) => x !== p)
+        else if (p) p.baseRev = next[c.key]
+        if (!isUnlocked()) continue
         revs.set(c.key, next[c.key])
         savedRefs.set(c.key, c.value)
       }
@@ -210,6 +236,7 @@ export async function flush(force = false): Promise<void> {
     }
   })()
   await inflight
+  return !dirtyKeys().length && saveStatus.get().kind === 'saved'
 }
 
 /** Resolve a conflict: take the saved version from the server, or overwrite it with this tab's. */
@@ -218,7 +245,7 @@ export async function resolveConflict(choice: 'theirs' | 'mine') {
     await flush(true)
     return
   }
-  const { docs } = await api<{ docs: { key: string; rev: number; value: unknown }[] }>('GET', '/api/data')
+  const { docs } = await api<{ docs: ServerDoc[] }>('GET', '/api/data')
   const conflictKeys = new Set(saveStatus.get().kind === 'conflict' ? (saveStatus.get() as { keys: string[] }).keys : [])
   for (const k of conflictKeys) savedRefs.delete(k)
   // Drop local versions of the conflicting pages, then adopt everything clean from the server.
@@ -230,18 +257,24 @@ export async function resolveConflict(choice: 'theirs' | 'mine') {
       else if (kind === 'day') delete d.days[id]
     }
   })
-  for (const k of conflictKeys) savedRefs.set(k, docRef(state, k))
+  for (const k of conflictKeys) {
+    savedRefs.set(k, docRef(state, k))
+    revs.delete(k)
+  }
   saveStatus.set({ kind: 'saved' })
-  adoptDocs(docs, true)
+  adoptDocs(docs, 'merge')
   if (dirtyKeys().length) scheduleSave()
 }
 
 window.addEventListener('beforeunload', (e) => {
-  if (isUnlocked() && (dirtyKeys().length || inflight)) {
-    void flush()
-    e.preventDefault()
-  }
+  const unsaved = (isUnlocked() && (dirtyKeys().length > 0 || inflight !== null)) || parked.length > 0
+  if (!unsaved) return
+  if (isUnlocked()) void flush()
+  e.preventDefault()
 })
+
+/** Pages edited before a lock that still need saving after unlock. */
+export const parkedCount = () => parked.length
 
 // ───────── lock / unlock / boot ─────────
 
@@ -249,7 +282,7 @@ function clearPrivate() {
   window.clearTimeout(saveTimer)
   state = emptyState()
   revs = new Map()
-  savedRefs = new Map()
+  savedRefs = new Map([['settings', state.settings]])
   emit()
 }
 
@@ -352,7 +385,7 @@ channel?.addEventListener('message', (e: MessageEvent) => {
   const t = e.data?.type
   if (t === 'locked' && isUnlocked()) goLocked(null)
   else if (t === 'unlocked' && session.get().phase === 'locked') void boot()
-  else if (t === 'replaced' && isUnlocked()) void loadAll()
+  else if (t === 'replaced' && isUnlocked()) void loadAll().catch(() => {})
   else if (t === 'saved') void refresh()
 })
 

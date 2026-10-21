@@ -214,3 +214,32 @@ test('restore keeps the PIN; restart locks again', async () => {
     await s.cleanup()
   }
 })
+
+test('malformed URLs from any page cannot crash the server', async () => {
+  const s = await startTestServer()
+  try {
+    assert.equal(await rawRequest(s.port, { Host: `localhost:${s.port}` }, '/%E0%A4%A'), 400)
+    assert.equal(await rawRequest(s.port, { Host: `localhost:${s.port}` }, '/assets/%ZZ.js'), 400)
+    assert.equal((await s.call('GET', '/api/health')).status, 200, 'still serving')
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('retention never drops the pre-migration backup; other pools are capped', async () => {
+  const s = await startTestServer()
+  try {
+    await s.call('POST', '/api/import', { data: fixtureLegacy() })
+    await s.call('POST', '/api/import', { data: fixtureLegacy(), source: 'legacy', replace: true })
+    const b = (await s.call('POST', '/api/backups')).json.backup
+    for (let i = 0; i < 23; i++) assert.equal((await s.call('POST', '/api/backups/restore', { file: b.file })).status, 200)
+    const list = (await s.call('GET', '/api/backups')).json.backups as { kind: string }[]
+    assert.equal(list.filter((x) => x.kind === 'pre-migration').length, 1, 'pre-migration kept')
+    assert.equal(list.filter((x) => x.kind === 'manual').length, 1, 'manual kept')
+    assert.ok(list.filter((x) => x.kind === 'pre-restore').length <= 20, 'pre-restore pool capped')
+    const st = (await s.call('GET', '/api/status')).json
+    assert.equal(st.migration, null, 'a restore clears the "browser copy is in the database" marker')
+  } finally {
+    await s.cleanup()
+  }
+})

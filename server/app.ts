@@ -104,13 +104,13 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
     const unlocked = auth.allows(sessionToken(req))
     const base = { app: 'duckbook', pinEnabled: auth.enabled, autoLockMin: auth.autoLockMin, locked: !unlocked, retryAfterMs: auth.retryAfterMs() }
     if (!unlocked) return base
-    return { ...base, docCount: store.docCount(), migration: store.getMeta('migration') ?? null, dataDir: store.dataDir, lastBackup: store.getMeta('last_backup') ?? null }
+    return { ...base, docCount: store.docCount(), quarantineCount: store.quarantined().length, migration: store.getMeta('migration') ?? null, dataDir: store.dataDir, lastBackup: store.getMeta('last_backup') ?? null }
   }
 
   async function api(req: http.IncomingMessage, res: http.ServerResponse, route: string) {
     const method = req.method ?? 'GET'
 
-    if (route === 'GET /api/health') return send(res, 200, { app: 'duckbook', version: 1 })
+    if (route === 'GET /api/health') return send(res, 200, { app: 'duckbook', version: 1, pid: process.pid })
     if (route === 'GET /api/status') return send(res, 200, statusBody(req))
 
     if (route === 'POST /api/unlock') {
@@ -159,17 +159,18 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
       const source = body.source === 'legacy' ? 'legacy' : 'file'
       if (store.docCount() && body.replace !== true) throw new HttpError(409, 'There are already pages here.', { needsReplace: true })
       const out = store.replaceAll(r.state, { reason: source === 'legacy' ? 'pre-migration' : 'pre-import', quarantine: r.quarantine, source })
+      // The "browser copy is safely in the database" marker only holds right after a legacy move.
       if (source === 'legacy') {
         const hash = typeof body.sourceHash === 'string' ? body.sourceHash : null
         store.setMeta('migration', { at: new Date().toISOString(), sourceHash: hash, summary: out.summary })
-      }
+      } else store.setMeta('migration', null)
       log(`import (${source}): ${out.summary.days} days, ${out.summary.weeks} weeks, ${out.summary.months} months; ${r.issues.length} issues`)
       return send(res, 200, { ...out, issueCount: r.issues.length, docs: store.allDocs() })
     }
 
     if (route === 'GET /api/export') {
       const state = docsToState(store.allDocs())
-      return send(res, 200, { format: 'duckbook-export', formatVersion: 1, exportedAt: new Date().toISOString(), state })
+      return send(res, 200, { format: 'duckbook-export', formatVersion: 1, exportedAt: new Date().toISOString(), state, quarantine: store.quarantined() })
     }
 
     if (route === 'GET /api/backups') return send(res, 200, { backups: store.listBackups(), dir: store.backupDir })
@@ -184,6 +185,7 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
       const body = await readJson(req)
       if (typeof body.file !== 'string') throw new HttpError(400, 'Which backup?')
       const out = store.restoreBackup(body.file)
+      store.setMeta('migration', null)
       log(`restore: ${body.file}`)
       return send(res, 200, { ...out, docs: store.allDocs() })
     }
@@ -207,7 +209,12 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
 
   function serveStatic(req: http.IncomingMessage, res: http.ServerResponse, pathname: string) {
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'Method not allowed.' })
-    let rel = decodeURIComponent(pathname)
+    let rel: string
+    try {
+      rel = decodeURIComponent(pathname)
+    } catch {
+      return send(res, 400, { error: 'Bad path.' })
+    }
     if (rel === '/' || !path.extname(rel)) rel = '/index.html'
     const file = path.normalize(path.join(distDir, rel))
     if (!file.startsWith(path.normalize(distDir + path.sep)) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {

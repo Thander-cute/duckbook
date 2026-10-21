@@ -47,7 +47,13 @@ export async function start(opts: { port?: number; dataDir?: string; distDir?: s
   const servers: http.Server[] = []
   const listen = (host: string) =>
     new Promise<void>((resolve, reject) => {
-      const s = http.createServer((req, res) => void handler(req, res))
+      const s = http.createServer((req, res) =>
+        handler(req, res).catch((e: Error) => {
+          log(`request failed: ${e.message}`)
+          if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' })
+          res.end()
+        }),
+      )
       s.once('error', reject)
       s.listen(port, host, () => {
         servers.push(s)

@@ -62,7 +62,7 @@ export function SettingsPanel({ onClose, legacy, onLegacyChange }: { onClose: ()
 
         <PrivacyLock pinEnabled={!!status?.pinEnabled} autoLockMin={status?.autoLockMin ?? 15} />
         <Backups />
-        <DataSection dataDir={status?.dataDir} />
+        <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
         {legacy && <OldBrowserCopy legacy={legacy} onChange={onLegacyChange} />}
 
         <div className="setting">
@@ -228,7 +228,7 @@ function Backups() {
   const restore = async (file: string) => {
     setBusy(true)
     try {
-      await flush()
+      if (!(await flush())) return setMsg('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
       const r = await api<{ summary: Summary }>('POST', '/api/backups/restore', { file })
       await reloadAll()
       setMsg(`Restored and verified: ${describe(r.summary)}. Your pages from just before are in a “Before restore” backup.`)
@@ -252,7 +252,7 @@ function Backups() {
       </div>
       {list && list.length > 0 && (
         <ul className="backup-list">
-          {list.slice(0, 12).map((b) => (
+          {list.map((b) => (
             <li key={b.file}>
               <span>
                 {fmtTime(b.createdAt)}
@@ -287,7 +287,7 @@ function Backups() {
   )
 }
 
-function DataSection({ dataDir }: { dataDir?: string }) {
+function DataSection({ dataDir, quarantineCount }: { dataDir?: string; quarantineCount: number }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<{ data: unknown; summary: Summary; issueCount: number; existing: number } | null>(null)
   const [msg, setMsg] = useState('')
@@ -316,7 +316,7 @@ function DataSection({ dataDir }: { dataDir?: string }) {
 
   const apply = async () => {
     try {
-      await flush()
+      if (!(await flush())) return setMsg('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
       const r = await api<{ summary: Summary }>('POST', '/api/import', { data: pending!.data, source: 'file', replace: true })
       await reloadAll()
       setMsg(`Imported: ${describe(r.summary)}. Your previous pages are in a “Before import” backup.`)
@@ -352,7 +352,10 @@ function DataSection({ dataDir }: { dataDir?: string }) {
           }}
         />
       </div>
-      <p className="muted small">Exported files are plain, readable text. Keep them somewhere private.</p>
+      <p className="muted small">
+        Exported files are plain, readable text. Keep them somewhere private.
+        {quarantineCount > 0 && ` ${quarantineCount} odd values set aside during imports are included in the export.`}
+      </p>
       {pending && (
         <div className="confirm-box">
           <p className="small">
@@ -382,7 +385,7 @@ function OldBrowserCopy({ legacy, onChange }: { legacy: LegacyInfo; onChange: ()
 
   const move = async () => {
     try {
-      await flush()
+      if (!(await flush())) return setMsg('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
       const summary = await migrateLegacy(true)
       await reloadAll()
       setMsg(`Moved and verified: ${describe(summary)}. Your previous database pages are in a backup.`)

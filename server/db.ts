@@ -23,8 +23,7 @@ export class ConflictError extends Error {
 export class RestoreError extends Error {}
 
 const BACKUP_FILE = /^duckbook-\d{8}-\d{6}-\d{3}-[a-z-]+\.sqlite$/
-const KEEP_AUTO = 30
-const KEEP_OTHER = 20
+const DAY = 86_400_000
 
 export class Store {
   readonly db: DatabaseSync
@@ -210,13 +209,36 @@ export class Store {
       .map((r) => ({ file: r.file, kind: r.kind, createdAt: r.created_at, docs: r.docs, bytes: r.bytes, verified: r.verified === 1 }))
   }
 
-  private pruneBackups() {
-    const all = this.listBackups()
-    const drop = [...all.filter((b) => b.kind === 'auto').slice(KEEP_AUTO), ...all.filter((b) => b.kind !== 'auto').slice(KEEP_OTHER)]
-    for (const b of drop) {
+  /**
+   * Retention: automatic backups are all kept for 2 days, then one per day for 30 days, then one per
+   * week for 26 weeks. The 30 newest manual and 20 newest pre-import/restore backups are kept.
+   * The backup taken before moving browser pages is never pruned.
+   */
+  private pruneBackups(now = Date.now()) {
+    const all = this.listBackups() // newest first
+    const keep = new Set<string>()
+    const seen = new Set<string>()
+    for (const b of all.filter((x) => x.kind === 'auto')) {
+      const age = now - Date.parse(b.createdAt)
+      const d = new Date(b.createdAt)
+      const bucket = age < 2 * DAY ? b.file : age < 30 * DAY ? `d${d.toISOString().slice(0, 10)}` : age < 182 * DAY ? `w${Math.floor(d.getTime() / (7 * DAY))}` : null
+      if (bucket && !seen.has(bucket)) {
+        seen.add(bucket)
+        keep.add(b.file)
+      }
+    }
+    all.filter((x) => x.kind === 'manual').slice(0, 30).forEach((b) => keep.add(b.file))
+    all.filter((x) => x.kind === 'pre-migration').forEach((b) => keep.add(b.file))
+    all.filter((x) => !['auto', 'manual', 'pre-migration'].includes(x.kind)).slice(0, 20).forEach((b) => keep.add(b.file))
+    for (const b of all.filter((x) => !keep.has(x.file))) {
       fs.rmSync(path.join(this.backupDir, b.file), { force: true })
       this.db.prepare('DELETE FROM backups WHERE file = ?').run(b.file)
     }
+  }
+
+  quarantined(): { at: string; source: string; path: string; value: unknown }[] {
+    const rows = this.db.prepare('SELECT at, source, path, value FROM quarantine ORDER BY id').all() as { at: string; source: string; path: string; value: string }[]
+    return rows.map((r) => ({ at: r.at, source: r.source, path: r.path, value: JSON.parse(r.value) }))
   }
 
   /** Restore pages from a backup file. The current pages are backed up first; lock settings are kept. */

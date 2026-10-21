@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRoute, go, type View } from './lib/router'
 import { addDays, addMonths, fmtLong, fmtMonth, fmtShort, isoWeek, monthKeyOf, todayKey, weekStart } from './lib/date'
-import { boot, lock, useSaveStatus, useSession, useSettings } from './lib/store'
+import { boot, getSession, lock, useSaveStatus, useSession, useSettings } from './lib/store'
 import { api } from './lib/api'
 import { LEGACY_KEY, readLegacy, type LegacyInfo } from './lib/legacy'
 import { LockScreen } from './components/LockScreen'
@@ -157,15 +157,24 @@ function SaveIndicator() {
 function useIdleLock(enabled: boolean, minutes: number) {
   useEffect(() => {
     if (!enabled) return
+    // Activity in any duckbook tab counts, so an idle background tab never locks the one you're using.
+    const channel = new BroadcastChannel('duckbook-activity')
     let last = Date.now()
+    let lastShared = 0
     let lastPing = 0
+    const pingEvery = minutes > 0 ? Math.min(60_000, (minutes * 60_000) / 3) : 60_000
     const active = () => {
       last = Date.now()
-      if (last - lastPing > 60_000) {
+      if (last - lastShared > 2000) {
+        lastShared = last
+        channel.postMessage(last)
+      }
+      if (last - lastPing > pingEvery) {
         lastPing = last
         void api('POST', '/api/ping').catch(() => {})
       }
     }
+    channel.onmessage = (e: MessageEvent<number>) => (last = Math.max(last, e.data))
     const events = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'] as const
     events.forEach((ev) => window.addEventListener(ev, active, { passive: true }))
     const t = setInterval(() => {
@@ -174,6 +183,7 @@ function useIdleLock(enabled: boolean, minutes: number) {
     return () => {
       events.forEach((ev) => window.removeEventListener(ev, active))
       clearInterval(t)
+      channel.close()
     }
   }, [enabled, minutes])
 }
@@ -186,7 +196,8 @@ export function App() {
 
   useEffect(() => void boot(), [])
 
-  const checkLegacy = () => void readLegacy(status?.migration?.sourceHash).then(setLegacy)
+  // Read the marker at call time: callers may hold an older render's copy of this function.
+  const checkLegacy = () => void readLegacy(getSession().status?.migration?.sourceHash).then(setLegacy)
   useEffect(() => {
     if (phase !== 'unlocked') return setLegacy(undefined)
     checkLegacy()

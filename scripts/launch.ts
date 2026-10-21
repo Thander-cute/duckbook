@@ -82,16 +82,17 @@ function run(cmd: string, cmdArgs: string[]) {
 }
 
 async function stop() {
-  const pidFile = path.join(dataDir, 'server.pid')
-  if (!fs.existsSync(pidFile)) return console.log('duckbook is not running.')
-  const pid = Number(fs.readFileSync(pidFile, 'utf8'))
+  // Ask the running server who it is, instead of trusting a pid file that may be stale.
+  let pid: number | null = null
   try {
-    process.kill(pid)
-    console.log('duckbook stopped.')
-  } catch {
-    console.log('duckbook was not running.')
-  }
-  fs.rmSync(pidFile, { force: true })
+    const r = await fetch(`${url}api/health`, { headers: { 'X-Duckbook': '1' }, signal: AbortSignal.timeout(1500) })
+    const h = (await r.json()) as { app?: string; pid?: number }
+    if (h.app === 'duckbook' && typeof h.pid === 'number') pid = h.pid
+  } catch {}
+  fs.rmSync(path.join(dataDir, 'server.pid'), { force: true })
+  if (pid === null) return console.log('duckbook is not running.')
+  process.kill(pid)
+  console.log('duckbook stopped.')
 }
 
 function shortcut() {
@@ -109,6 +110,16 @@ async function main() {
   if (await isDuckbook()) {
     openBrowser()
     return
+  }
+
+  // Build before touching anything else, so a failed build never leaves you with no server at all.
+  if (!fs.existsSync(path.join(repo, 'node_modules'))) {
+    console.log('First run: installing…')
+    run('npm', ['ci'])
+  }
+  if (needsBuild()) {
+    console.log('Preparing duckbook…')
+    run('npm', ['run', 'build'])
   }
 
   if ((await portBusy('127.0.0.1')) || (await portBusy('::1'))) {
@@ -133,15 +144,6 @@ async function main() {
       process.exitCode = 1
       return
     }
-  }
-
-  if (!fs.existsSync(path.join(repo, 'node_modules'))) {
-    console.log('First run: installing…')
-    run('npm', ['ci'])
-  }
-  if (needsBuild()) {
-    console.log('Preparing duckbook…')
-    run('npm', ['run', 'build'])
   }
 
   const logDir = path.join(dataDir, 'logs')

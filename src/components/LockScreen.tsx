@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { unlock, useSession } from '../lib/store'
+import { parkedCount, unlock, useSession } from '../lib/store'
 
 /** Blank, softly blurred shell with a 6-digit PIN pad. No notebook content is mounted behind it. */
 export function LockScreen() {
@@ -67,6 +67,11 @@ export function LockScreen() {
         <p className="lock-error" role="alert">
           {error && !waiting ? error : ' '}
         </p>
+        {parkedCount() > 0 && (
+          <p className="muted small">
+            {parkedCount()} edited {parkedCount() === 1 ? 'page' : 'pages'} will be saved after you unlock. Keep this tab open.
+          </p>
+        )}
       </div>
     </div>
   )
