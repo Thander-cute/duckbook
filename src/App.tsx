@@ -1,0 +1,126 @@
+import { useEffect, useState } from 'react'
+import { useRoute, go, type View } from './lib/router'
+import { addDays, addMonths, fmtLong, fmtMonth, fmtShort, isoWeek, monthKeyOf, todayKey, weekStart } from './lib/date'
+import { useSettings } from './lib/store'
+import { MonthView } from './views/MonthView'
+import { WeekView } from './views/WeekView'
+import { DayView } from './views/DayView'
+import { ReflectView } from './views/ReflectView'
+import { PomodoroBar } from './components/PomodoroBar'
+import { SettingsPanel } from './components/SettingsPanel'
+
+const TABS: { view: View; step: string; label: string; key: string }[] = [
+  { view: 'month', step: '1', label: 'Month', key: 'M' },
+  { view: 'week', step: '2·3', label: 'Week', key: 'W' },
+  { view: 'day', step: '4', label: 'Day', key: 'D' },
+  { view: 'reflect', step: '5', label: 'Reflect', key: 'R' },
+]
+
+function periodLabel(view: View, date: string) {
+  if (view === 'month') return fmtMonth(monthKeyOf(date))
+  if (view === 'day') return fmtLong(date)
+  const mon = weekStart(date)
+  const sun = addDays(mon, 6)
+  const end = monthKeyOf(sun) === monthKeyOf(mon) ? sun.slice(8).replace(/^0/, '') : fmtShort(sun)
+  return `Week ${isoWeek(mon)} · ${fmtShort(mon)} – ${end}`
+}
+
+function step(view: View, date: string, dir: 1 | -1) {
+  if (view === 'month') return addMonths(date, dir)
+  if (view === 'day') return addDays(date, dir)
+  return addDays(date, 7 * dir)
+}
+
+function isCurrent(view: View, date: string) {
+  const t = todayKey()
+  if (view === 'month') return monthKeyOf(date) === monthKeyOf(t)
+  if (view === 'day') return date === t
+  return weekStart(date) === weekStart(t)
+}
+
+export function App() {
+  const { view, date } = useRoute()
+  const settings = useSettings()
+  const [showSettings, setShowSettings] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement
+      if (el.closest('input, textarea, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'ArrowLeft') go(view, step(view, date, -1))
+      else if (e.key === 'ArrowRight') go(view, step(view, date, 1))
+      else if (e.key.toLowerCase() === 't') go(view, todayKey())
+      else if (e.key === 'Escape') setShowSettings(false)
+      else {
+        const tab = TABS.find((t) => t.key === e.key.toUpperCase())
+        if (tab) go(tab.view, date)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [view, date])
+
+  useEffect(() => {
+    document.documentElement.dataset.ink = settings.ink
+  }, [settings.ink])
+
+  return (
+    <div className="app">
+      <nav className="topbar">
+        <a className="wordmark" href="#/" aria-label="duckbook, go to today">
+          <em>duck</em>book
+        </a>
+
+        <div className="tabs" role="tablist">
+          {TABS.map((t) => (
+            <button
+              key={t.view}
+              role="tab"
+              aria-selected={view === t.view}
+              className={`tab ${view === t.view ? 'is-active' : ''}`}
+              onClick={() => go(t.view, date)}
+              title={`${t.label} (${t.key})`}
+            >
+              <span className="step-num">{t.step}</span>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="period">
+          <button className="icon-btn" onClick={() => go(view, step(view, date, -1))} aria-label="Previous" title="Previous (←)">
+            ‹
+          </button>
+          <span className="period-label">{periodLabel(view, date)}</span>
+          <button className="icon-btn" onClick={() => go(view, step(view, date, 1))} aria-label="Next" title="Next (→)">
+            ›
+          </button>
+          <button className="today-btn" disabled={isCurrent(view, date)} onClick={() => go(view, todayKey())} title="Today (T)">
+            Today
+          </button>
+          <button className="icon-btn" onClick={() => setShowSettings((v) => !v)} aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden>
+              <circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+              <path
+                d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </nav>
+
+      <main className={`desk view-${view}`} key={`${view}`}>
+        {view === 'month' && <MonthView date={date} />}
+        {view === 'week' && <WeekView date={date} />}
+        {view === 'day' && <DayView date={date} />}
+        {view === 'reflect' && <ReflectView date={date} />}
+      </main>
+
+      <PomodoroBar />
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+    </div>
+  )
+}
