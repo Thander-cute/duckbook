@@ -3,3 +3,4 @@
 *.jpg binary
 *.woff binary
 *.woff2 binary
+Duckbook.cmd text eol=crlf

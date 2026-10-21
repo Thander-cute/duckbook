@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "typecheck": "tsc -p ."
+    "build": "npm run typecheck && vite build",
+    "typecheck": "tsc -p . && tsc -p tsconfig.server.json",
+    "start": "node server/main.ts",
+    "test": "node --test \"test/*.test.ts\"",
+    "test:browser": "node test/browser.e2e.ts"
   },
   "dependencies": {
     "@fontsource/dancing-script": "^5.3.0",
@@ -17,9 +19,11 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "puppeteer-core": "^25.15.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
   }

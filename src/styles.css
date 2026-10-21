@@ -1558,3 +1558,215 @@ button {
     padding: 28px 28px 36px;
   }
 }
+
+/* ───────── Lock, gates, banners ───────── */
+
+.lock-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(60% 50% at 30% 30%, rgba(195, 206, 233, 0.55), transparent 70%),
+    radial-gradient(50% 40% at 70% 70%, rgba(186, 199, 231, 0.45), transparent 70%),
+    var(--desk);
+  backdrop-filter: blur(24px);
+}
+.lock-card {
+  width: 300px;
+  padding: 32px 28px 22px;
+  text-align: center;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: 0 18px 50px -20px rgba(38, 52, 107, 0.3);
+}
+.lock-card.wide {
+  width: 440px;
+  text-align: left;
+}
+.lock-card .wordmark {
+  font-size: 22px;
+  margin-bottom: 18px;
+}
+.lock-card.wide .wordmark {
+  margin-bottom: 10px;
+}
+.lock-card p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.lock-card code,
+.setting code {
+  font-size: 12px;
+  word-break: break-all;
+}
+.lock-label {
+  display: block;
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+}
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.pin-dots span {
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  border: 1px solid var(--ink-soft);
+  transition: background 0.1s;
+}
+.pin-dots span.is-on {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.pin-dots.is-wrong {
+  animation: shake 0.3s;
+}
+@keyframes shake {
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+.pin-input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.lock-error {
+  margin: 14px 0 0 !important;
+  min-height: 1.2em;
+  font-size: 13px;
+  color: #a3473a;
+}
+.pomo-btn.ghost-dark {
+  background: var(--tint);
+  color: var(--ink);
+}
+.pomo-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.row-btns.center {
+  margin-top: 6px;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1360px;
+  margin: 0 auto 10px;
+  padding: 8px 14px;
+  font-size: 14px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+.banner span {
+  flex: 1;
+}
+.banner.is-warn {
+  border-color: #d9a79c;
+  background: #fbf3f1;
+}
+.app > .banner {
+  width: calc(100% - 64px);
+}
+
+.save-status {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--muted);
+  margin-right: 8px;
+}
+.save-status.is-error,
+.save-status.is-conflict {
+  color: #a3473a;
+  font-style: normal;
+}
+
+.setting-msg {
+  margin: 8px 0 0;
+  color: var(--ink);
+}
+.setting .muted.small {
+  margin: 8px 0 0;
+  line-height: 1.45;
+}
+.inline-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.inline-select select {
+  font: inherit;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: var(--paper);
+}
+.pin-form {
+  display: grid;
+  gap: 8px;
+}
+.pin-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.pin-field input {
+  width: 110px;
+  font: inherit;
+  letter-spacing: 0.3em;
+  text-align: center;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+}
+.backup-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 13.5px;
+}
+.backup-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.backup-list .confirm {
+  display: flex;
+  gap: 4px;
+}
+.confirm-box {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--tint);
+  border-radius: 6px;
+}
+.confirm-box p {
+  margin: 0 0 8px;
+}
+.text-btn:disabled {
+  opacity: 0.5;
+}

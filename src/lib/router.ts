@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { todayKey } from './date'
+import { validDayKey } from './schema'
 
 export type View = 'month' | 'week' | 'day' | 'reflect'
 export interface Route { view: View; date: string }
@@ -8,7 +9,7 @@ const VIEWS: View[] = ['month', 'week', 'day', 'reflect']
 
 function parse(hash: string): Route {
   const [, view, date] = hash.replace(/^#/, '').split('/')
-  const valid = VIEWS.includes(view as View) && /^\d{4}-\d{2}-\d{2}$/.test(date ?? '')
+  const valid = VIEWS.includes(view as View) && validDayKey(date ?? '')
   return valid ? { view: view as View, date } : { view: 'day', date: todayKey() }
 }
 

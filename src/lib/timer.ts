@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { getState, update } from './store'
+import { creditPomodoro, getState, isUnlocked } from './store'
 
 export type Phase = 'idle' | 'focus' | 'break'
 
@@ -87,7 +87,9 @@ setInterval(() => {
   const ms = remainingMs(timer)
   const mm = Math.floor(ms / 60000)
   const ss = Math.floor((ms % 60000) / 1000)
-  document.title = `${timer.paused ? '❚❚' : timer.phase === 'focus' ? '●' : '○'} ${mm}:${String(ss).padStart(2, '0')} · ${timer.phase === 'focus' ? timer.label : 'break'}`
+  // Task names stay out of the tab title while the notebook is locked.
+  const what = timer.phase === 'focus' ? (isUnlocked() ? timer.label : 'focus') : 'break'
+  document.title = `${timer.paused ? '❚❚' : timer.phase === 'focus' ? '●' : '○'} ${mm}:${String(ss).padStart(2, '0')} · ${what}`
   if (timer.paused || ms > 0) {
     emit()
     return
@@ -95,10 +97,7 @@ setInterval(() => {
   chime()
   if (timer.phase === 'focus') {
     const { dayKey, taskId } = timer
-    update((s) => {
-      const t = dayKey ? s.days[dayKey]?.tasks.find((x) => x.id === taskId) : undefined
-      if (t) t.pomos = Math.min(10, t.pomos + 1)
-    })
+    if (dayKey && taskId) creditPomodoro(dayKey, taskId)
     startBreak()
   } else {
     endBreak()

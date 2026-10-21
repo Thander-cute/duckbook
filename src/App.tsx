@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useRoute, go, type View } from './lib/router'
 import { addDays, addMonths, fmtLong, fmtMonth, fmtShort, isoWeek, monthKeyOf, todayKey, weekStart } from './lib/date'
-import { useSettings } from './lib/store'
+import { boot, lock, useSaveStatus, useSession, useSettings } from './lib/store'
+import { api } from './lib/api'
+import { LEGACY_KEY, readLegacy, type LegacyInfo } from './lib/legacy'
+import { LockScreen } from './components/LockScreen'
+import { Banners, LoadingScreen, MigrationScreen, OfflineScreen } from './components/Gates'
 import { MonthView } from './views/MonthView'
 import { WeekView } from './views/WeekView'
 import { DayView } from './views/DayView'
@@ -38,10 +42,12 @@ function isCurrent(view: View, date: string) {
   return weekStart(date) === weekStart(t)
 }
 
-export function App() {
+function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLegacyChange: () => void }) {
   const { view, date } = useRoute()
   const settings = useSettings()
+  const { status } = useSession()
   const [showSettings, setShowSettings] = useState(false)
+  const pinEnabled = !!status?.pinEnabled
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,6 +57,7 @@ export function App() {
       else if (e.key === 'ArrowRight') go(view, step(view, date, 1))
       else if (e.key.toLowerCase() === 't') go(view, todayKey())
       else if (e.key === 'Escape') setShowSettings(false)
+      else if (e.key.toLowerCase() === 'l' && pinEnabled) void lock()
       else {
         const tab = TABS.find((t) => t.key === e.key.toUpperCase())
         if (tab) go(tab.view, date)
@@ -58,7 +65,7 @@ export function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [view, date])
+  }, [view, date, pinEnabled])
 
   useEffect(() => {
     document.documentElement.dataset.ink = settings.ink
@@ -88,6 +95,7 @@ export function App() {
         </div>
 
         <div className="period">
+          <SaveIndicator />
           <button className="icon-btn" onClick={() => go(view, step(view, date, -1))} aria-label="Previous" title="Previous (←)">
             ‹
           </button>
@@ -98,6 +106,14 @@ export function App() {
           <button className="today-btn" disabled={isCurrent(view, date)} onClick={() => go(view, todayKey())} title="Today (T)">
             Today
           </button>
+          {pinEnabled && (
+            <button className="icon-btn" onClick={() => void lock()} aria-label="Lock" title="Lock (L)">
+              <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden>
+                <rect x="4.5" y="9" width="11" height="8" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                <path d="M7 9V6.5a3 3 0 0 1 6 0V9" fill="none" stroke="currentColor" strokeWidth="1.3" />
+              </svg>
+            </button>
+          )}
           <button className="icon-btn" onClick={() => setShowSettings((v) => !v)} aria-label="Settings" title="Settings">
             <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden>
               <circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
@@ -112,6 +128,8 @@ export function App() {
         </div>
       </nav>
 
+      <Banners legacy={legacy} onOpenSettings={() => setShowSettings(true)} />
+
       <main className={`desk view-${view}`} key={`${view}`}>
         {view === 'month' && <MonthView date={date} />}
         {view === 'week' && <WeekView date={date} />}
@@ -120,7 +138,78 @@ export function App() {
       </main>
 
       <PomodoroBar />
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} legacy={legacy} onLegacyChange={onLegacyChange} />}
     </div>
   )
+}
+
+function SaveIndicator() {
+  const s = useSaveStatus()
+  const text = s.kind === 'saving' ? 'Saving…' : s.kind === 'conflict' ? 'Not saved: changed elsewhere' : s.kind === 'error' ? 'Not saved' : ''
+  return (
+    <span className={`save-status is-${s.kind}`} role="status" data-save={s.kind}>
+      {text}
+    </span>
+  )
+}
+
+/** Locks after the chosen idle time, and keeps the server session alive while you're active. */
+function useIdleLock(enabled: boolean, minutes: number) {
+  useEffect(() => {
+    if (!enabled) return
+    let last = Date.now()
+    let lastPing = 0
+    const active = () => {
+      last = Date.now()
+      if (last - lastPing > 60_000) {
+        lastPing = last
+        void api('POST', '/api/ping').catch(() => {})
+      }
+    }
+    const events = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'] as const
+    events.forEach((ev) => window.addEventListener(ev, active, { passive: true }))
+    const t = setInterval(() => {
+      if (minutes > 0 && Date.now() - last >= minutes * 60_000) void lock()
+    }, 5000)
+    return () => {
+      events.forEach((ev) => window.removeEventListener(ev, active))
+      clearInterval(t)
+    }
+  }, [enabled, minutes])
+}
+
+export function App() {
+  const { phase, status } = useSession()
+  const [legacy, setLegacy] = useState<LegacyInfo | null | undefined>(undefined)
+  // Decided once per session, so the "moved and verified" result stays on screen until dismissed.
+  const [migration, setMigration] = useState<'unknown' | 'show' | 'done'>('unknown')
+
+  useEffect(() => void boot(), [])
+
+  const checkLegacy = () => void readLegacy(status?.migration?.sourceHash).then(setLegacy)
+  useEffect(() => {
+    if (phase !== 'unlocked') return setLegacy(undefined)
+    checkLegacy()
+    // An old-version tab may still be writing to the browser copy.
+    const onStorage = (e: StorageEvent) => e.key === LEGACY_KEY && checkLegacy()
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, status?.migration?.sourceHash])
+
+  useEffect(() => {
+    if (migration !== 'unknown' || legacy === undefined) return
+    setMigration(legacy && !legacy.migrated && status?.docCount === 0 ? 'show' : 'done')
+  }, [legacy, migration, status?.docCount])
+
+  useIdleLock(phase === 'unlocked' && !!status?.pinEnabled, status?.autoLockMin ?? 0)
+
+  if (phase === 'loading') return <LoadingScreen />
+  if (phase === 'offline') return <OfflineScreen />
+  if (phase === 'locked') return <LockScreen />
+  if (legacy === undefined || migration === 'unknown') return <LoadingScreen />
+  if (migration === 'show' && legacy) {
+    return <MigrationScreen legacy={legacy} onDone={() => setMigration('done')} onSkip={() => setMigration('done')} />
+  }
+  return <Notebook legacy={legacy} onLegacyChange={checkLegacy} />
 }
