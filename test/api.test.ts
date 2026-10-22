@@ -381,3 +381,39 @@ test('a task id stored in two weeks is shown once (planned week wins)', async ()
   assert.equal(st.weeks['2026-10-19'].tasks.length, 1)
   assert.equal(st.weeks['2026-10-26'].tasks.length, 0)
 })
+
+test('spans page: notes for a range of days, strict saves, crossing months, backup and export', async () => {
+  const s = await startTestServer()
+  try {
+    let r = await s.call('POST', '/api/import', { data: fixtureLegacy() })
+    assert.equal(r.status, 200)
+    assert.ok(!r.json.docs.some((d: { key: string }) => d.key === 'spans'), 'no spans page until used')
+
+    const good = { id: 'sp1', start: '2026-10-28', end: '2026-11-03', text: 'synthetic stretch', at: '2026-10-30' }
+    for (const bad of [{ start: '2026-11-04' }, { end: '2026-02-30' }, { at: '2026-11-09' }, { start: '0202-10-01' }, { text: 7 }]) {
+      r = await s.call('PUT', '/api/docs', { changes: [{ key: 'spans', baseRev: 0, value: { spans: [{ ...good, ...bad }] } }] })
+      assert.equal(r.status, 400, JSON.stringify(bad))
+    }
+    r = await s.call('PUT', '/api/docs', { changes: [{ key: 'spans', baseRev: 0, value: { spans: [good] } }] })
+    assert.equal(r.status, 200)
+    const docs = (await s.call('GET', '/api/data')).json.docs
+    assert.deepEqual(docs.find((d: { key: string }) => d.key === 'spans').value.spans, [good], 'a range may cross months')
+
+    const b = (await s.call('POST', '/api/backups')).json.backup
+    const cur = (await s.call('GET', '/api/data')).json.docs.find((d: { key: string }) => d.key === 'spans')
+    await s.call('PUT', '/api/docs', { changes: [{ key: 'spans', baseRev: cur.rev, value: { spans: [] } }] })
+    assert.equal((await s.call('POST', '/api/backups/restore', { file: b.file })).status, 200)
+    assert.deepEqual((await s.call('GET', '/api/data')).json.docs.find((d: { key: string }) => d.key === 'spans').value.spans, [good], 'restore brings spans back')
+
+    const exp = (await s.call('GET', '/api/export')).json
+    assert.deepEqual(exp.state.spans.spans, [good])
+    // Lenient import sets a broken range aside instead of losing it.
+    const { normalizeState } = await import('../src/lib/schema.ts')
+    exp.state.spans.spans.push({ id: 'bad', start: '2026-12-09', end: '2026-12-01', text: 'synthetic backwards' })
+    const n = normalizeState(exp)
+    assert.deepEqual(n.state.spans.spans, [good])
+    assert.equal((n.quarantine[0].value as { text: string }).text, 'synthetic backwards')
+  } finally {
+    await s.cleanup()
+  }
+})

@@ -1097,6 +1097,186 @@ button {
   scrollbar-width: none;
 }
 
+/* Notes for a stretch of days: an ink line across the cells, words written on it. */
+.cal-num {
+  touch-action: none;
+  user-select: none;
+}
+.cal-cell.is-drawing {
+  background: #f3f6fc;
+}
+.cal-cell.is-drawing::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: -1px;
+  bottom: 9px;
+  border-bottom: 2px dashed var(--ink-soft);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.span-bit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+}
+.span-seg {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: -5px;
+  height: 10px;
+  cursor: pointer;
+}
+/* A hand-drawn stroke: each day of a line gets one of three wavering pens, stretched to the cell. */
+.span-seg::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 8px;
+  background: var(--line) center / 100% 8px no-repeat;
+  opacity: 0.85;
+}
+.span-seg.hand-0 {
+  --line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 18 3.0, 34 5.0, 55 4.3 S 92 3.1, 118 4.6 S 148 4.4, 160 4' fill='none' stroke='%2355628f' stroke-width='1.5' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --line-strong: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 18 3.0, 34 5.0, 55 4.3 S 92 3.1, 118 4.6 S 148 4.4, 160 4' fill='none' stroke='%2326346b' stroke-width='1.9' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+}
+.span-seg.hand-1 {
+  --line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 24 5.0, 46 2.9, 79 3.9 S 128 5.1, 160 4' fill='none' stroke='%2355628f' stroke-width='1.5' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --line-strong: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 24 5.0, 46 2.9, 79 3.9 S 128 5.1, 160 4' fill='none' stroke='%2326346b' stroke-width='1.9' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+}
+.span-seg.hand-2 {
+  --line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 14 3.3, 47 3.2, 70 4.6 S 116 4.9, 136 3.7 S 154 3.8, 160 4' fill='none' stroke='%2355628f' stroke-width='1.5' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --line-strong: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 14 3.3, 47 3.2, 70 4.6 S 116 4.9, 136 3.7 S 154 3.8, 160 4' fill='none' stroke='%2326346b' stroke-width='1.9' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+}
+
+.span-seg.is-start {
+  left: 8px;
+}
+.span-seg.is-end {
+  right: 8px;
+}
+.span-seg.is-start::before,
+.span-seg.is-end::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  bottom: 1px;
+  width: 8px;
+  height: 8px;
+  background: center / 8px 8px no-repeat;
+  opacity: 0.85;
+}
+.span-seg.is-start::before {
+  left: -1px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 10'%3E%3Cpath d='M7.6 1.6 Q 4.2 3.6, 1.2 5.1 Q 4.6 6.6, 7.9 8.7' fill='none' stroke='%2355628f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.span-seg.is-end::before {
+  right: -1px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 10'%3E%3Cpath d='M1.3 1.4 Q 4.9 3.4, 7.8 5 Q 4.4 6.9, 1.1 8.5' fill='none' stroke='%2355628f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.span-seg:hover::after,
+.span-seg.is-open::after {
+  opacity: 1;
+  background-image: var(--line-strong);
+}
+.span-seg:hover::before,
+.span-seg.is-open::before {
+  opacity: 1;
+}
+.span-seg.is-start:hover::before,
+.span-seg.is-start.is-open::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 10'%3E%3Cpath d='M7.6 1.6 Q 4.2 3.6, 1.2 5.1 Q 4.6 6.6, 7.9 8.7' fill='none' stroke='%2326346b' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.span-seg.is-end:hover::before,
+.span-seg.is-end.is-open::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 10'%3E%3Cpath d='M1.3 1.4 Q 4.9 3.4, 7.8 5 Q 4.4 6.9, 1.1 8.5' fill='none' stroke='%2326346b' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.span-label {
+  position: absolute;
+  z-index: 2;
+  left: 10px;
+  bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
+  font-family: var(--ink-font);
+  font-size: 12.5px;
+  line-height: 14px;
+  color: var(--ink);
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+}
+[data-ink='hand'] .span-label {
+  font-size: 14px;
+}
+.span-label.is-empty {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.span-label.is-echo {
+  color: var(--muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.span-label.is-sliding {
+  cursor: grabbing;
+  color: var(--ink-soft);
+}
+.span-pop {
+  position: absolute;
+  z-index: 20;
+  top: 8px;
+  left: 4px;
+  width: 340px;
+  padding: 10px 12px 8px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow: 0 14px 30px -14px rgba(38, 52, 107, 0.45);
+  cursor: default;
+}
+.span-pop.align-right {
+  left: auto;
+  right: 4px;
+}
+.span-pop .span-text {
+  font-size: 15px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 8px;
+}
+.span-dates {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.span-days {
+  font-style: italic;
+  white-space: nowrap;
+}
+.span-x {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: var(--muted);
+}
+.span-x:hover {
+  color: var(--ink);
+  background: var(--tint);
+}
+.span-dates .remove-confirm {
+  margin-left: auto;
+}
+
 .mood {
   display: flex;
   flex-direction: column;

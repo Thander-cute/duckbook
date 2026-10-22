@@ -47,6 +47,8 @@ Working agreement: [AGENTS.md](AGENTS.md). Plan larger changes with [docs/templa
 
 Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `F` Focus Map (when turned on) · `L` lock (when a PIN is set) · `Esc` leave Settings.
 
+**Month: notes for a stretch of days.** Press a day number and drag to another day to draw a line, then write on it. Drag the words along the line to move them. Click the words or the line to change the text or the From/To days (a stretch may run into the next month) or to remove it.
+
 **Settings** (⚙) is its own page with paper tabs: Notebook, Focus timer, Privacy, Data (backups, export/import), Add-ons. Back or Esc returns to where you were.
 
 **Focus Map** (optional, Settings → Add-ons) is a board of sticky notes on an impact × difficulty map (left hard, right easy; top high impact, bottom low).

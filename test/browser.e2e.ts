@@ -400,6 +400,67 @@ async function main() {
       await page.waitForSelector('.day-page')
     })
 
+    await step('Month: draw a line across days, write on it, cross into next month, slide the words, remove', async () => {
+      await page.goto(`${BASE}/#/month/2026-10-19`)
+      await page.waitForSelector('[data-day="2026-10-13"] .cal-num')
+      const a = (await (await page.$('[data-day="2026-10-13"] .cal-num'))!.boundingBox())!
+      const b = (await (await page.$('[data-day="2026-10-16"]'))!.boundingBox())!
+      await dragTo(page, { x: a.x + 6, y: a.y + 6 }, { x: b.x + b.width / 2, y: b.y + b.height / 2 })
+      await page.waitForSelector('.span-pop')
+      await page.keyboard.type('synthetic stretch')
+      await page.keyboard.press('Enter')
+      await page.waitForFunction(() => !document.querySelector('.span-pop'))
+      await waitSaved(page)
+      assert.equal(await page.evaluate(() => location.hash), '#/month/2026-10-19', 'drawing did not open the day')
+      let spans = (await apiDocs(page)).find((d) => d.key === 'spans')!.value.spans
+      assert.equal(spans.length, 1)
+      assert.deepEqual([spans[0].start, spans[0].end, spans[0].text, spans[0].at], ['2026-10-13', '2026-10-16', 'synthetic stretch', '2026-10-13'])
+
+      // Words slide along the line, never off it.
+      const label = (await (await page.$('.span-label:not(.is-echo)'))!.boundingBox())!
+      const c15 = (await (await page.$('[data-day="2026-10-15"]'))!.boundingBox())!
+      await dragTo(page, { x: label.x + 4, y: label.y + 4 }, { x: c15.x + 20, y: label.y + 4 })
+      await page.waitForFunction(() => !!document.querySelector('[data-day="2026-10-15"] .span-label:not(.is-echo)'))
+      await waitSaved(page)
+      spans = (await apiDocs(page)).find((d) => d.key === 'spans')!.value.spans
+      assert.equal(spans[0].at, '2026-10-15')
+
+      // A click on the words opens the small editor; To moves into November.
+      await page.click('[data-day="2026-10-15"] .span-label')
+      await page.waitForSelector('.span-pop')
+      await pickDate(page, '.span-pop input[aria-label="To"]', '2026-11-04')
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => !document.querySelector('.span-pop'))
+      await waitSaved(page)
+      spans = (await apiDocs(page)).find((d) => d.key === 'spans')!.value.spans
+      assert.equal(spans[0].end, '2026-11-04')
+      await page.goto(`${BASE}/#/month/2026-11-02`)
+      await page.waitForSelector('[data-day="2026-11-04"] .span-seg.is-end')
+      // Its words sit where the line enters November, and echo faintly where it wraps to the next row.
+      assert.ok(await page.$('[data-day="2026-11-01"] .span-label:not(.is-echo)'), 'November shows the line, with its words')
+      assert.ok(await page.$('[data-day="2026-11-02"] .span-label.is-echo'))
+
+      await page.click('[data-day="2026-11-01"] .span-label')
+      await page.click('.span-pop .span-x')
+      const rm = await page.waitForSelector('xpath/.//div[contains(@class,"span-pop")]//button[normalize-space(.)="Remove"]')
+      await rm!.click()
+      await waitSaved(page)
+      assert.equal((await apiDocs(page)).find((d) => d.key === 'spans')!.value.spans.length, 0)
+      assert.equal(await page.$$eval('.span-seg', (x) => x.length), 0)
+
+      // Leave one behind for the lock check below.
+      await page.goto(`${BASE}/#/month/2026-10-19`)
+      const p = (await (await page.$('[data-day="2026-10-20"] .cal-num'))!.boundingBox())!
+      const q = (await (await page.$('[data-day="2026-10-22"]'))!.boundingBox())!
+      await dragTo(page, { x: p.x + 6, y: p.y + 6 }, { x: q.x + q.width / 2, y: q.y + q.height / 2 })
+      await page.waitForSelector('.span-pop')
+      await page.keyboard.type('synthetic stretch kept')
+      await page.keyboard.press('Enter')
+      await waitSaved(page)
+      await page.goto(`${BASE}/#/day/2026-10-19`)
+      await page.waitForSelector('.day-page')
+    })
+
     await step('PIN lock: blank shell, no journal in the DOM, API refuses', async () => {
       await openSettings(page, 'Privacy')
       const [set] = await page.$$('xpath/.//button[contains(., "Set a 6-digit PIN")]')
@@ -415,7 +476,7 @@ async function main() {
       await page.waitForSelector('.lock-shell .pin-dots')
       await shot(page, '06-locked')
       const t = await textOf(page)
-      assert.doesNotMatch(t, /typed in tab one|fixture|from elsewhere|synthetic note|synthetic work/)
+      assert.doesNotMatch(t, /typed in tab one|fixture|from elsewhere|synthetic note|synthetic work|synthetic stretch/)
       assert.equal(await page.$$eval('textarea', (x) => x.length), 0)
       assert.equal(await page.title(), 'duckbook')
       const status = await page.evaluate(async () => (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).status)

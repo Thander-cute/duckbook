@@ -93,7 +93,10 @@ export function FocusView({ date }: { date: string }) {
   const sel = useSelected()
   const [filter, setFilter] = useState<Filter>('all')
   const [draft, setDraft] = useState('')
-  const [drag, setDrag] = useState<Drag | null>(null)
+  const [drag, setDragState] = useState<Drag | null>(null)
+  // The live drag, read by the window listeners; state only drives the drawing.
+  const live = useRef<Drag | null>(null)
+  const setDrag = (d: Drag | null) => setDragState((live.current = d))
   const canvas = useRef<HTMLDivElement>(null)
   const tray = useRef<HTMLDivElement>(null)
   const viewWeek = weekStart(date)
@@ -129,14 +132,16 @@ export function FocusView({ date }: { date: string }) {
     setDrag({ id: idea.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, offX: e.clientX - r.left, offY: e.clientY - r.top, width: r.width, height: r.height, left: r.left, top: r.top, active: false, over: null })
   }
 
+  const dragging = drag !== null
   useEffect(() => {
-    if (!drag) return
+    if (!dragging) return
     const hit = (el: HTMLElement | null, x: number, y: number) => {
       const r = el?.getBoundingClientRect()
       return !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
     }
     const move = (e: PointerEvent) => {
-      if (e.pointerId !== drag.pointerId) return
+      const drag = live.current
+      if (!drag || e.pointerId !== drag.pointerId) return
       const active = drag.active || Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 4
       if (!active) return
       e.preventDefault()
@@ -144,7 +149,8 @@ export function FocusView({ date }: { date: string }) {
       setDrag({ ...drag, active, over, left: e.clientX - drag.offX, top: e.clientY - drag.offY })
     }
     const up = (e: PointerEvent) => {
-      if (e.pointerId !== drag.pointerId) return
+      const drag = live.current
+      if (!drag || e.pointerId !== drag.pointerId) return
       if (drag.active && drag.over === 'canvas' && canvas.current) {
         const r = canvas.current.getBoundingClientRect()
         // The note's center lands where it was let go.
@@ -162,7 +168,7 @@ export function FocusView({ date }: { date: string }) {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
     }
-  }, [drag])
+  }, [dragging])
 
   const lifted = drag?.active ? focus.ideas.find((i) => i.id === drag.id) : undefined
 

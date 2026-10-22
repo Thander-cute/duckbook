@@ -54,12 +54,20 @@ export type IdeaStatus = 'idea' | 'doing' | 'done'
 export interface Idea { id: string; text: string; x: number | null; y: number | null; status: IdeaStatus; date: string | null; createdAt: string }
 export interface FocusData { ideas: Idea[] }
 
+/**
+ * A note for a stretch of days, drawn as a line across the month calendar. It may cross months.
+ * `at` is the day (within start…end) where its words sit on the line.
+ */
+export interface Span { id: string; start: string; end: string; text: string; at: string }
+export interface SpansData { spans: Span[] }
+
 export interface State {
   version: 1
   months: Record<string, MonthData>
   weeks: Record<string, WeekData>
   days: Record<string, DayData>
   focus: FocusData
+  spans: SpansData
   settings: Settings
 }
 
@@ -69,9 +77,9 @@ export const SCHEMA_VERSION = 1
  * What the browser and server must agree on. Bump whenever a page shape or key changes, so a
  * browser with new code refuses to save through a server still running old code (which would
  * reject or silently drop new fields). 2 = Focus Map page, settings.modules, WeekTask.ideaId.
- * 3 = idea status and planned date.
+ * 3 = idea status and planned date. 4 = spans page (notes for a range of days).
  */
-export const API_LEVEL = 3
+export const API_LEVEL = 4
 
 export const emptyMonth = (): MonthData => ({
   theme: '',
@@ -96,14 +104,16 @@ export const defaultSettings = (): Settings => ({ ink: 'serif', focusMin: 25, br
 
 export const emptyFocus = (): FocusData => ({ ideas: [] })
 
-export const emptyState = (): State => ({ version: 1, months: {}, weeks: {}, days: {}, focus: emptyFocus(), settings: defaultSettings() })
+export const emptySpans = (): SpansData => ({ spans: [] })
+
+export const emptyState = (): State => ({ version: 1, months: {}, weeks: {}, days: {}, focus: emptyFocus(), spans: emptySpans(), settings: defaultSettings() })
 
 // ───────── documents: how State is stored, one row per page ─────────
 
-export type DocKind = 'month' | 'week' | 'day' | 'settings' | 'focus'
+export type DocKind = 'month' | 'week' | 'day' | 'settings' | 'focus' | 'spans'
 
 /** Pages that always exist in State with a default value, whether or not they were ever saved. */
-export const SINGLETONS = ['settings', 'focus'] as const
+export const SINGLETONS = ['settings', 'focus', 'spans'] as const
 export interface Doc { key: string; value: unknown }
 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
@@ -120,7 +130,7 @@ export const validDayKey = (k: string) => {
 
 /** "month:2026-10" → ['month', '2026-10']; null if the key is not a valid document key. */
 export function parseDocKey(key: string): [DocKind, string] | null {
-  if (key === 'settings' || key === 'focus') return [key, '']
+  if (key === 'settings' || key === 'focus' || key === 'spans') return [key, '']
   const [kind, id] = key.split(':')
   if (kind === 'month' && MONTH_KEY.test(id ?? '')) return ['month', id]
   if ((kind === 'week' || kind === 'day') && validDayKey(id ?? '')) return [kind, id]
@@ -135,6 +145,7 @@ export function stateToDocs(s: State): Doc[] {
     { key: 'settings', value: s.settings },
     // Only written once used, so older backups and exports stay identical.
     ...(s.focus.ideas.length ? [{ key: 'focus', value: s.focus }] : []),
+    ...(s.spans.spans.length ? [{ key: 'spans', value: s.spans }] : []),
   ]
 }
 
@@ -192,6 +203,7 @@ export function docsToState(docs: Doc[]): State {
     else if (kind === 'week') s.weeks[id] = value as WeekData
     else if (kind === 'day') s.days[id] = value as DayData
     else if (kind === 'focus') s.focus = value as FocusData
+    else if (kind === 'spans') s.spans = value as SpansData
     // Settings saved by older versions lack newer fields; fill them with defaults.
     else s.settings = settings(isObj(value) ? value : {})
   }
@@ -380,6 +392,21 @@ function focus(c: Ctx, f: Record<string, unknown>, p: string): FocusData {
   }
 }
 
+function spans(c: Ctx, f: Record<string, unknown>, p: string): SpansData {
+  return {
+    spans: c.list(f.spans, `${p}.spans`).flatMap((it, i) => {
+      const q = `${p}.spans.${i}`
+      if (!isObj(it) || typeof it.start !== 'string' || typeof it.end !== 'string' || !validDayKey(it.start) || !validDayKey(it.end) || it.start > it.end) {
+        c.park(q, it, 'not a range of days')
+        return []
+      }
+      const at = typeof it.at === 'string' && it.at >= it.start && it.at <= it.end ? it.at : null
+      if (at === null && it.at !== undefined) c.park(`${q}.at`, it.at, 'outside its range')
+      return [{ id: id(it.id, q), start: it.start, end: it.end, text: c.str(it.text, `${q}.text`), at: at ?? it.start }]
+    }),
+  }
+}
+
 /** Validate one stored page. Strict: throws SchemaError instead of repairing. Used for every save. */
 export function normalizeDoc(key: string, value: unknown): unknown {
   const p = parseDocKey(key)
@@ -391,6 +418,7 @@ export function normalizeDoc(key: string, value: unknown): unknown {
   if (kind === 'week') return week(c, value, key)
   if (kind === 'day') return day(c, value, key)
   if (kind === 'focus') return focus(c, value, key)
+  if (kind === 'spans') return spans(c, value, key)
   return settings(value)
 }
 
@@ -430,6 +458,7 @@ export function normalizeState(raw: unknown): NormalizeResult {
   }
   s.settings = settings(c.record(raw.settings, 'settings'))
   s.focus = focus(c, c.record(raw.focus, 'focus'), 'focus')
+  s.spans = spans(c, c.record(raw.spans, 'spans'), 'spans')
   // Imported state is written as-is, so keep stored ideas without a status as they were.
   return { state: s, issues: c.issues, quarantine: c.quarantine }
 }

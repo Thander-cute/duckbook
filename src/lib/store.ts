@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { produce, type Draft } from 'immer'
 import { weekStart } from './date'
 import { api, ApiError, OfflineError, setLockedHandler } from './api'
-import { API_LEVEL, SINGLETONS, validDayKey, docsToState, emptyDay, emptyFocus, emptyMonth, emptyState, emptyWeek, type DayData, type FocusData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
+import { API_LEVEL, SINGLETONS, validDayKey, docsToState, emptyDay, emptyFocus, emptyMonth, emptySpans, emptyState, emptyWeek, type DayData, type FocusData, type SpansData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
 
 export * from './schema'
 
@@ -81,6 +81,7 @@ const splitKey = (key: string): [string, string] => ((SINGLETONS as readonly str
 function docRef(s: State, key: string): unknown {
   if (key === 'settings') return s.settings
   if (key === 'focus') return s.focus
+  if (key === 'spans') return s.spans
   const [kind, id] = key.split(':')
   return kind === 'month' ? s.months[id] : kind === 'week' ? s.weeks[id] : s.days[id]
 }
@@ -138,6 +139,7 @@ function adoptDocs(docs: ServerDoc[], mode: 'merge' | 'replace') {
         else if (kind === 'week') delete d.weeks[id]
         else if (kind === 'day') delete d.days[id]
         else if (kind === 'focus') d.focus = emptyFocus()
+        else if (kind === 'spans') d.spans = emptySpans()
         else d.settings = emptyState().settings
       }
     }
@@ -147,6 +149,7 @@ function adoptDocs(docs: ServerDoc[], mode: 'merge' | 'replace') {
       else if (kind === 'week') d.weeks[id] = fresh.weeks[id] as Draft<WeekData>
       else if (kind === 'day') d.days[id] = fresh.days[id] as Draft<DayData>
       else if (kind === 'focus') d.focus = fresh.focus as Draft<FocusData>
+      else if (kind === 'spans') d.spans = fresh.spans as Draft<SpansData>
       else if (kind === 'settings') d.settings = fresh.settings
     }
   })
@@ -319,6 +322,7 @@ async function enter(status: Status) {
         else if (kind === 'week') d.weeks[id] = p.value as Draft<WeekData>
         else if (kind === 'day') d.days[id] = p.value as Draft<DayData>
         else if (kind === 'focus') d.focus = p.value as Draft<FocusData>
+        else if (kind === 'spans') d.spans = p.value as Draft<SpansData>
         else d.settings = p.value as State['settings']
       }
     })
@@ -431,6 +435,8 @@ export const useDay = (dayKey: string) => useStore((s) => s.days[dayKey] ?? EMPT
 export const useSettings = () => useStore((s) => s.settings)
 export const useFocus = () => useStore((s) => s.focus)
 export const editFocus = (fn: (f: Draft<FocusData>) => void) => update((s) => fn(s.focus))
+export const useSpans = () => useStore((s) => s.spans.spans)
+export const editSpans = (fn: (f: Draft<SpansData>) => void) => update((s) => fn(s.spans))
 
 /** Habits carry over: a new week starts with the habit names of the latest earlier week. */
 function carriedHabits(weeks: Record<string, WeekData>, mondayKey: string): Habit[] {

@@ -13,6 +13,7 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 | 2026-10-22 | Optional privacy lock in Settings: 6-digit PIN, minimal blank/blurred screen, correct PIN enters. Backup settings in Settings. | Owner |
 | 2026-10-22 | Owner checked the local foundation and asked to continue. Supervisor picked Focus Map as the next bounded slice (the established next candidate; this does not approve the rest of the backlog). | Owner: "bên lead làm xong rồi, t check rồi, m giao cho nó làm tiếp đi" |
 | 2026-10-23 | Focus Map as paper sticky notes on a wide canvas with a tray. Optional planned date and states Idea / In progress / Completed, with filters. A planned idea is one work item, consistent across Focus, Week, and Day. Settings becomes a dedicated paper page with tabs (Notebook, Focus timer, Privacy, Data, Add-ons). | Owner-approved UX slice |
+| 2026-10-22 | Month: notes for a range of days. Drag a hand-drawn line with arrowheads across days and write on it, anywhere along it; a range may cross months, and its from/to days are edited in a light editor. | Owner: "giống bản giấy, kéo 1 đường dài… vắt qua 2 tháng cũng được" |
 
 ### How these were implemented (agent decisions within the approved scope)
 
@@ -33,6 +34,9 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
   - Earlier one-task-per-week copies are kept and stay in sync.
   - `API_LEVEL` is 3.
   - Every write carries `X-Duckbook-Api`; the server refuses another version's writes with a "reload this tab" message.
+- Month spans (see `docs/plans/2026-10-month-spans.md`):
+  - Ranges live in their own `spans` page, one entry per range, so a range across months is never split.
+  - `API_LEVEL` is 4.
 - Update safety (found in Supervisor review of `ad3eafe`):
   - A server left running from before an update would reject Focus Map saves, failing the whole save batch, and would silently drop `settings.modules` and `ideaId`. This was reproduced on a synthetic instance.
   - Guard: `API_LEVEL` handshake. The page shows an "updated" screen and edits nothing until the server matches.
