@@ -3,7 +3,8 @@ import { Check, Label, Line, Page, PageTitle, Spread, Write } from '../component
 import { InkDot } from '../components/InkDot'
 import { WEEKDAYS_MIN, fmtShort, monthKeyOf, weekDays, weekStart, weekdayIndex } from '../lib/date'
 import { href } from '../lib/router'
-import { editDay, editWeek, setDayTaskDone, uid, useDay, useMonth, useSettings, useWeekWithSeed, type DayTask } from '../lib/store'
+import { editDay, editWeek, ideaOfDayTask, markStarted, renameDayTask, setDayTaskDone, uid, useDay, useMonth, useSettings, useStore, useWeekWithSeed, type DayTask } from '../lib/store'
+import { WorkMeta } from '../components/WorkMeta'
 import { noteFor } from '../lib/quotes'
 import { startFocus, useTimer } from '../lib/timer'
 
@@ -105,6 +106,7 @@ export function DayView({ date }: { date: string }) {
 function TaskRow({ date, task: t }: { date: string; task: DayTask }) {
   const timer = useTimer()
   const active = timer.phase !== 'idle' && timer.taskId === t.id
+  const idea = useStore((s) => ideaOfDayTask(s, t))
   const set = (fn: (x: DayTask) => void) =>
     editDay(date, (d) => {
       const x = d.tasks.find((y) => y.id === t.id)
@@ -117,7 +119,7 @@ function TaskRow({ date, task: t }: { date: string; task: DayTask }) {
       <div className="task-text">
         <Write
           value={t.text}
-          onChange={(v) => set((x) => void (x.text = v))}
+          onChange={(v) => renameDayTask(date, t.id, v)}
           singleLine
           ariaLabel="Task"
           onKeyDown={(e) => {
@@ -131,8 +133,14 @@ function TaskRow({ date, task: t }: { date: string; task: DayTask }) {
             }
           }}
         />
+        <WorkMeta idea={idea} returnDate={date} />
         {!t.done && (
-          <button className="play" onClick={() => startFocus(date, t.id, t.text || 'Untitled task')} title="Start a pomodoro" aria-label="Start a pomodoro">
+          <button
+            className="play"
+            onClick={() => {
+              markStarted(date, t.id)
+              startFocus(date, t.id, t.text || 'Untitled task')
+            }} title="Start a pomodoro" aria-label="Start a pomodoro">
             <svg viewBox="0 0 10 10" aria-hidden>
               <path d="M2.5 1.5 L8.5 5 L2.5 8.5 Z" />
             </svg>
@@ -174,7 +182,14 @@ function WeekCompanion({ date }: { date: string }) {
   const onToday = new Set(day.tasks.map((t) => t.weekTaskId).filter(Boolean))
   const calendar = month.cells[date]
 
-  const groups = (['A', 'B'] as const).map((q) => ({ q, tasks: week.tasks.filter((t) => t.q === q && !t.done) }))
+  const focusOn = useSettings().modules.focusMap
+  // Select a stable slice of state, then derive (a fresh array from a selector would re-render forever).
+  const ideas = useStore((s) => s.focus.ideas)
+  const plannedToday = focusOn ? week.tasks.filter((t) => !t.done && t.q !== 'A' && t.q !== 'B' && t.ideaId && ideas.find((i) => i.id === t.ideaId)?.date === date) : []
+  const groups = [
+    { q: 'planned' as const, tasks: plannedToday },
+    ...(['A', 'B'] as const).map((q) => ({ q, tasks: week.tasks.filter((t) => t.q === q && !t.done) })),
+  ]
 
   return (
     <>
@@ -198,7 +213,7 @@ function WeekCompanion({ date }: { date: string }) {
         <Label hint="Click to add to today">Pick from your plan</Label>
         {groups.every((g) => !g.tasks.length) && (
           <p className="muted small empty-hint">
-            Nothing waiting in A or B. Sort this week’s tasks on the <a href={href('week', date)}>Week</a> page.
+            Nothing planned for today or waiting in A or B. Sort this week’s tasks on the <a href={href('week', date)}>Week</a> page.
           </p>
         )}
         {groups.map(
@@ -216,7 +231,9 @@ function WeekCompanion({ date }: { date: string }) {
                           editDay(date, (d) => void d.tasks.push({ id: uid(), text: t.text, estimate: 1, pomos: 0, done: false, weekTaskId: t.id }))
                         }
                       >
-                        <span className={`q-chip q-${g.q}`}>{g.q}</span>
+                        <span className={`q-chip q-${g.q}`} title={g.q === 'planned' ? 'Planned for today on the Focus Map' : undefined}>
+                          {g.q === 'planned' ? '◎' : g.q}
+                        </span>
                         <span className="ink">{t.text}</span>
                         <span className="pull-act">{added ? 'on today' : '+ today'}</span>
                       </button>

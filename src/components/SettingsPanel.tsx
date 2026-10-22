@@ -18,93 +18,138 @@ const KIND: Record<string, string> = {
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-export function SettingsPanel({ onClose, legacy, onLegacyChange }: { onClose: () => void; legacy: LegacyInfo | null; onLegacyChange: () => void }) {
+export type SettingsSection = 'notebook' | 'timer' | 'privacy' | 'data' | 'addons'
+
+const SECTIONS: { key: SettingsSection; label: string }[] = [
+  { key: 'notebook', label: 'Notebook' },
+  { key: 'timer', label: 'Focus timer' },
+  { key: 'privacy', label: 'Privacy' },
+  { key: 'data', label: 'Data' },
+  { key: 'addons', label: 'Add-ons' },
+]
+
+/** Settings as a page of the notebook, with paper tabs on its edge. */
+export function SettingsPage({
+  section,
+  onSection,
+  onBack,
+  legacy,
+  onLegacyChange,
+}: {
+  section: SettingsSection
+  onSection: (s: SettingsSection) => void
+  onBack: () => void
+  legacy: LegacyInfo | null
+  onLegacyChange: () => void
+}) {
   const s = useSettings()
   const { status } = useSession()
 
   return (
-    <>
-      <div className="scrim" onClick={onClose} />
-      <aside className="settings" aria-label="Settings">
-        <header>
-          <h2>
-            <span className="caps-word">SETTINGS</span>
+    <div className="settings-book">
+      <section className="sheet settings" aria-label="Settings">
+        <header className="settings-head">
+          <h2 className="page-title-h">
+            <span className="caps-word">SETTINGS</span> <em>{SECTIONS.find((x) => x.key === section)!.label.toLowerCase()}</em>
           </h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            ×
+          <button className="text-link back-link" onClick={onBack} aria-label="Back to notebook">
+            ← Back to notebook
           </button>
         </header>
 
-        <div className="setting">
-          <div className="label">Ink</div>
-          <div className="seg">
-            {(['serif', 'hand'] as const).map((ink) => (
-              <button key={ink} className={s.ink === ink ? 'is-on' : ''} onClick={() => update((st) => void (st.settings.ink = ink))} data-ink-sample={ink}>
-                {ink === 'serif' ? 'Serif' : 'Handwritten'}
-              </button>
-            ))}
+        {section === 'notebook' && (
+          <>
+            <div className="setting">
+              <div className="label">Ink</div>
+              <div className="seg">
+                {(['serif', 'hand'] as const).map((ink) => (
+                  <button key={ink} className={s.ink === ink ? 'is-on' : ''} onClick={() => update((st) => void (st.settings.ink = ink))} data-ink-sample={ink}>
+                    {ink === 'serif' ? 'Serif' : 'Handwritten'}
+                  </button>
+                ))}
+              </div>
+              <p className="muted small">How your own writing looks on every page.</p>
+            </div>
+            <div className="setting">
+              <div className="label">Keys</div>
+              <dl className="keys">
+                <dt>← →</dt>
+                <dd>Previous / next</dd>
+                <dt>T</dt>
+                <dd>Today</dd>
+                <dt>M W D R</dt>
+                <dd>Month, Week, Day, Reflect</dd>
+                {s.modules.focusMap && (
+                  <>
+                    <dt>F</dt>
+                    <dd>Focus Map</dd>
+                  </>
+                )}
+                {status?.pinEnabled && (
+                  <>
+                    <dt>L</dt>
+                    <dd>Lock now</dd>
+                  </>
+                )}
+                <dt>Esc</dt>
+                <dd>Leave settings</dd>
+              </dl>
+            </div>
+          </>
+        )}
+
+        {section === 'timer' && (
+          <div className="setting">
+            <div className="label">Pomodoro</div>
+            <div className="pomo-settings">
+              <label>
+                <input type="number" min={5} max={90} value={s.focusMin} onChange={(e) => update((st) => void (st.settings.focusMin = clamp(+e.target.value, 5, 90)))} />
+                min focus
+              </label>
+              <label>
+                <input type="number" min={1} max={30} value={s.breakMin} onChange={(e) => update((st) => void (st.settings.breakMin = clamp(+e.target.value, 1, 30)))} />
+                min break
+              </label>
+            </div>
+            <p className="muted small">Each focus block fills one circle on the Day page. Changes apply to the next block.</p>
           </div>
-        </div>
+        )}
 
-        <div className="setting">
-          <div className="label">Pomodoro</div>
-          <div className="pomo-settings">
-            <label>
-              <input type="number" min={5} max={90} value={s.focusMin} onChange={(e) => update((st) => void (st.settings.focusMin = clamp(+e.target.value, 5, 90)))} />
-              min focus
-            </label>
-            <label>
-              <input type="number" min={1} max={30} value={s.breakMin} onChange={(e) => update((st) => void (st.settings.breakMin = clamp(+e.target.value, 1, 30)))} />
-              min break
+        {section === 'privacy' && <PrivacyLock pinEnabled={!!status?.pinEnabled} autoLockMin={status?.autoLockMin ?? 15} />}
+
+        {section === 'data' && (
+          <>
+            <Backups />
+            <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
+            {legacy && <OldBrowserCopy legacy={legacy} onChange={onLegacyChange} />}
+          </>
+        )}
+
+        {section === 'addons' && (
+          <div className="setting">
+            <div className="label">Add-ons</div>
+            <label className="module-toggle">
+              <input type="checkbox" checked={s.modules.focusMap} onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))} />
+              <span>
+                <strong>Focus Map</strong>
+                <span className="muted small">
+                  {' '}
+                  · sticky notes on an impact × difficulty map; plan the good ones into a week. Turning it off hides it; your ideas and their links are kept.
+                </span>
+              </span>
             </label>
           </div>
-        </div>
+        )}
+      </section>
 
-        <div className="setting">
-          <div className="label">Modules</div>
-          <label className="module-toggle">
-            <input
-              type="checkbox"
-              checked={s.modules.focusMap}
-              onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))}
-            />
-            <span>
-              <strong>Focus Map</strong>
-              <span className="muted small"> · sort ideas by impact and effort, then bring the good ones into a week. Turning it off hides it; your ideas are kept.</span>
-            </span>
-          </label>
-        </div>
-
-        <PrivacyLock pinEnabled={!!status?.pinEnabled} autoLockMin={status?.autoLockMin ?? 15} />
-        <Backups />
-        <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
-        {legacy && <OldBrowserCopy legacy={legacy} onChange={onLegacyChange} />}
-
-        <div className="setting">
-          <div className="label">Keys</div>
-          <dl className="keys">
-            <dt>← →</dt>
-            <dd>Previous / next</dd>
-            <dt>T</dt>
-            <dd>Today</dd>
-            <dt>M W D R</dt>
-            <dd>Month, Week, Day, Reflect</dd>
-            {s.modules.focusMap && (
-              <>
-                <dt>F</dt>
-                <dd>Focus Map</dd>
-              </>
-            )}
-            {status?.pinEnabled && (
-              <>
-                <dt>L</dt>
-                <dd>Lock now</dd>
-              </>
-            )}
-          </dl>
-        </div>
-      </aside>
-    </>
+      <nav className="paper-tabs" aria-label="Settings sections">
+        {SECTIONS.map((x) => (
+          <button key={x.key} className={`paper-tab ${section === x.key ? 'is-on' : ''}`} aria-current={section === x.key ? 'page' : undefined} onClick={() => onSection(x.key)}>
+            {x.label}
+          </button>
+        ))}
+      </nav>
+    </div>
   )
 }
 

@@ -2,9 +2,9 @@ import { useState, type DragEvent, type ReactNode } from 'react'
 import { Check, Label, Line, Page, PageTitle, Spread, Write } from '../components/ui'
 import { InkDot } from '../components/InkDot'
 import { WEEKDAYS_MIN, addDays, fmtShort, todayKey, weekDays, weekStart } from '../lib/date'
-import { go, href } from '../lib/router'
-import { selectIdea } from './FocusView'
-import { editWeek, setWeekTaskDone, uid, useFocus, useSettings, useWeekWithSeed, type Quadrant, type WeekTask } from '../lib/store'
+import { href } from '../lib/router'
+import { WorkMeta } from '../components/WorkMeta'
+import { editWeek, ideaOfWeekTask, renameWeekTask, setWeekTaskDone, uid, useStore, useWeekWithSeed, type Quadrant, type WeekTask } from '../lib/store'
 
 const Q_INFO: Record<Quadrant, { title: string; hint: string }> = {
   A: { title: 'Important & urgent', hint: 'Do first' },
@@ -131,6 +131,7 @@ function WeekTaskItem({ monday, task: t, sortable }: { monday: string; task: Wee
       if (x) fn(x)
     })
   const remove = () => editWeek(monday, (w) => void (w.tasks = w.tasks.filter((y) => y.id !== t.id)))
+  const idea = useStore((s) => ideaOfWeekTask(s, t))
 
   return (
     <li className={`wtask ${t.done ? 'is-done' : ''}`}>
@@ -147,10 +148,9 @@ function WeekTaskItem({ monday, task: t, sortable }: { monday: string; task: Wee
       >
         ⠿
       </span>
-      <IdeaMarker ideaId={t.ideaId} monday={monday} />
       <Write
         value={t.text}
-        onChange={(v) => set((x) => void (x.text = v))}
+        onChange={(v) => renameWeekTask(monday, t.id, v)}
         singleLine
         ariaLabel="Task"
         onKeyDown={(e) => {
@@ -164,6 +164,7 @@ function WeekTaskItem({ monday, task: t, sortable }: { monday: string; task: Wee
           }
         }}
       />
+      <WorkMeta idea={idea} returnDate={monday} />
       {sortable ? (
         <span className="sort-chips">
           {(['A', 'B', 'C', 'D'] as const).map((q) => (
@@ -176,26 +177,6 @@ function WeekTaskItem({ monday, task: t, sortable }: { monday: string; task: Wee
         <Check checked={t.done} onChange={(v) => setWeekTaskDone(monday, t.id, v)} label={`Mark “${t.text}” done`} />
       )}
     </li>
-  )
-}
-
-/** Small mark on tasks that came from the Focus Map; opens the idea. Hidden when the module is off. */
-function IdeaMarker({ ideaId, monday }: { ideaId?: string; monday: string }) {
-  const on = useSettings().modules.focusMap
-  const idea = useFocus().ideas.find((i) => i.id === ideaId)
-  if (!ideaId || !on || !idea) return null
-  return (
-    <button
-      className="idea-mark"
-      title={`From Focus Map: ${idea.text}`}
-      aria-label="Open the idea on the Focus Map"
-      onClick={() => {
-        selectIdea(idea.id)
-        go('focus', monday)
-      }}
-    >
-      ◎
-    </button>
   )
 }
 

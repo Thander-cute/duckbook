@@ -44,8 +44,14 @@ export interface Settings {
   modules: { focusMap: boolean }
 }
 
-/** Focus Map idea. x: 0 = hard (left) … 1 = easy (right); y: 0 = low impact (bottom) … 1 = high (top). null = not placed. */
-export interface Idea { id: string; text: string; x: number | null; y: number | null; createdAt: string }
+export type IdeaStatus = 'idea' | 'doing' | 'done'
+
+/**
+ * Focus Map idea, and the single source of truth for its work item once planned.
+ * x: 0 = hard (left) … 1 = easy (right); y: 0 = low impact (bottom) … 1 = high (top). null = in the tray.
+ * `date` is an optional planned day (YYYY-MM-DD).
+ */
+export interface Idea { id: string; text: string; x: number | null; y: number | null; status: IdeaStatus; date: string | null; createdAt: string }
 export interface FocusData { ideas: Idea[] }
 
 export interface State {
@@ -63,8 +69,9 @@ export const SCHEMA_VERSION = 1
  * What the browser and server must agree on. Bump whenever a page shape or key changes, so a
  * browser with new code refuses to save through a server still running old code (which would
  * reject or silently drop new fields). 2 = Focus Map page, settings.modules, WeekTask.ideaId.
+ * 3 = idea status and planned date.
  */
-export const API_LEVEL = 2
+export const API_LEVEL = 3
 
 export const emptyMonth = (): MonthData => ({
   theme: '',
@@ -129,6 +136,24 @@ export function stateToDocs(s: State): Doc[] {
   ]
 }
 
+/**
+ * Ideas from before states existed carry no `status`: read it as Completed when every planned copy
+ * is done, otherwise Idea. Derived on read, never written back on its own.
+ */
+export function withIdeaStatus(s: State): State {
+  if (!s.focus.ideas.some((i) => !i.status)) return s
+  const tasks = Object.values(s.weeks).flatMap((w) => w.tasks)
+  s.focus = {
+    ...s.focus,
+    ideas: s.focus.ideas.map((i) => {
+      if (i.status) return i
+      const linked = tasks.filter((t) => t.ideaId === i.id)
+      return { ...i, status: linked.length && linked.every((t) => t.done) ? 'done' : 'idea', date: i.date ?? null }
+    }),
+  }
+  return s
+}
+
 /** Assemble State from already-validated documents. */
 export function docsToState(docs: Doc[]): State {
   const s = emptyState()
@@ -143,7 +168,7 @@ export function docsToState(docs: Doc[]): State {
     // Settings saved by older versions lack newer fields; fill them with defaults.
     else s.settings = settings(isObj(value) ? value : {})
   }
-  return s
+  return withIdeaStatus(s)
 }
 
 // ───────── validation ─────────
@@ -302,8 +327,12 @@ function focus(c: Ctx, f: Record<string, unknown>, p: string): FocusData {
           text: c.str(it.text, `${p}.ideas.${i}.text`),
           x: placed ? x : null,
           y: placed ? y : null,
+          // Ideas saved before states existed have none; it is derived from their tasks when read
+          // (see withIdeaStatus), so validation must not invent one here.
+          ...(it.status === 'idea' || it.status === 'doing' || it.status === 'done' ? { status: it.status } : {}),
+          date: typeof it.date === 'string' && validDayKey(it.date) ? it.date : null,
           createdAt: typeof it.createdAt === 'string' ? it.createdAt : '',
-        },
+        } as Idea,
       ]
     }),
   }
@@ -359,6 +388,7 @@ export function normalizeState(raw: unknown): NormalizeResult {
   }
   s.settings = settings(c.record(raw.settings, 'settings'))
   s.focus = focus(c, c.record(raw.focus, 'focus'), 'focus')
+  // Imported state is written as-is, so keep stored ideas without a status as they were.
   return { state: s, issues: c.issues, quarantine: c.quarantine }
 }
 

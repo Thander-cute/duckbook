@@ -12,7 +12,7 @@ import { DayView } from './views/DayView'
 import { ReflectView } from './views/ReflectView'
 import { FocusView } from './views/FocusView'
 import { PomodoroBar } from './components/PomodoroBar'
-import { SettingsPanel } from './components/SettingsPanel'
+import { SettingsPage, type SettingsSection } from './components/SettingsPanel'
 
 const TABS: { view: View; step: string; label: string; key: string }[] = [
   { view: 'month', step: '1', label: 'Month', key: 'M' },
@@ -46,11 +46,33 @@ function isCurrent(view: View, date: string) {
   return weekStart(date) === weekStart(t)
 }
 
+// Settings is a page you step into; remember where you came from (survives a reload of the tab).
+const RETURN_KEY = 'duckbook:settings-return'
+const SECTION_KEY = 'duckbook:settings-section'
+
+function openSettings(from: { view: View; date: string }, section?: SettingsSection) {
+  if (from.view !== 'settings') sessionStorage.setItem(RETURN_KEY, JSON.stringify(from))
+  if (section) sessionStorage.setItem(SECTION_KEY, section)
+  go('settings', from.date)
+}
+
+function leaveSettings(date: string) {
+  try {
+    const r = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? 'null') as { view: View; date: string } | null
+    if (r && r.view !== 'settings') return go(r.view, r.date)
+  } catch {}
+  go('day', date)
+}
+
 function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLegacyChange: () => void }) {
   const { view, date } = useRoute()
   const settings = useSettings()
   const { status } = useSession()
-  const [showSettings, setShowSettings] = useState(false)
+  const [section, setSection] = useState<SettingsSection>(() => (sessionStorage.getItem(SECTION_KEY) as SettingsSection) || 'notebook')
+  const inSettings = view === 'settings'
+  useEffect(() => {
+    if (inSettings) setSection((sessionStorage.getItem(SECTION_KEY) as SettingsSection) || 'notebook')
+  }, [inSettings])
   const pinEnabled = !!status?.pinEnabled
   const focusOn = settings.modules.focusMap
   const tabs = focusOn ? [...TABS, FOCUS_TAB] : TABS
@@ -64,10 +86,13 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
       if (e.defaultPrevented || el.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return
+      if (inSettings) {
+        if (e.key === 'Escape') leaveSettings(date)
+        return
+      }
       if (e.key === 'ArrowLeft') go(view, step(view, date, -1))
       else if (e.key === 'ArrowRight') go(view, step(view, date, 1))
       else if (e.key.toLowerCase() === 't') go(view, todayKey())
-      else if (e.key === 'Escape') setShowSettings(false)
       else if (e.key.toLowerCase() === 'l' && pinEnabled) void lock()
       else {
         const tab = tabs.find((t) => t.key === e.key.toUpperCase())
@@ -76,7 +101,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [view, date, pinEnabled, focusOn])
+  }, [view, date, pinEnabled, focusOn, inSettings])
 
   useEffect(() => {
     document.documentElement.dataset.ink = settings.ink
@@ -107,16 +132,20 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
 
         <div className="period">
           <SaveIndicator />
-          <button className="icon-btn" onClick={() => go(view, step(view, date, -1))} aria-label="Previous" title="Previous (←)">
-            ‹
-          </button>
-          <span className="period-label">{periodLabel(view, date)}</span>
-          <button className="icon-btn" onClick={() => go(view, step(view, date, 1))} aria-label="Next" title="Next (→)">
-            ›
-          </button>
-          <button className="today-btn" disabled={isCurrent(view, date)} onClick={() => go(view, todayKey())} title="Today (T)">
-            Today
-          </button>
+          {!inSettings && (
+            <>
+              <button className="icon-btn" onClick={() => go(view, step(view, date, -1))} aria-label="Previous" title="Previous (←)">
+                ‹
+              </button>
+              <span className="period-label">{periodLabel(view, date)}</span>
+              <button className="icon-btn" onClick={() => go(view, step(view, date, 1))} aria-label="Next" title="Next (→)">
+                ›
+              </button>
+              <button className="today-btn" disabled={isCurrent(view, date)} onClick={() => go(view, todayKey())} title="Today (T)">
+                Today
+              </button>
+            </>
+          )}
           {pinEnabled && (
             <button className="icon-btn" onClick={() => void lock()} aria-label="Lock" title="Lock (L)">
               <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden>
@@ -125,7 +154,12 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
               </svg>
             </button>
           )}
-          <button className="icon-btn" onClick={() => setShowSettings((v) => !v)} aria-label="Settings" title="Settings">
+          <button
+            className={`icon-btn ${inSettings ? 'is-on' : ''}`}
+            onClick={() => (inSettings ? leaveSettings(date) : openSettings({ view, date }))}
+            aria-label="Settings"
+            title="Settings"
+          >
             <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden>
               <circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
               <path
@@ -139,7 +173,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         </div>
       </nav>
 
-      <Banners legacy={legacy} onOpenSettings={() => setShowSettings(true)} />
+      <Banners legacy={legacy} onOpenSettings={() => openSettings({ view, date }, 'data')} />
 
       <main className={`desk view-${view}`} key={`${view}`}>
         {view === 'month' && <MonthView date={date} />}
@@ -147,10 +181,21 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         {view === 'day' && <DayView date={date} />}
         {view === 'reflect' && <ReflectView date={date} />}
         {view === 'focus' && focusOn && <FocusView date={date} />}
+        {inSettings && (
+          <SettingsPage
+            section={section}
+            onSection={(s) => {
+              sessionStorage.setItem(SECTION_KEY, s)
+              setSection(s)
+            }}
+            onBack={() => leaveSettings(date)}
+            legacy={legacy}
+            onLegacyChange={onLegacyChange}
+          />
+        )}
       </main>
 
       <PomodoroBar />
-      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} legacy={legacy} onLegacyChange={onLegacyChange} />}
     </div>
   )
 }

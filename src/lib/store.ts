@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { produce, type Draft } from 'immer'
 import { weekStart } from './date'
 import { api, ApiError, OfflineError, setLockedHandler } from './api'
-import { API_LEVEL, SINGLETONS, docsToState, emptyDay, emptyFocus, emptyMonth, emptyState, emptyWeek, type DayData, type FocusData, type Habit, type MonthData, type State, type WeekData } from './schema'
+import { API_LEVEL, SINGLETONS, docsToState, emptyDay, emptyFocus, emptyMonth, emptyState, emptyWeek, type DayData, type FocusData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
 
 export * from './schema'
 
@@ -470,16 +470,114 @@ function seeded(weeks: Record<string, WeekData>, mondayKey: string): WeekData {
 }
 
 /** Complete/uncomplete a week task and keep linked day tasks in sync (and vice versa). */
+// ───────── one work item: idea ↔ week task(s) ↔ day task(s) ─────────
+//
+// A planned Focus Map idea is one piece of work. The idea holds the truth (title, state, planned
+// date); week tasks link to it with `ideaId`, day tasks link to a week task with `weekTaskId`.
+// Every edit goes through applyWork() so all copies change in the same save.
+
+export type WorkPatch = Partial<{ text: string; status: IdeaStatus; date: string | null }>
+
+type S = Draft<State>
+
+function linkedWeekTasks(s: State | S, ideaId: string) {
+  const out: { monday: string; task: WeekData['tasks'][number] }[] = []
+  for (const monday of Object.keys(s.weeks).sort()) for (const task of s.weeks[monday].tasks) if (task.ideaId === ideaId) out.push({ monday, task })
+  return out
+}
+
+function findWeekTask(s: State | S, taskId: string) {
+  for (const monday of Object.keys(s.weeks)) {
+    const task = s.weeks[monday].tasks.find((t) => t.id === taskId)
+    if (task) return { monday, task }
+  }
+  return null
+}
+
+/** The idea behind a week task, if it came from the Focus Map and the idea still exists. */
+export const ideaOfWeekTask = (s: State, task: { ideaId?: string }) => (task.ideaId ? s.focus.ideas.find((i) => i.id === task.ideaId) : undefined)
+
+/** The idea behind a day task (through the week task it was pulled from). */
+export function ideaOfDayTask(s: State, task: { weekTaskId?: string }) {
+  if (!task.weekTaskId) return undefined
+  const wt = findWeekTask(s, task.weekTaskId)
+  return wt ? ideaOfWeekTask(s, wt.task) : undefined
+}
+
+export const plannedWeeks = (s: State, ideaId: string) => [...new Set(linkedWeekTasks(s, ideaId).map((l) => l.monday))]
+
+function ensureWeek(s: S, monday: string) {
+  return (s.weeks[monday] ??= { ...emptyWeek(), habits: carriedHabits(s.weeks, monday) })
+}
+
+function moveWeekTask(s: S, from: string, to: string, taskId: string) {
+  const src = s.weeks[from]
+  const i = src?.tasks.findIndex((t) => t.id === taskId) ?? -1
+  if (i < 0) return
+  const [task] = src.tasks.splice(i, 1)
+  ensureWeek(s, to).tasks.push(task)
+}
+
+function applyWork(s: S, ideaId: string, patch: WorkPatch) {
+  const idea = s.focus.ideas.find((i) => i.id === ideaId)
+  if (!idea) return
+  if (patch.text !== undefined) idea.text = patch.text
+  if (patch.status !== undefined) idea.status = patch.status
+  if (patch.date !== undefined) idea.date = patch.date
+  const linked = linkedWeekTasks(s, ideaId)
+  const done = idea.status === 'done'
+  // Titles are only rewritten when the title is what changed, so older copies renamed on their
+  // own keep their wording until the work item itself is renamed.
+  const retitle = patch.text !== undefined
+  const restate = patch.status !== undefined
+  for (const { task } of linked) {
+    if (retitle) task.text = idea.text
+    if (restate) task.done = done
+  }
+  const ids = new Set(linked.map((l) => l.task.id))
+  for (const d of Object.values(s.days))
+    for (const t of d.tasks)
+      if (t.weekTaskId && ids.has(t.weekTaskId)) {
+        if (retitle) t.text = idea.text
+        if (restate) t.done = done
+      }
+  // A new planned date carries the planned week task along to that week.
+  if (patch.date && linked.length) {
+    const target = weekStart(patch.date)
+    const latest = linked[linked.length - 1]
+    if (!linked.some((l) => l.monday === target)) moveWeekTask(s, latest.monday, target, latest.task.id)
+  }
+}
+
+export const editWork = (ideaId: string, patch: WorkPatch) => update((s) => applyWork(s, ideaId, patch))
+
+/**
+ * Put an idea into a week's plan. Never creates a second task: if it is already planned elsewhere
+ * its latest task moves here instead. Lands unsorted, ready for the matrix.
+ */
+export function planIdea(ideaId: string, monday: string) {
+  update((s) => {
+    const idea = s.focus.ideas.find((i) => i.id === ideaId)
+    if (!idea || !idea.text.trim()) return
+    const linked = linkedWeekTasks(s, ideaId)
+    if (linked.some((l) => l.monday === monday)) return
+    if (linked.length) moveWeekTask(s, linked[linked.length - 1].monday, monday, linked[linked.length - 1].task.id)
+    else ensureWeek(s, monday).tasks.push({ id: uid(), text: idea.text.trim(), q: null, done: idea.status === 'done', ideaId })
+    if (idea.date && weekStart(idea.date) !== monday) idea.date = null
+  })
+}
+
+/** Complete/uncomplete a week task and keep linked day tasks (and its idea) in sync. */
 export function setWeekTaskDone(mondayKey: string, taskId: string, done: boolean) {
   update((s) => {
     const t = s.weeks[mondayKey]?.tasks.find((x) => x.id === taskId)
-    if (t) t.done = done
-    for (const [k, d] of Object.entries(s.days)) {
-      if (weekStart(k) !== mondayKey) continue
+    if (!t) return
+    if (ideaOfWeekTask(s as State, t)) return applyWork(s, t.ideaId!, { status: done ? 'done' : 'doing' })
+    t.done = done
+    for (const d of Object.values(s.days))
       d.tasks.forEach((dt) => {
         if (dt.weekTaskId === taskId) dt.done = done
       })
-    }
   })
 }
 
@@ -487,10 +585,39 @@ export function setDayTaskDone(dayKey: string, taskId: string, done: boolean) {
   update((s) => {
     const dt = s.days[dayKey]?.tasks.find((x) => x.id === taskId)
     if (!dt) return
+    const idea = ideaOfDayTask(s as State, dt)
+    if (idea) return applyWork(s, idea.id, { status: done ? 'done' : 'doing' })
     dt.done = done
     if (dt.weekTaskId) {
-      const wt = s.weeks[weekStart(dayKey)]?.tasks.find((x) => x.id === dt.weekTaskId)
-      if (wt) wt.done = done
+      const wt = findWeekTask(s, dt.weekTaskId)
+      if (wt) wt.task.done = done
     }
   })
+}
+
+/** Rename a week or day task; a linked one renames the whole work item. */
+export function renameWeekTask(mondayKey: string, taskId: string, text: string) {
+  update((s) => {
+    const t = s.weeks[mondayKey]?.tasks.find((x) => x.id === taskId)
+    if (!t) return
+    if (ideaOfWeekTask(s as State, t)) return applyWork(s, t.ideaId!, { text })
+    t.text = text
+  })
+}
+
+export function renameDayTask(dayKey: string, taskId: string, text: string) {
+  update((s) => {
+    const dt = s.days[dayKey]?.tasks.find((x) => x.id === taskId)
+    if (!dt) return
+    const idea = ideaOfDayTask(s as State, dt)
+    if (idea) return applyWork(s, idea.id, { text })
+    dt.text = text
+  })
+}
+
+/** Starting focus time on a linked task means the idea is in progress. */
+export function markStarted(dayKey: string, taskId: string) {
+  const dt = state.days[dayKey]?.tasks.find((x) => x.id === taskId)
+  const idea = dt && ideaOfDayTask(state, dt)
+  if (idea && idea.status === 'idea') editWork(idea.id, { status: 'doing' })
 }

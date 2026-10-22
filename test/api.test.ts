@@ -279,12 +279,14 @@ test('Focus Map page: strict saves, idea links on tasks, backup round trip, olde
     const task = after.find(([k]: [string]) => k === 'week:2026-10-19')[1].tasks.find((t: { id: string }) => t.id === 'from-idea')
     assert.equal(task.ideaId, 'i1')
 
-    // Export → import keeps everything.
+    // Export → import keeps everything. Export spells out derived idea states, so compare what is read back.
+    const { docsToState } = await import('../src/lib/schema.ts')
     const exp = (await s.call('GET', '/api/export')).json
     assert.equal(exp.state.focus.ideas.length, 2)
     r = await s.call('POST', '/api/import', { data: exp, replace: true })
     assert.equal(r.status, 200)
-    assert.deepEqual(r.json.docs.map((d: { key: string; value: unknown }) => [d.key, d.value]), before)
+    const asState = (docs: [string, unknown][]) => docsToState(docs.map(([key, value]) => ({ key, value })))
+    assert.deepEqual(asState(r.json.docs.map((d: { key: string; value: unknown }) => [d.key, d.value])), asState(before))
   } finally {
     await s.cleanup()
   }
@@ -299,6 +301,50 @@ test('server reports its API level and code fingerprint for update checks', asyn
     assert.equal(h.apiLevel, API_LEVEL)
     assert.equal(h.code, codeFingerprint())
     assert.equal((await s.call('GET', '/api/status')).json.apiLevel, API_LEVEL, 'visible even while locked')
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('ideas keep state and planned date; older ideas get a derived state that survives restore', async () => {
+  const { docsToState } = await import('../src/lib/schema.ts')
+  const s = await startTestServer()
+  try {
+    await s.call('POST', '/api/import', { data: fixtureLegacy() })
+    // A Focus page as an older build (API level 2) stored it: no status, no date.
+    const old = { ideas: [{ id: 'old-done', text: 'older idea, finished', x: 0.7, y: 0.7, createdAt: '' }, { id: 'old-open', text: 'older idea, open', x: null, y: null, createdAt: '' }] }
+    let r = await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: 0, value: old }] })
+    assert.equal(r.status, 200)
+    const week = (await s.call('GET', '/api/data')).json.docs.find((d: { key: string }) => d.key === 'week:2026-10-19')
+    const tasks = [...week.value.tasks, { id: 't-old-1', text: 'older idea, finished', q: 'A', done: true, ideaId: 'old-done' }, { id: 't-old-2', text: 'older copy', q: null, done: true, ideaId: 'old-done' }]
+    await s.call('PUT', '/api/docs', { changes: [{ key: week.key, baseRev: week.rev, value: { ...week.value, tasks } }] })
+
+    let docs = (await s.call('GET', '/api/data')).json.docs
+    const stored = docs.find((d: { key: string }) => d.key === 'focus').value
+    assert.equal('status' in stored.ideas[0], false, 'validation does not invent a state')
+    assert.equal(stored.ideas[0].date, null)
+    let st = docsToState(docs)
+    assert.deepEqual(st.focus.ideas.map((i: { status: string }) => i.status), ['done', 'idea'], 'state derived from the planned copies')
+
+    const b = (await s.call('POST', '/api/backups')).json.backup
+    const focus = docs.find((d: { key: string }) => d.key === 'focus')
+    await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: focus.rev, value: { ideas: [] } }] })
+    assert.equal((await s.call('POST', '/api/backups/restore', { file: b.file })).status, 200)
+    docs = (await s.call('GET', '/api/data')).json.docs
+    st = docsToState(docs)
+    assert.equal(st.focus.ideas[0].status, 'done', 'restoring an older backup keeps finished work finished')
+    assert.ok(st.weeks['2026-10-19'].tasks.filter((t: { ideaId?: string; done: boolean }) => t.ideaId === 'old-done').every((t: { done: boolean }) => t.done), 'both older copies stay done')
+
+    // New fields are validated strictly.
+    const cur = docs.find((d: { key: string }) => d.key === 'focus')
+    const next = { ideas: [{ id: 'n', text: 'new idea', x: null, y: null, status: 'doing', date: '2026-10-24', createdAt: '' }, { id: 'm', text: 'odd', x: null, y: null, status: 'bogus', date: '2026-02-31', createdAt: '' }] }
+    r = await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: cur.rev, value: next }] })
+    assert.equal(r.status, 200)
+    const saved = (await s.call('GET', '/api/data')).json.docs.find((d: { key: string }) => d.key === 'focus').value.ideas
+    assert.equal(saved[0].status, 'doing')
+    assert.equal(saved[0].date, '2026-10-24')
+    assert.equal('status' in saved[1], false, 'unknown state is not stored')
+    assert.equal(saved[1].date, null, 'impossible date is not stored')
   } finally {
     await s.cleanup()
   }

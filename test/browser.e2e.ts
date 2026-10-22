@@ -59,10 +59,37 @@ async function typeInto(page: Page, sel: string, text: string) {
   await page.click(sel, { count: 3 })
   await page.keyboard.type(text)
 }
-async function openSettings(page: Page) {
+async function openSettings(page: Page, section: 'Notebook' | 'Focus timer' | 'Privacy' | 'Data' | 'Add-ons') {
   await page.click('button[aria-label="Settings"]')
   await page.waitForSelector('.settings')
+  const tab = await page.waitForSelector(`xpath/.//button[contains(@class,"paper-tab") and normalize-space(.)="${section}"]`)
+  await tab!.click()
+  await page.waitForFunction((s) => document.querySelector('.paper-tab.is-on')?.textContent === s, {}, section)
 }
+async function closeSettings(page: Page) {
+  await page.click('button[aria-label="Back to notebook"]')
+  await page.waitForFunction(() => !document.querySelector('.settings'))
+}
+/** Set a native date input the way picking a date does (React sees an input event). */
+async function pickDate(page: Page, sel: string, value: string) {
+  await page.$eval(
+    sel,
+    (el, v) => {
+      const input = el as HTMLInputElement
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, v)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    },
+    value,
+  )
+}
+async function dragTo(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  for (let i = 1; i <= 12; i++) await page.mouse.move(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12)
+  await page.mouse.up()
+}
+const apiDocs = (page: Page) =>
+  page.evaluate(async () => ((await (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).json()) as { docs: { key: string; value: any }[] }).docs)
 const shot = async (page: Page, name: string) => shots && (await page.screenshot({ path: path.join(shots, `${name}.png`) }))
 
 const errors: string[] = []
@@ -152,13 +179,13 @@ async function main() {
       })
       await typeInto(page, '.page-foot textarea', 'unsaved precious words')
       await page.waitForSelector('.save-status.is-conflict', { timeout: 5000 })
-      await openSettings(page)
+      await openSettings(page, 'Data')
       await page.waitForSelector('.backup-list li:first-child .text-link')
       await page.click('.backup-list li:first-child .text-link')
       const [restore] = await page.$$('xpath/.//li//button[normalize-space(.)="Restore"]')
       await restore.click()
       await page.waitForFunction(() => document.querySelector('.settings')!.textContent!.includes('aren’t saved yet'))
-      await page.click('button[aria-label="Close"]')
+      await closeSettings(page)
       assert.equal(await valueOf(page, '.page-foot textarea'), 'unsaved precious words')
       const [mine] = await page.$$('xpath/.//button[contains(., "Keep this tab")]')
       await mine.click()
@@ -179,110 +206,181 @@ async function main() {
     })
 
     await step('backup, change, restore from Settings: pages come back exactly', async () => {
-      await openSettings(page)
+      await openSettings(page, 'Data')
       const [now] = await page.$$('xpath/.//button[contains(., "Back up now")]')
       await now.click()
       await page.waitForFunction(() => document.body.innerText.includes('Backup saved and verified'))
-      await page.click('button[aria-label="Close"]')
+      await closeSettings(page)
       await typeInto(page, '.day-page .line textarea', 'changed after backup')
       await waitSaved(page)
-      await openSettings(page)
+      await openSettings(page, 'Data')
       await page.waitForSelector('.backup-list li:first-child .text-link')
       await page.click('.backup-list li:first-child .text-link')
       const [restore] = await page.$$('xpath/.//li//button[normalize-space(.)="Restore"]')
       await restore.click()
       await page.waitForFunction(() => document.body.innerText.includes('Restored and verified'))
       await shot(page, '05-restored')
-      await page.click('button[aria-label="Close"]')
+      await closeSettings(page)
       assert.equal(await valueOf(page, '.day-page .line textarea'), 'typed in tab one')
     })
 
     await step('import rejects a non-duckbook file without touching pages', async () => {
       const bad = path.join(dataDir, 'not-duckbook.json')
       fs.writeFileSync(bad, JSON.stringify({ hello: 'world' }))
-      await openSettings(page)
+      await openSettings(page, 'Data')
       const input = await page.$('.settings input[type=file]')
       await input!.uploadFile(bad)
       await page.waitForFunction(() => /not duckbook data|No months/.test(document.querySelector('.settings')!.textContent!))
-      await page.click('button[aria-label="Close"]')
+      await closeSettings(page)
       assert.equal(await valueOf(page, '.day-page .line textarea'), 'typed in tab one')
     })
 
-    await step('Focus Map: off by default; turning it on adds the tab', async () => {
+    await step('Settings is a page with paper tabs and returns to where you were', async () => {
+      await page.goto(`${BASE}/#/week/2026-10-19`)
+      await page.waitForSelector('.week-plan')
+      await openSettings(page, 'Focus timer')
+      await page.waitForSelector('.pomo-settings')
+      await shot(page, '08-settings')
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => location.hash === '#/week/2026-10-19')
+    })
+
+    await step('Focus Map: off by default; turning it on (Add-ons) adds the tab', async () => {
       assert.equal(await page.$$eval('.tab-module', (x) => x.length), 0)
-      await openSettings(page)
+      await openSettings(page, 'Add-ons')
       await page.click('.module-toggle input')
-      await page.click('button[aria-label="Close"]')
+      await closeSettings(page)
       await page.waitForSelector('.tab-module')
       await page.click('body')
       await page.keyboard.press('f')
-      await page.waitForSelector('.focus-map')
+      await page.waitForSelector('.canvas')
     })
 
-    await step('Focus Map: add ideas, place by zone button, arrow keys, and map click', async () => {
-      await page.click('.idea-add textarea')
-      await page.keyboard.type('synthetic idea alpha')
+    await step('Focus Map: write a note in the tray, drag it onto the map, nudge it with keys', async () => {
+      await page.click('.tray-new textarea')
+      await page.keyboard.type('synthetic note alpha')
       await page.keyboard.press('Enter')
-      await page.waitForSelector('.idea-detail')
-      const zone = () => page.$$eval('.idea-row', (rows) => rows.map((r) => r.querySelector('.idea-zone')!.textContent))
-      assert.deepEqual(await zone(), ['not placed'])
-      const [quick] = await page.$$('xpath/.//button[contains(@class,"zone-btn") and normalize-space(.)="Quick wins"]')
-      await quick.click()
-      await page.waitForSelector('.pin')
-      assert.deepEqual(await zone(), ['Quick wins'])
-      await page.focus('.pin')
-      for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowLeft')
-      await page.waitForFunction(() => document.querySelector('.idea-row .idea-zone')!.textContent === 'Big bets')
+      await page.waitForSelector('.tray .note')
+      const note = (await (await page.$('.tray .note .note-head'))!.boundingBox())!
+      const cv = (await (await page.$('.canvas'))!.boundingBox())!
+      await dragTo(page, { x: note.x + 20, y: note.y + 6 }, { x: cv.x + cv.width * 0.8, y: cv.y + cv.height * 0.2 })
+      await page.waitForSelector('.canvas .note')
+      assert.match(await page.$eval('.canvas .note', (n) => n.getAttribute('aria-label')!), /Quick wins/)
+      assert.equal(await page.$$eval('.tray .note', (x) => x.length), 0)
+      await page.focus('.canvas .note')
+      for (let i = 0; i < 12; i++) await page.keyboard.press("ArrowLeft")
+      await page.waitForFunction(() => /Big bets/.test(document.querySelector('.canvas .note')!.getAttribute('aria-label')!))
+      assert.equal(await page.evaluate(() => location.hash), '#/focus/2026-10-19', 'arrow keys did not flip the week')
+      await page.select('.canvas .note .place-select', 'fill')
+      await page.waitForFunction(() => /Fill-ins/.test(document.querySelector('.canvas .note')!.getAttribute('aria-label')!))
+      await waitSaved(page)
+    })
 
-      await page.click('.idea-add textarea')
-      await page.keyboard.type('synthetic idea beta')
-      await page.keyboard.press('Enter')
-      const box = (await (await page.$('.focus-map'))!.boundingBox())!
-      await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.85)
-      await page.waitForFunction(() => [...document.querySelectorAll('.idea-row .idea-zone')].map((e) => e.textContent).join() === 'Big bets,Let go')
+    await step('Focus Map: date and plan from the note; one week task, unsorted, marked', async () => {
+      await page.click('.canvas .note .note-head')
+      await page.click('.canvas .note .date-chip')
+      await pickDate(page, '.canvas .note .date-input', '2026-10-24')
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => document.querySelector('.canvas .note .date-chip')?.textContent === 'Oct 24')
+      const plan = await page.waitForSelector('xpath/.//div[contains(@class,"canvas")]//button[contains(., "Plan · Wk 43")]')
+      await plan!.click()
+      await page.waitForSelector('xpath/.//div[contains(@class,"canvas")]//a[contains(., "Wk 43")]')
       await waitSaved(page)
       await shot(page, '07-focus-map')
-    })
-
-    await step('Focus Map: turn an idea into a week task, once per week, with a link back', async () => {
-      await page.click('.idea-row:first-child')
-      await page.waitForSelector('.promote')
-      const label = await page.$eval('.promote', (b) => b.textContent)
-      assert.match(label ?? '', /^Add to Week 43/, `button reads: ${label}`)
-      await page.click('.promote')
-      await page.waitForFunction(() => /^Already in Week 43/.test(document.querySelector('.promote')!.textContent!))
-      assert.equal(await page.$eval('.promote', (b) => (b as HTMLButtonElement).disabled), true, 'duplicate blocked')
-      await waitSaved(page)
       await page.goto(`${BASE}/#/week/2026-10-19`)
       await page.waitForSelector('.dump-list')
       const dump = await page.$$eval('.dump-list .wtask textarea', (x) => x.map((e) => (e as HTMLTextAreaElement).value))
-      assert.equal(dump.filter((t) => t === 'synthetic idea alpha').length, 1, 'arrives once, unsorted')
-      assert.equal(await page.$$eval('.dump-list .idea-mark', (x) => x.length), 1, 'source marker shown')
+      assert.equal(dump.filter((t) => t === 'synthetic note alpha').length, 1, 'arrives once, unsorted')
+      assert.equal(await page.$eval('.dump-list .wtask:last-child .date-chip', (e) => e.textContent), 'Oct 24')
     })
 
-    await step('Focus Map: turning it off hides it but keeps the ideas', async () => {
-      await openSettings(page)
-      await page.click('.module-toggle input')
-      await page.click('button[aria-label="Close"]')
+    await step('Linked work: rename from Week, complete from Day, reopen on the note, all consistent', async () => {
+      await typeInto(page, '.dump-list .wtask:last-child textarea', 'synthetic work renamed')
       await waitSaved(page)
+      await page.goto(`${BASE}/#/day/2026-10-24`)
+      const pull = await page.waitForSelector('xpath/.//button[contains(@class,"pull-item")][contains(., "synthetic work renamed")]')
+      await pull!.click()
+      const row = await page.waitForSelector('.task-row')
+      const check = await row!.$('.check')
+      await check!.click()
+      await waitSaved(page)
+      let docs = await apiDocs(page)
+      const idea = docs.find((d) => d.key === 'focus')!.value.ideas[0]
+      const wk = docs.find((d) => d.key === 'week:2026-10-19')!.value.tasks.filter((t: any) => t.ideaId === idea.id)
+      const day = docs.find((d) => d.key === 'day:2026-10-24')!.value.tasks
+      assert.equal(idea.text, 'synthetic work renamed')
+      assert.equal(idea.status, 'done')
+      assert.equal(wk.length, 1)
+      assert.equal(wk[0].text, 'synthetic work renamed')
+      assert.equal(wk[0].done, true)
+      assert.equal(day[0].text, 'synthetic work renamed')
+      assert.equal(day[0].done, true)
+
+      await page.goto(`${BASE}/#/focus/2026-10-19`)
+      await page.waitForSelector('.canvas .note.state-done')
+      await page.click('.canvas .note .note-head')
+      const reopen = await page.waitForSelector('xpath/.//div[contains(@class,"canvas")]//button[normalize-space(.)="Reopen"]')
+      await reopen!.click()
+      await page.waitForSelector('.canvas .note.state-doing')
+      await waitSaved(page)
+      docs = await apiDocs(page)
+      assert.equal(docs.find((d) => d.key === 'week:2026-10-19')!.value.tasks.find((t: any) => t.ideaId)!.done, false)
+      assert.equal(docs.find((d) => d.key === 'day:2026-10-24')!.value.tasks[0].done, false)
+    })
+
+    await step('Linked work: changing the date from Week moves the one task to that week', async () => {
+      await page.goto(`${BASE}/#/week/2026-10-19`)
+      await page.waitForSelector('.dump-list')
+      await page.hover('.dump-list .wtask:last-child')
+      await page.click('.dump-list .wtask:last-child .date-chip')
+      await pickDate(page, '.dump-list .wtask:last-child .date-input', '2026-10-28')
+      await waitSaved(page)
+      const docs = await apiDocs(page)
+      const all = docs.filter((d) => d.key.startsWith('week:')).flatMap((d) => d.value.tasks.filter((t: any) => t.ideaId).map(() => d.key))
+      assert.deepEqual(all, ['week:2026-10-26'], 'exactly one linked task, now in the week of the date')
+      await page.goto(`${BASE}/#/focus/2026-10-19`)
+      await page.waitForSelector('xpath/.//div[contains(@class,"canvas")]//a[contains(., "Wk 44")]')
+    })
+
+    await step('Focus filters show notes by state', async () => {
+      const count = () => page.$$eval('.canvas .note, .tray .note', (x) => x.length)
+      const pick = async (label: string) => {
+        const b = await page.waitForSelector(`xpath/.//button[contains(@class,"filter")][starts-with(normalize-space(.), "${label}")]`)
+        await b!.click()
+      }
+      await pick('Completed')
+      assert.equal(await count(), 0)
+      await pick('In progress')
+      assert.equal(await count(), 1)
+      await pick('All')
+      assert.equal(await count(), 1)
+    })
+
+    await step('Focus Map: turning it off hides it but keeps the ideas and links', async () => {
+      await openSettings(page, 'Add-ons')
+      await page.click('.module-toggle input')
+      await closeSettings(page)
+      await waitSaved(page)
+      await page.goto(`${BASE}/#/week/2026-10-26`)
+      await page.waitForSelector('.dump-list')
       assert.equal(await page.$$eval('.tab-module', (x) => x.length), 0)
       assert.equal(await page.$$eval('.idea-mark', (x) => x.length), 0)
       await page.goto(`${BASE}/#/focus/2026-10-19`)
       await page.waitForFunction(() => location.hash.startsWith('#/week/'))
-      await openSettings(page)
+      await openSettings(page, 'Add-ons')
       await page.click('.module-toggle input')
-      await page.click('button[aria-label="Close"]')
+      await closeSettings(page)
       await waitSaved(page)
-      await page.reload()
       await page.goto(`${BASE}/#/focus/2026-10-19`)
-      await page.waitForSelector('.focus-map')
-      assert.equal(await page.$$eval('.idea-row', (x) => x.length), 2)
+      await page.waitForSelector('.canvas .note')
+      await page.goto(`${BASE}/#/week/2026-10-26`)
+      await page.waitForSelector('.dump-list .idea-mark')
       await page.goto(`${BASE}/#/day/2026-10-19`)
       await page.waitForSelector('.day-page')
     })
 
     await step('PIN lock: blank shell, no journal in the DOM, API refuses', async () => {
-      await openSettings(page)
+      await openSettings(page, 'Privacy')
       const [set] = await page.$$('xpath/.//button[contains(., "Set a 6-digit PIN")]')
       await set.click()
       const fields = await page.$$('.pin-field input')
@@ -291,12 +389,12 @@ async function main() {
       const [save] = await page.$$('xpath/.//button[contains(., "Save PIN")]')
       await save.click()
       await page.waitForFunction(() => document.body.innerText.includes('PIN saved'))
-      await page.click('button[aria-label="Close"]')
+      await closeSettings(page)
       await page.click('button[aria-label="Lock"]')
       await page.waitForSelector('.lock-shell .pin-dots')
       await shot(page, '06-locked')
       const t = await textOf(page)
-      assert.doesNotMatch(t, /typed in tab one|fixture|from elsewhere|synthetic idea/)
+      assert.doesNotMatch(t, /typed in tab one|fixture|from elsewhere|synthetic note|synthetic work/)
       assert.equal(await page.$$eval('textarea', (x) => x.length), 0)
       assert.equal(await page.title(), 'duckbook')
       const status = await page.evaluate(async () => (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).status)
@@ -316,7 +414,7 @@ async function main() {
 
     await step('after a restore the old browser copy is no longer called "safe"; re-move, then remove', async () => {
       await page.waitForSelector('.banner')
-      await openSettings(page)
+      await openSettings(page, 'Data')
       assert.equal((await page.$$('xpath/.//button[contains(., "Remove old copy")]')).length, 0, 'no remove offer while the database differs')
       const [move] = await page.$$('xpath/.//button[contains(., "Move them in")]')
       await move.click()
@@ -330,7 +428,7 @@ async function main() {
       const [yes] = await page.$$('xpath/.//div[contains(@class,"confirm-box")]//button[normalize-space(.)="Remove"]')
       await yes.click()
       assert.equal(await page.evaluate(() => localStorage.getItem('duckbook:v1')), null)
-      await page.click('button[aria-label="Close"]')
+      await closeSettings(page)
       assert.equal(await valueOf(page, '.day-page .line textarea'), 'fixture gratitude', 'browser copy content now in the database')
     })
 

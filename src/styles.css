@@ -1419,41 +1419,80 @@ button {
 
 /* ───────── Settings ───────── */
 
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  background: rgba(38, 52, 107, 0.12);
+/* A notebook page with paper index tabs on its right edge. */
+.settings-book {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 860px) auto;
+  justify-content: center;
+  align-items: start;
 }
-.settings {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 31;
-  width: 340px;
-  padding: 24px 28px;
-  background: var(--paper);
-  border-left: 1px solid var(--rule);
-  box-shadow: -12px 0 40px -16px rgba(38, 52, 107, 0.25);
-  overflow-y: auto;
-  animation: slide 0.22s ease both;
+.sheet.settings {
+  width: 100%;
+  min-height: calc(100vh - 100px);
+  padding: 36px 56px 48px;
+  border-radius: 3px 0 3px 3px;
 }
-@keyframes slide {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-}
-.settings header {
+.settings-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule-soft);
 }
-.settings h2 {
+.page-title-h {
   margin: 0;
-  font-size: 16px;
+  font-size: 22px;
   font-weight: 400;
+}
+.page-title-h em {
+  color: var(--ink-soft);
+}
+.back-link {
+  font-size: 14px;
+}
+.paper-tabs {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 40px;
+  margin-left: -1px;
+}
+.paper-tab {
+  padding: 10px 16px 10px 14px;
+  min-width: 124px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--ink-soft);
+  background: var(--tint);
+  border: 1px solid var(--rule);
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+  box-shadow: 3px 3px 10px -8px rgba(38, 52, 107, 0.4);
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.paper-tab:hover {
+  color: var(--ink);
+  transform: translateX(2px);
+}
+.paper-tab.is-on {
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 500;
+  transform: translateX(0);
+  box-shadow: 3px 3px 12px -8px rgba(38, 52, 107, 0.5);
+}
+.settings .setting {
+  padding: 6px 0 18px;
+  max-width: 560px;
+}
+.icon-btn.is-on {
+  background: var(--paper);
+  color: var(--ink);
 }
 .setting {
   padding: 4px 0 14px;
@@ -1773,7 +1812,7 @@ button {
   opacity: 0.5;
 }
 
-/* ───────── Focus Map (optional module) ───────── */
+/* ───────── Focus Map (optional add-on) ───────── */
 
 .tab-module {
   margin-left: 10px;
@@ -1791,114 +1830,129 @@ button {
   border-style: dashed;
 }
 
-.idea-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.idea-row {
-  display: grid;
-  grid-template-columns: 18px 1fr auto;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 0 8px 0 4px;
-  border-bottom: 1px solid var(--rule-soft);
-  border-radius: 4px;
-  cursor: pointer;
-}
-.idea-row:hover {
-  background: #f7f9fd;
-}
-.idea-row.is-selected {
-  background: var(--tint);
-}
-.idea-row .write {
-  font-size: 15.5px;
-}
-.idea-dot {
-  justify-self: center;
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  border: 1px dashed var(--muted);
-}
-.idea-dot.is-placed {
-  border: 1.3px solid var(--ink);
-}
-.idea-dot.is-linked {
-  background: var(--ink);
-}
-.idea-zone {
-  font-size: 12px;
-  font-style: italic;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.idea-add {
-  padding: 4px 0 0 26px;
+/* A single wide sheet, for pages that are not a two-page spread. */
+.sheet {
+  max-width: 1360px;
+  min-height: calc(100vh - 100px);
+  margin: 0 auto;
+  padding: 32px 44px 40px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow:
+    0 1px 2px rgba(38, 52, 107, 0.05),
+    0 12px 40px -12px rgba(38, 52, 107, 0.16);
 }
 
-.idea-detail {
-  margin-top: 8px;
-  padding: 2px 16px 14px;
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-}
-.zone-pick {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-.zone-btn {
-  padding: 8px 10px;
-  border-radius: 3px;
-  font-size: 14px;
-  text-align: left;
-  color: var(--ink);
-}
-.zone-btn.is-on {
-  box-shadow: inset 0 0 0 1.5px var(--ink);
-  font-weight: 500;
-}
-.zone-btn:hover {
-  box-shadow: inset 0 0 0 1px var(--ink-soft);
-}
-.zone-quick {
-  background: var(--qa);
-}
-.zone-big {
-  background: var(--qb);
-}
-.zone-fill {
-  background: var(--qc);
-}
-.zone-letgo {
-  background: var(--qd);
-}
-.pomo-btn.promote {
-  margin-top: 2px;
-}
-.idea-weeks a {
-  text-decoration: underline;
-  text-decoration-color: var(--rule);
-}
-.idea-remove {
+.focus-head {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+.filters {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+}
+.filter {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.filter .count {
+  font-size: 11px;
+  color: var(--muted);
+}
+.filter.is-on {
+  background: var(--ink);
+  color: var(--paper);
+}
+.filter.is-on .count {
+  color: var(--tint-2);
+}
+
+.focus-board {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.tray {
+  position: sticky;
+  top: 76px;
+  padding: 12px;
+  min-height: 300px;
+  background: #fafbfe;
+  border: 1px dashed var(--tint-2);
+  border-radius: 4px;
+  transition: box-shadow 0.15s;
+}
+.tray.is-over,
+.canvas.is-over {
+  box-shadow: inset 0 0 0 2px var(--ink-soft);
+}
+.tray-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.tray-new {
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
+}
+.tray-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tray-empty {
   margin-top: 12px;
 }
 
-.focus-map-page {
-  align-items: center;
-}
-.focus-map-wrap {
+.canvas-wrap {
   position: relative;
-  width: 100%;
-  max-width: 540px;
   padding: 26px 30px;
+}
+.canvas {
+  position: relative;
+  height: max(560px, calc(100vh - 290px));
+  background:
+    linear-gradient(var(--rule), var(--rule)) center / 1px 100% no-repeat,
+    linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat,
+    radial-gradient(circle, var(--rule-soft) 1px, transparent 1.4px) 0 0 / 24px 24px,
+    #fcfdff;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+.canvas .zone-label {
+  position: absolute;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+}
+.canvas .zone-big {
+  top: 10px;
+  left: 12px;
+}
+.canvas .zone-quick {
+  top: 10px;
+  right: 12px;
+}
+.canvas .zone-letgo {
+  bottom: 10px;
+  left: 12px;
+}
+.canvas .zone-fill {
+  bottom: 10px;
+  right: 12px;
 }
 .map-axis {
   position: absolute;
@@ -1928,88 +1982,167 @@ button {
   top: 50%;
   transform: translate(30%, -50%) rotate(90deg);
 }
-.focus-map {
+
+/* Sticky notes. State colours stay soft; the tag says the state in words. */
+.note {
+  --note: #fbf5df;
+  --note-edge: #eadfb4;
   position: relative;
-  aspect-ratio: 1;
-  background:
-    linear-gradient(var(--rule), var(--rule)) center / 1px 100% no-repeat,
-    linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat,
-    linear-gradient(90deg, var(--qb) 50%, var(--qa) 50%) top / 100% 50% no-repeat,
-    linear-gradient(90deg, var(--qd) 50%, var(--qc) 50%) bottom / 100% 50% no-repeat;
-  border-radius: 2px;
-}
-.focus-map.has-selection {
-  cursor: crosshair;
-}
-.zone-label {
-  position: absolute;
-  font-size: 13px;
-  font-style: italic;
-  color: var(--ink-soft);
-  opacity: 0.8;
-}
-.zone-label.zone-big {
-  top: 10px;
-  left: 12px;
-}
-.zone-label.zone-quick {
-  top: 10px;
-  right: 12px;
-}
-.zone-label.zone-letgo {
-  bottom: 10px;
-  left: 12px;
-}
-.zone-label.zone-fill {
-  bottom: 10px;
-  right: 12px;
-}
-.pin {
-  position: absolute;
-  transform: translate(-9px, -9px);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px;
-  border-radius: 999px;
-  touch-action: none;
+  width: 100%;
+  padding: 8px 10px 6px;
+  background: var(--note);
+  border: 1px solid var(--note-edge);
+  border-radius: 2px 2px 3px 3px;
+  box-shadow:
+    0 1px 1px rgba(38, 52, 107, 0.06),
+    0 6px 14px -8px rgba(38, 52, 107, 0.35);
   cursor: grab;
-  max-width: 180px;
+  touch-action: none;
+  transition: box-shadow 0.15s, opacity 0.15s;
 }
-.pin:active {
+.note.in-canvas {
+  position: absolute;
+  width: 176px;
+  translate: -50% -50%;
+}
+.note.state-doing {
+  --note: #e6edfa;
+  --note-edge: #bccbea;
+}
+.note.state-done {
+  --note: #eef1ee;
+  --note-edge: #d3dbd2;
+}
+.note.state-done .note-text {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+  color: var(--ink-soft);
+}
+.note:hover,
+.note:focus-within,
+.note.is-selected {
+  z-index: 3;
+  box-shadow:
+    0 1px 1px rgba(38, 52, 107, 0.08),
+    0 10px 22px -8px rgba(38, 52, 107, 0.45);
+}
+.note.is-selected {
+  outline: 1.5px solid var(--ink-soft);
+  outline-offset: 2px;
+}
+.note:focus-visible {
+  outline: 2px solid var(--ink);
+}
+.note.is-ghost {
+  opacity: 0.25;
+  box-shadow: none;
+}
+.note.lifted {
+  position: fixed;
+  z-index: 100;
+  rotate: -2deg;
+  pointer-events: none;
   cursor: grabbing;
+  box-shadow: 0 18px 34px -10px rgba(38, 52, 107, 0.5);
 }
-.pin-dot {
-  flex: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background: var(--paper);
-  border: 1.5px solid var(--ink);
+.note-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--ink-soft);
 }
-.pin.is-linked .pin-dot {
-  background: var(--ink);
-}
-.pin-label {
-  font-family: var(--ink-font);
-  font-size: 13px;
-  white-space: nowrap;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--paper) 70%, transparent);
-  padding: 0 4px;
-  border-radius: 3px;
-}
-.pin.is-selected .pin-dot {
-  box-shadow: 0 0 0 4px rgba(38, 52, 107, 0.18);
-}
-.pin.is-selected .pin-label {
-  background: var(--paper);
+.state-tag {
   font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
 }
-.map-hint {
-  text-align: center;
+.state-doing .state-tag {
+  color: var(--ink);
+}
+.note .grip {
+  opacity: 0.5;
+  font-size: 12px;
+}
+.note-text,
+.note-text-static {
+  font-size: 15px;
+  line-height: 1.35;
+  margin: 4px 0 2px;
+  cursor: text;
+}
+.note-text-static {
+  font-family: var(--ink-font);
+  color: var(--ink);
+}
+.note-foot {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--note-edge);
+}
+.note:hover .note-foot,
+.note:focus-within .note-foot,
+.note.is-selected .note-foot {
+  display: flex;
+}
+.note.lifted .note-foot {
+  display: none;
+}
+.note-act {
+  font-size: 12.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+  border: 1px solid var(--note-edge);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.note-act:hover:not(:disabled) {
+  background: var(--paper);
+  border-color: var(--ink-soft);
+}
+.note-act:disabled {
+  opacity: 0.45;
+}
+.note-act.is-planned {
+  border-style: dashed;
+}
+.place-select {
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--note-edge);
+  padding: 1px 0;
+}
+.note-x {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  color: var(--muted);
+}
+.note-x:hover {
+  color: var(--ink);
+  background: var(--paper);
+}
+.remove-confirm {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
 }
 
+/* Linked work: mark, state, and planned date beside week and day tasks */
+.work-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
 .idea-mark {
   flex: none;
   font-size: 12px;
@@ -2018,6 +2151,45 @@ button {
 }
 .idea-mark:hover {
   color: var(--ink);
+}
+.work-state {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.date-chip {
+  font-size: 11.5px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.date-chip.has-date {
+  color: var(--ink);
+  background: var(--tint);
+}
+.wtask .date-chip:not(.has-date),
+.task-row .date-chip:not(.has-date) {
+  opacity: 0;
+}
+.wtask:hover .date-chip,
+.task-row:hover .date-chip,
+.date-chip:focus-visible {
+  opacity: 1;
+}
+.date-input {
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0 4px;
+  background: var(--paper);
+}
+.q-chip.q-planned {
+  background: var(--paper);
+  box-shadow: inset 0 0 0 1px var(--ink-soft);
 }
 
 .module-toggle {

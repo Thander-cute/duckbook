@@ -1,10 +1,11 @@
-import { useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react'
-import { Label, Page, PageTitle, Spread, Write } from '../components/ui'
-import { addDays, fmtShort, isoWeek, weekStart } from '../lib/date'
+import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import { createPortal } from 'react-dom'
+import { PageTitle, Write } from '../components/ui'
+import { fmtShort, isoWeek, weekStart } from '../lib/date'
 import { href } from '../lib/router'
-import { editFocus, editWeek, uid, useFocus, useStore, type Idea } from '../lib/store'
+import { editFocus, editWork, planIdea, plannedWeeks, uid, useFocus, useStore, type Idea, type IdeaStatus } from '../lib/store'
 
-// ───────── which idea is selected (shared so a week task can open its idea) ─────────
+// ───────── which idea is selected (shared so a week or day task can open its idea) ─────────
 
 let selected: string | null = null
 const selListeners = new Set<() => void>()
@@ -35,6 +36,20 @@ export const zoneOf = (i: Pick<Idea, 'x' | 'y'>) => {
   return ZONES.find((z) => (z.x > 0.5) === (i.x! >= 0.5) && (z.y > 0.5) === (i.y! >= 0.5))!
 }
 
+const STATES: Record<IdeaStatus, { label: string; mark: string }> = {
+  idea: { label: 'Idea', mark: '○' },
+  doing: { label: 'In progress', mark: '◐' },
+  done: { label: 'Completed', mark: '✓' },
+}
+
+type Filter = 'open' | 'doing' | 'done' | 'all'
+const FILTERS: { key: Filter; label: string; test: (i: Idea) => boolean }[] = [
+  { key: 'open', label: 'Open', test: (i) => i.status !== 'done' },
+  { key: 'doing', label: 'In progress', test: (i) => i.status === 'doing' },
+  { key: 'done', label: 'Completed', test: (i) => i.status === 'done' },
+  { key: 'all', label: 'All', test: () => true },
+]
+
 const clamp01 = (n: number) => Math.round(Math.min(1, Math.max(0, n)) * 1000) / 1000
 
 function setPos(id: string, x: number | null, y: number | null) {
@@ -46,145 +61,302 @@ function setPos(id: string, x: number | null, y: number | null) {
   })
 }
 
-/** Weeks (Monday keys) that already hold a task made from each idea. */
-function useIdeaWeeks() {
-  return useStore((s) => s.weeks)
+/** A small stable tilt per note, so the board looks hand-arranged. */
+const tilt = (id: string) => {
+  let h = 0
+  for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0
+  return ((Math.abs(h) % 7) - 3) * 0.45
 }
 
-const weeksFor = (weeks: ReturnType<typeof useIdeaWeeks>, ideaId: string) =>
-  Object.keys(weeks)
-    .filter((k) => weeks[k].tasks.some((t) => t.ideaId === ideaId))
-    .sort()
+const weekLabel = (monday: string) => `Wk ${isoWeek(monday)}`
 
-const weekName = (monday: string) => `Week ${isoWeek(monday)} · ${fmtShort(monday)} – ${fmtShort(addDays(monday, 6))}`
+// ───────── dragging whole notes ─────────
+
+interface Drag {
+  id: string
+  pointerId: number
+  startX: number
+  startY: number
+  offX: number
+  offY: number
+  width: number
+  height: number
+  left: number
+  top: number
+  active: boolean
+  over: 'canvas' | 'tray' | null
+}
 
 export function FocusView({ date }: { date: string }) {
   const focus = useFocus()
-  const weeks = useIdeaWeeks()
   const sel = useSelected()
+  const [filter, setFilter] = useState<Filter>('all')
   const [draft, setDraft] = useState('')
-  const monday = weekStart(date)
-  const current = focus.ideas.find((i) => i.id === sel) ?? null
+  const [drag, setDrag] = useState<Drag | null>(null)
+  const canvas = useRef<HTMLDivElement>(null)
+  const tray = useRef<HTMLDivElement>(null)
+  const viewWeek = weekStart(date)
+
+  const shown = focus.ideas.filter(FILTERS.find((f) => f.key === filter)!.test)
+  const placed = shown.filter((i) => i.x !== null && i.y !== null)
+  const loose = shown.filter((i) => i.x === null || i.y === null)
 
   const add = () => {
     const text = draft.trim()
     if (!text) return
     const id = uid()
-    editFocus((f) => void f.ideas.push({ id, text, x: null, y: null, createdAt: new Date().toISOString() }))
+    editFocus((f) => void f.ideas.push({ id, text, x: null, y: null, status: 'idea', date: null, createdAt: new Date().toISOString() }))
     setDraft('')
     selectIdea(id)
+    if (filter === 'done') setFilter('all')
   }
 
+  // Bring a note opened from Week or Day into view.
+  useEffect(() => {
+    if (!sel) return
+    const el = document.querySelector<HTMLElement>(`[data-note="${sel}"]`)
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [sel])
+
+  const startDrag = (idea: Idea, e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('textarea, input, select, button, a')) return
+    const r = e.currentTarget.getBoundingClientRect()
+    selectIdea(idea.id)
+    setDrag({ id: idea.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, offX: e.clientX - r.left, offY: e.clientY - r.top, width: r.width, height: r.height, left: r.left, top: r.top, active: false, over: null })
+  }
+
+  useEffect(() => {
+    if (!drag) return
+    const hit = (el: HTMLElement | null, x: number, y: number) => {
+      const r = el?.getBoundingClientRect()
+      return !!r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom
+    }
+    const move = (e: PointerEvent) => {
+      if (e.pointerId !== drag.pointerId) return
+      const active = drag.active || Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 4
+      if (!active) return
+      e.preventDefault()
+      const over = hit(tray.current, e.clientX, e.clientY) ? 'tray' : hit(canvas.current, e.clientX, e.clientY) ? 'canvas' : null
+      setDrag({ ...drag, active, over, left: e.clientX - drag.offX, top: e.clientY - drag.offY })
+    }
+    const up = (e: PointerEvent) => {
+      if (e.pointerId !== drag.pointerId) return
+      if (drag.active && drag.over === 'canvas' && canvas.current) {
+        const r = canvas.current.getBoundingClientRect()
+        // The note's center lands where it was let go.
+        const cx = drag.left + drag.width / 2
+        const cy = drag.top + drag.height / 2
+        setPos(drag.id, (cx - r.left) / r.width, 1 - (cy - r.top) / r.height)
+      } else if (drag.active && drag.over === 'tray') setPos(drag.id, null, null)
+      setDrag(null)
+    }
+    window.addEventListener('pointermove', move, { passive: false })
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+  }, [drag])
+
+  const lifted = drag?.active ? focus.ideas.find((i) => i.id === drag.id) : undefined
+
+  const note = (idea: Idea, where: 'canvas' | 'tray') => (
+    <Note
+      key={idea.id}
+      idea={idea}
+      where={where}
+      selected={idea.id === sel}
+      ghost={drag?.active === true && drag.id === idea.id}
+      viewWeek={viewWeek}
+      onPointerDown={(e) => startDrag(idea, e)}
+    />
+  )
+
   return (
-    <Spread>
-      <Page side="left" className="focus-list">
-        <PageTitle caps="FOCUS" italic="map" />
-        <p className="page-sub">Ideas, not tasks yet. Place each one by how much it matters and how hard it is, then bring the worthwhile ones into a week.</p>
-
-        <Label>Ideas</Label>
-        <ul className="idea-list">
-          {focus.ideas.map((idea) => {
-            const z = zoneOf(idea)
-            const inWeeks = weeksFor(weeks, idea.id)
-            return (
-              <li key={idea.id} className={`idea-row ${idea.id === sel ? 'is-selected' : ''}`} onClick={() => selectIdea(idea.id)}>
-                <span className={`idea-dot ${z ? 'is-placed' : ''} ${inWeeks.length ? 'is-linked' : ''}`} aria-hidden />
-                <Write
-                  value={idea.text}
-                  onChange={(v) => editFocus((f) => void (f.ideas.find((i) => i.id === idea.id)!.text = v))}
-                  singleLine
-                  ariaLabel="Idea"
-                />
-                <span className="idea-zone">{z ? z.name : 'not placed'}</span>
-              </li>
-            )
-          })}
-        </ul>
-        <div className="add-task idea-add">
-          <Write
-            value={draft}
-            onChange={setDraft}
-            placeholder="Jot an idea, press Enter"
-            singleLine
-            ariaLabel="New idea"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                add()
-              }
-            }}
-          />
+    <section className="sheet focus-sheet">
+      <header className="focus-head">
+        <div>
+          <PageTitle caps="FOCUS" italic="map" />
+          <p className="page-sub">Ideas on paper. Place each by how much it matters and how hard it is; plan the good ones into a week.</p>
         </div>
+        <div className="filters" role="radiogroup" aria-label="Show">
+          {FILTERS.map((f) => (
+            <button key={f.key} role="radio" aria-checked={filter === f.key} className={`filter ${filter === f.key ? 'is-on' : ''}`} onClick={() => setFilter(f.key)}>
+              {f.label} <span className="count">{focus.ideas.filter(f.test).length}</span>
+            </button>
+          ))}
+        </div>
+      </header>
 
-        {current && <IdeaDetail idea={current} monday={monday} inWeeks={weeksFor(weeks, current.id)} />}
-      </Page>
+      <div className="focus-board">
+        <aside ref={tray} className={`tray ${drag?.active && drag.over === 'tray' ? 'is-over' : ''}`} aria-label="Unplaced ideas">
+          <div className="tray-label">Tray</div>
+          <div className="tray-new">
+            <Write
+              value={draft}
+              onChange={setDraft}
+              placeholder="New idea, press Enter"
+              singleLine
+              ariaLabel="New idea"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  add()
+                }
+              }}
+            />
+          </div>
+          <div className="tray-notes">{loose.map((i) => note(i, 'tray'))}</div>
+          {!loose.length && <p className="muted small tray-empty">Drag a note here to take it off the map.</p>}
+        </aside>
 
-      <Page side="right" className="focus-map-page">
-        <FocusMap ideas={focus.ideas} selected={sel} linked={(id) => weeksFor(weeks, id).length > 0} />
-        <p className="muted small map-hint">
-          {current
-            ? current.x === null
-              ? 'Click the map to place the selected idea, or pick a zone on the left.'
-              : 'Drag a dot, or focus it and use the arrow keys (Shift for small steps).'
-            : 'Select an idea to place it.'}
-        </p>
-      </Page>
-    </Spread>
+        <div className="canvas-wrap">
+          <span className="map-axis axis-top">High impact</span>
+          <span className="map-axis axis-bottom">Low impact</span>
+          <span className="map-axis axis-left">Hard</span>
+          <span className="map-axis axis-right">Easy</span>
+          <div ref={canvas} className={`canvas ${drag?.active && drag.over === 'canvas' ? 'is-over' : ''}`} aria-label="Impact and difficulty map">
+            {ZONES.map((z) => (
+              <span key={z.key} className={`zone-label zone-${z.key}`}>
+                {z.name}
+              </span>
+            ))}
+            {placed.map((i) => note(i, 'canvas'))}
+          </div>
+        </div>
+      </div>
+
+      {lifted &&
+        createPortal(
+          <div className={`note lifted state-${lifted.status}`} style={{ left: drag!.left, top: drag!.top, width: drag!.width }} aria-hidden>
+            <div className="note-head">
+              <span className="state-tag">
+                {STATES[lifted.status].mark} {STATES[lifted.status].label}
+              </span>
+            </div>
+            <div className="note-text-static">{lifted.text}</div>
+          </div>,
+          document.body,
+        )}
+    </section>
   )
 }
 
-function IdeaDetail({ idea, monday, inWeeks }: { idea: Idea; monday: string; inWeeks: string[] }) {
+function Note({
+  idea,
+  where,
+  selected,
+  ghost,
+  viewWeek,
+  onPointerDown,
+}: {
+  idea: Idea
+  where: 'canvas' | 'tray'
+  selected: boolean
+  ghost: boolean
+  viewWeek: string
+  onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void
+}) {
+  const weeks = useStore((s) => s.weeks)
+  const planned = plannedWeeks({ weeks } as Parameters<typeof plannedWeeks>[0], idea.id)
+  const [editingDate, setEditingDate] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
-  const already = inWeeks.includes(monday)
+  const target = idea.date ? weekStart(idea.date) : viewWeek
   const z = zoneOf(idea)
+  const st = STATES[idea.status]
 
-  const promote = () => {
-    if (already || !idea.text.trim()) return
-    editWeek(monday, (w) => {
-      if (w.tasks.some((t) => t.ideaId === idea.id)) return
-      w.tasks.push({ id: uid(), text: idea.text.trim(), q: null, done: false, ideaId: idea.id })
-    })
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return
+    const step = e.shiftKey ? 0.01 : 0.04
+    const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key]
+    if (!d) return
+    // Arrows move the note; they must not also flip the week in the top bar.
+    e.preventDefault()
+    e.stopPropagation()
+    setPos(idea.id, (idea.x ?? 0.5) + d[0], (idea.y ?? 0.5) + d[1])
   }
 
+  const nextState = idea.status === 'idea' ? { to: 'doing' as const, label: 'Start' } : idea.status === 'doing' ? { to: 'done' as const, label: 'Complete' } : { to: 'doing' as const, label: 'Reopen' }
+
   return (
-    <div className="idea-detail">
-      <Label hint={z ? z.hint : undefined}>Place it</Label>
-      <div className="zone-pick" role="group" aria-label="Place in a zone">
-        {ZONES.map((zone) => (
-          <button key={zone.key} className={`zone-btn zone-${zone.key} ${z?.key === zone.key ? 'is-on' : ''}`} onClick={() => setPos(idea.id, zone.x, zone.y)} title={zone.hint}>
-            {zone.name}
-          </button>
-        ))}
+    <div
+      data-note={idea.id}
+      className={`note state-${idea.status} in-${where} ${selected ? 'is-selected' : ''} ${ghost ? 'is-ghost' : ''}`}
+      style={where === 'canvas' ? { left: `${idea.x! * 100}%`, top: `${(1 - idea.y!) * 100}%`, rotate: `${tilt(idea.id)}deg` } : undefined}
+      tabIndex={0}
+      role="group"
+      aria-label={`${idea.text || 'Untitled idea'}. ${st.label}${z ? `, ${z.name}` : ', in the tray'}. Arrow keys move it.`}
+      onPointerDown={onPointerDown}
+      onFocus={() => selectIdea(idea.id)}
+      onKeyDown={onKey}
+    >
+      <div className="note-head">
+        <span className="state-tag" aria-hidden>
+          {st.mark} {st.label}
+        </span>
+        <span className="grip" aria-hidden title="Drag to move">
+          ⠿
+        </span>
       </div>
-      {z && (
-        <button className="text-link" onClick={() => setPos(idea.id, null, null)}>
-          take it off the map
+      <Write value={idea.text} onChange={(v) => editWork(idea.id, { text: v })} ariaLabel="Idea" className="note-text" />
+
+      <div className="note-foot">
+        <button className="note-act" onClick={() => editWork(idea.id, { status: nextState.to })}>
+          {nextState.label}
         </button>
-      )}
 
-      <Label>Bring into a week</Label>
-      <button className="pomo-btn promote" disabled={already || !idea.text.trim()} onClick={promote}>
-        {already ? `Already in ${weekName(monday)}` : `Add to ${weekName(monday)}`}
-      </button>
-      <p className="muted small">Change the week with ‹ › at the top. It arrives unsorted in “Tasks of the week”, ready for the matrix.</p>
-      {inWeeks.length > 0 && (
-        <p className="small idea-weeks">
-          In:{' '}
-          {inWeeks.map((w, i) => (
-            <span key={w}>
-              {i > 0 && ', '}
-              <a href={href('week', w)}>{weekName(w)}</a>
-            </span>
+        {editingDate ? (
+          <input
+            type="date"
+            className="date-input"
+            autoFocus
+            aria-label="Planned date"
+            value={idea.date ?? ''}
+            onChange={(e) => editWork(idea.id, { date: e.target.value || null })}
+            onBlur={() => setEditingDate(false)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === 'Escape') && setEditingDate(false)}
+          />
+        ) : (
+          <button className={`date-chip ${idea.date ? 'has-date' : ''}`} onClick={() => setEditingDate(true)} aria-label={idea.date ? `Planned ${fmtShort(idea.date)}, change` : 'Set a planned date'}>
+            {idea.date ? fmtShort(idea.date) : '+ date'}
+          </button>
+        )}
+
+        {planned.includes(target) ? (
+          <a className="note-act is-planned" href={href('week', target)} title="Planned in this week">
+            {weekLabel(target)} ↗
+          </a>
+        ) : (
+          <button className="note-act" disabled={!idea.text.trim()} onClick={() => planIdea(idea.id, target)} title={planned.length ? `Planned in ${planned.map(weekLabel).join(', ')}` : undefined}>
+            {planned.length ? `Move to ${weekLabel(target)}` : `Plan · ${weekLabel(target)}`}
+          </button>
+        )}
+
+        <select
+          className="place-select"
+          aria-label="Place"
+          value={z ? z.key : where === 'tray' ? 'tray' : ''}
+          onChange={(e) => {
+            const v = e.target.value
+            if (v === 'tray') return setPos(idea.id, null, null)
+            const zone = ZONES.find((x) => x.key === v)
+            if (zone) setPos(idea.id, zone.x, zone.y)
+          }}
+        >
+          <option value="tray">Tray</option>
+          {ZONES.map((zone) => (
+            <option key={zone.key} value={zone.key}>
+              {zone.name}
+            </option>
           ))}
-        </p>
-      )}
+        </select>
 
-      <div className="idea-remove">
         {confirmRemove ? (
-          <>
-            <span className="small">Remove this idea? Tasks already made from it stay in their weeks.</span>
+          <span className="remove-confirm">
             <button
-              className="text-btn"
+              className="note-act"
               onClick={() => {
                 editFocus((f) => void (f.ideas = f.ideas.filter((i) => i.id !== idea.id)))
                 selectIdea(null)
@@ -192,94 +364,15 @@ function IdeaDetail({ idea, monday, inWeeks }: { idea: Idea; monday: string; inW
             >
               Remove
             </button>
-            <button className="text-btn" onClick={() => setConfirmRemove(false)}>
-              Cancel
+            <button className="note-act" onClick={() => setConfirmRemove(false)}>
+              Keep
             </button>
-          </>
+          </span>
         ) : (
-          <button className="text-link" onClick={() => setConfirmRemove(true)}>
-            remove idea…
+          <button className="note-x" aria-label="Remove idea" title="Remove idea (planned tasks stay in their weeks)" onClick={() => setConfirmRemove(true)}>
+            ×
           </button>
         )}
-      </div>
-    </div>
-  )
-}
-
-function FocusMap({ ideas, selected: sel, linked }: { ideas: Idea[]; selected: string | null; linked: (id: string) => boolean }) {
-  const area = useRef<HTMLDivElement>(null)
-  const [drag, setDrag] = useState<{ id: string; x: number; y: number; moved: boolean } | null>(null)
-
-  const toXY = (e: { clientX: number; clientY: number }) => {
-    const r = area.current!.getBoundingClientRect()
-    return { x: clamp01((e.clientX - r.left) / r.width), y: clamp01(1 - (e.clientY - r.top) / r.height) }
-  }
-
-  const onAreaClick = (e: MouseEvent) => {
-    if (e.target !== area.current && !(e.target as HTMLElement).classList.contains('zone-label')) return
-    if (!sel) return
-    const { x, y } = toXY(e)
-    setPos(sel, x, y)
-  }
-
-  const onPinKey = (idea: Idea, e: KeyboardEvent) => {
-    const step = e.shiftKey ? 0.01 : 0.05
-    const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key]
-    if (!d) return
-    // Arrows move the dot here; they must not also flip the week in the top bar.
-    e.preventDefault()
-    e.stopPropagation()
-    selectIdea(idea.id)
-    setPos(idea.id, (idea.x ?? 0.5) + d[0], (idea.y ?? 0.5) + d[1])
-  }
-
-  return (
-    <div className="focus-map-wrap">
-      <span className="map-axis axis-top">High impact</span>
-      <span className="map-axis axis-bottom">Low impact</span>
-      <span className="map-axis axis-left">Hard</span>
-      <span className="map-axis axis-right">Easy</span>
-      <div ref={area} className={`focus-map ${sel ? 'has-selection' : ''}`} onClick={onAreaClick} aria-label="Focus Map">
-        {ZONES.map((z) => (
-          <span key={z.key} className={`zone-label zone-${z.key}`}>
-            {z.name}
-          </span>
-        ))}
-        {ideas.map((idea) => {
-          const live = drag?.id === idea.id ? drag : null
-          const x = live ? live.x : idea.x
-          const y = live ? live.y : idea.y
-          if (x === null || y === null) return null
-          const z = zoneOf({ x, y })!
-          return (
-            <button
-              key={idea.id}
-              className={`pin ${idea.id === sel ? 'is-selected' : ''} ${linked(idea.id) ? 'is-linked' : ''}`}
-              style={{ left: `${x * 100}%`, top: `${(1 - y) * 100}%` }}
-              aria-label={`${idea.text || 'Untitled idea'}: ${z.name}. Arrow keys move it.`}
-              title={idea.text}
-              onKeyDown={(e) => onPinKey(idea, e)}
-              onFocus={() => selectIdea(idea.id)}
-              onPointerDown={(e: PointerEvent<HTMLButtonElement>) => {
-                e.currentTarget.setPointerCapture(e.pointerId)
-                selectIdea(idea.id)
-                setDrag({ id: idea.id, x, y, moved: false })
-              }}
-              onPointerMove={(e) => {
-                if (drag?.id !== idea.id) return
-                setDrag({ id: idea.id, ...toXY(e), moved: true })
-              }}
-              onPointerUp={() => {
-                if (drag?.id === idea.id && drag.moved) setPos(idea.id, drag.x, drag.y)
-                setDrag(null)
-              }}
-              onPointerCancel={() => setDrag(null)}
-            >
-              <span className="pin-dot" />
-              <span className="pin-label">{idea.text.length > 22 ? `${idea.text.slice(0, 21)}…` : idea.text}</span>
-            </button>
-          )
-        })}
       </div>
     </div>
   )
