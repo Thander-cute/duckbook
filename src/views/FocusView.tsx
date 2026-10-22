@@ -37,10 +37,10 @@ export const zoneOf = (i: Pick<Idea, 'x' | 'y'>) => {
   return ZONES.find((z) => (z.x > 0.5) === (i.x! >= 0.5) && (z.y > 0.5) === (i.y! >= 0.5))!
 }
 
-const STATES: Record<IdeaStatus, { label: string; mark: string }> = {
-  idea: { label: 'Idea', mark: '○' },
-  doing: { label: 'In progress', mark: '◐' },
-  done: { label: 'Completed', mark: '✓' },
+const STATES: Record<IdeaStatus, { label: string }> = {
+  idea: { label: 'Idea' },
+  doing: { label: 'In progress' },
+  done: { label: 'Completed' },
 }
 
 type Filter = 'open' | 'doing' | 'done' | 'all'
@@ -121,6 +121,9 @@ export function FocusView({ date }: { date: string }) {
 
   const startDrag = (idea: Idea, e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest('textarea, input, select, button, a')) return
+    // No text selection sweeping across other notes while dragging; focus the note by hand instead.
+    e.preventDefault()
+    e.currentTarget.focus({ preventScroll: true })
     const r = e.currentTarget.getBoundingClientRect()
     selectIdea(idea.id)
     setDrag({ id: idea.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, offX: e.clientX - r.left, offY: e.clientY - r.top, width: r.width, height: r.height, left: r.left, top: r.top, active: false, over: null })
@@ -180,7 +183,7 @@ export function FocusView({ date }: { date: string }) {
       <header className="focus-head">
         <div>
           <PageTitle caps="FOCUS" italic="map" />
-          <p className="page-sub">Ideas on paper. Place each by how much it matters and how hard it is; plan the good ones into a week.</p>
+          <p className="page-sub">Place each idea by how much it matters and how hard it is.</p>
         </div>
         <div className="filters" role="radiogroup" aria-label="Show">
           {FILTERS.map((f) => (
@@ -193,12 +196,11 @@ export function FocusView({ date }: { date: string }) {
 
       <div className="focus-board">
         <aside ref={tray} className={`tray ${drag?.active && drag.over === 'tray' ? 'is-over' : ''}`} aria-label="Unplaced ideas">
-          <div className="tray-label">Tray</div>
-          <div className="tray-new">
+          <div className="pad">
             <Write
               value={draft}
               onChange={setDraft}
-              placeholder="New idea, press Enter"
+              placeholder="Write an idea…"
               singleLine
               ariaLabel="New idea"
               onKeyDown={(e) => {
@@ -209,6 +211,10 @@ export function FocusView({ date }: { date: string }) {
               }}
             />
           </div>
+          <p className="pad-hint">Enter to tear it off</p>
+          <div className="tray-label">
+            Tray <span>{loose.length ? 'drag onto the map' : ''}</span>
+          </div>
           <div className="tray-notes">{loose.map((i) => note(i, 'tray'))}</div>
           {!loose.length && <p className="muted small tray-empty">Drag a note here to take it off the map.</p>}
         </aside>
@@ -218,7 +224,12 @@ export function FocusView({ date }: { date: string }) {
           <span className="map-axis axis-bottom">Low impact</span>
           <span className="map-axis axis-left">Hard</span>
           <span className="map-axis axis-right">Easy</span>
-          <div ref={canvas} className={`canvas ${drag?.active && drag.over === 'canvas' ? 'is-over' : ''}`} aria-label="Impact and difficulty map">
+          <div
+            ref={canvas}
+            className={`canvas ${drag?.active && drag.over === 'canvas' ? 'is-over' : ''}`}
+            aria-label="Impact and difficulty map"
+            onPointerDown={(e) => e.target === e.currentTarget && selectIdea(null)}
+          >
             {ZONES.map((z) => (
               <span key={z.key} className={`zone-label zone-${z.key}`}>
                 {z.name}
@@ -231,12 +242,8 @@ export function FocusView({ date }: { date: string }) {
 
       {lifted &&
         createPortal(
-          <div className={`note lifted state-${lifted.status}`} style={{ left: drag!.left, top: drag!.top, width: drag!.width }} aria-hidden>
-            <div className="note-head">
-              <span className="state-tag">
-                {STATES[lifted.status].mark} {STATES[lifted.status].label}
-              </span>
-            </div>
+          <div className={`note lifted state-${lifted.status}`} style={{ left: drag!.left, top: drag!.top, width: drag!.width, minHeight: drag!.height }} aria-hidden>
+            <div className="note-head" />
             <div className="note-text-static">{lifted.text}</div>
           </div>,
           document.body,
@@ -272,6 +279,11 @@ function Note({
     if (e.target !== e.currentTarget) return
     const step = e.shiftKey ? 0.01 : 0.04
     const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[e.key]
+    if (e.key === 'Escape') {
+      e.stopPropagation()
+      selectIdea(null)
+      return e.currentTarget.blur()
+    }
     if (!d) return
     // Arrows move the note; they must not also flip the week in the top bar.
     e.preventDefault()
@@ -280,12 +292,15 @@ function Note({
   }
 
   const nextState = idea.status === 'idea' ? { to: 'doing' as const, label: 'Start' } : idea.status === 'doing' ? { to: 'done' as const, label: 'Complete' } : { to: 'doing' as const, label: 'Reopen' }
+  const plannedIn = planned.length ? planned[planned.length - 1] : null
+  // Near the top of the map the bar would cover the header, so it sits below the note there.
+  const below = where === 'canvas' && idea.y! > 0.82
 
   return (
     <div
       data-note={idea.id}
       className={`note state-${idea.status} in-${where} ${selected ? 'is-selected' : ''} ${ghost ? 'is-ghost' : ''}`}
-      style={where === 'canvas' ? { left: `${idea.x! * 100}%`, top: `${(1 - idea.y!) * 100}%`, rotate: `${tilt(idea.id)}deg` } : undefined}
+      style={{ ...(where === 'canvas' ? { left: `${idea.x! * 100}%`, top: `${(1 - idea.y!) * 100}%` } : {}), ['--tilt' as string]: `${tilt(idea.id)}deg` }}
       tabIndex={0}
       role="group"
       aria-label={`${idea.text || 'Untitled idea'}. ${st.label}${z ? `, ${z.name}` : ', in the tray'}. Arrow keys move it.`}
@@ -293,21 +308,29 @@ function Note({
       onFocus={() => selectIdea(idea.id)}
       onKeyDown={onKey}
     >
-      <div className="note-head">
-        <span className="state-tag" aria-hidden>
-          {st.mark} {st.label}
+      <div className="note-head" aria-hidden title="Drag to move" />
+      {idea.status === 'done' && (
+        <span className="stamp" aria-hidden>
+          ✓
         </span>
-        <span className="grip" aria-hidden title="Drag to move">
-          ⠿
-        </span>
-      </div>
+      )}
       <Write value={idea.text} onChange={(v) => editWork(idea.id, { text: v })} ariaLabel="Idea" className="note-text" />
 
-      <div className="note-foot">
+      {(idea.status !== 'idea' || idea.date || plannedIn) && (
+        <div className="note-meta" aria-hidden>
+          <span>{idea.status === 'doing' ? '◐ in progress' : idea.status === 'done' ? 'done' : ''}</span>
+          <span>
+            {idea.date && fmtShort(idea.date)}
+            {plannedIn && <span className="note-wk">{weekLabel(plannedIn)}</span>}
+          </span>
+        </div>
+      )}
+
+      <div className={`note-bar ${below ? 'is-below' : ''}`} role="toolbar" aria-label="Idea actions">
         <button className="note-act" onClick={() => editWork(idea.id, { status: nextState.to })}>
           {nextState.label}
         </button>
-
+        <span className="bar-sep" />
         {editingDate ? (
           <DateField value={idea.date} onCommit={(date) => editWork(idea.id, { date })} onDone={() => setEditingDate(false)} />
         ) : (
@@ -315,7 +338,6 @@ function Note({
             {idea.date ? fmtShort(idea.date) : '+ date'}
           </button>
         )}
-
         {planned.includes(target) ? (
           <a className="note-act is-planned" href={href('week', target)} title="Planned in this week">
             {weekLabel(target)} ↗
@@ -325,7 +347,7 @@ function Note({
             {planned.length ? `Move to ${weekLabel(target)}` : `Plan · ${weekLabel(target)}`}
           </button>
         )}
-
+        <span className="bar-sep" />
         <select
           className="place-select"
           aria-label="Place"
@@ -344,7 +366,6 @@ function Note({
             </option>
           ))}
         </select>
-
         {confirmRemove ? (
           <span className="remove-confirm">
             <button
@@ -362,7 +383,7 @@ function Note({
           </span>
         ) : (
           <button className="note-x" aria-label="Remove idea" title="Remove idea (planned tasks stay in their weeks)" onClick={() => setConfirmRemove(true)}>
-            ×
+            ✕
           </button>
         )}
       </div>

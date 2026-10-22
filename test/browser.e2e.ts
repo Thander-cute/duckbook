@@ -258,7 +258,7 @@ async function main() {
     })
 
     await step('Focus Map: write a note in the tray, drag it onto the map, nudge it with keys', async () => {
-      await page.click('.tray-new textarea')
+      await page.click('.pad textarea')
       await page.keyboard.type('synthetic note alpha')
       await page.keyboard.press('Enter')
       await page.waitForSelector('.tray .note')

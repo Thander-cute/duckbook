@@ -50,8 +50,8 @@ Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect �
 **Settings** (⚙) is its own page with paper tabs: Notebook, Focus timer, Privacy, Data (backups, export/import), Add-ons. Back or Esc returns to where you were.
 
 **Focus Map** (optional, Settings → Add-ons) is a board of sticky notes on an impact × difficulty map (left hard, right easy; top high impact, bottom low).
-- **Write and place:** write a new idea in the Tray, then drag the note onto the map. You can also focus a note and use the arrow keys, or use its Place menu.
-- **States:** each note has a state (Idea, In progress, Completed) and an optional planned date. Start, Complete, Reopen, the date, and Plan all sit on the note.
+- **Write and place:** write on the blank note at the top of the pad and press Enter; it drops into the Tray. Drag a note by its top edge onto the map. You can also focus a note and use the arrow keys, or use Place in its bar.
+- **States:** each note has a state (Idea, In progress, Completed) and an optional planned date. Click a note to show its bar: Start, Complete, Reopen, the date, Plan, Place, remove. A note in progress is pale blue, a completed one grey with a ✓; its date and week are written at the foot. Esc or a click on the empty map puts the bar away.
 - **Planning:** Plan puts the idea once into the week of its date, or the week shown in the top bar, ready for the matrix. It stays one piece of work: rename it, tick it done, or change its date from Week, Day, or the note, and every place agrees. Changing the date moves it to that week.
 - **Day page:** ideas planned for a day show up in that day's "Pick from your plan".
 - **Turning it off:** hides the board and its marks; your notes and links are kept.

@@ -65,3 +65,14 @@ Photos, Year view, mobile, AI, encryption, recurring items, unplanning or deleti
   - It now discards the tab's whole unsaved batch. "Keep this tab's" says it overwrites.
   - Duplicate task ids are shown once when read.
 - **Version check only ran at boot.** It now also runs on unlock and status reload. The server refuses writes whose `X-Duckbook-Api` doesn't match, so a tab left open across an update is asked to reload.
+
+## Follow-up: calmer notes (owner: "êm êm, làm đi", 2026-10-22)
+- The owner found the first notes ugly: they looked like form cards (an IDEA label and a grip on every note), the action row grew inside the selected note and pushed into its neighbours, and "create" was a bare input line.
+- Mockup in docs/mockups/focus-notes.html, approved with yellow notes and a floating bar.
+- Notes are now paper and words only:
+  - square-ish yellow notes; in progress pale blue, completed grey with a ✓ stamp;
+  - a quiet word, the date, and the week at the foot;
+  - the top band is where you pick a note up.
+- The selected note's actions float above it in one dark bar (below it near the top of the map), so the note never changes size.
+- New ideas are written on a sticky pad; Enter drops the note into the Tray, now a two-column pile of small notes.
+- No data or behaviour change, so API_LEVEL stays 3.

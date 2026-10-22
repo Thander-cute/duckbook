@@ -1,0 +1,111 @@
+<!doctype html>
+<!-- Static mockup, synthetic text only. Open directly in a browser. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>duckbook · Focus Map mockup</title>
+<link rel="stylesheet" href="../../node_modules/@fontsource/newsreader/400.css" />
+<link rel="stylesheet" href="../../node_modules/@fontsource/newsreader/500.css" />
+<link rel="stylesheet" href="../../node_modules/@fontsource/newsreader/600.css" />
+<link rel="stylesheet" href="../../node_modules/@fontsource/newsreader/400-italic.css" />
+<style>
+:root {
+  --desk: #eef1f8; --paper: #fff; --ink: #26346b; --ink-soft: #55628f; --muted: #8d99bd;
+  --rule: #c9d2ea; --rule-soft: #e2e7f4; --tint: #e6ebf7; --tint-2: #c3cee9;
+  --serif: 'Newsreader', Georgia, serif;
+  --n-idea: #fdf4c9; --n-doing: #dfe9fb; --n-done: #f1f2ee;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--desk); color: var(--ink); font: 15px var(--serif); -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.sheet { margin: 24px 40px; background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 34px 44px 40px; box-shadow: 0 12px 40px -12px rgba(38,52,107,.16); }
+.head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 22px; }
+.head h1 { margin: 0; font-weight: 500; font-size: 26px; letter-spacing: .02em; }
+.head h1 i { font-weight: 400; }
+.head p { margin: 0; color: var(--muted); font-style: italic; font-size: 14px; flex: 1; }
+.filters { display: flex; gap: 16px; font-size: 13.5px; color: var(--ink-soft); }
+.filters button { padding-bottom: 2px; border-bottom: 1.5px solid transparent; }
+.filters .on { color: var(--ink); border-color: var(--ink); }
+.filters small { color: var(--muted); }
+
+.board { display: grid; grid-template-columns: 200px 1fr; gap: 36px; align-items: start; }
+
+/* the pad: a stack of blank notes you write on directly */
+.pad { position: relative; width: 168px; height: 150px; margin: 4px 0 34px 6px; }
+.pad::before, .pad::after { content: ''; position: absolute; inset: 0; border-radius: 2px; }
+.pad::before { transform: translate(5px, 6px) rotate(1.6deg); background: #efe0a2; }
+.pad::after { transform: translate(2px, 3px) rotate(-.8deg); background: #f6e9b2; }
+.pad .top { position: absolute; inset: 0; z-index: 1; background: var(--n-idea); border-radius: 2px; padding: 14px;
+  box-shadow: 0 1px 1px rgba(38,52,107,.08); background-image: linear-gradient(rgba(180,150,40,.10), transparent 18px); }
+.pad textarea { width: 100%; height: 100%; border: 0; background: transparent; resize: none; outline: none; font: 17px/1.35 var(--serif); color: var(--ink); }
+.pad textarea::placeholder { color: #b3a466; font-style: italic; font-size: 15px; }
+.pad .hint { position: absolute; z-index: 2; left: 0; right: 0; bottom: -24px; text-align: center; font-size: 12px; color: var(--muted); font-style: italic; }
+
+.tray-label { font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 8px; display: flex; justify-content: space-between; }
+.tray-label span { color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; font-style: italic; }
+.tray { display: flex; flex-wrap: wrap; gap: 10px 8px; padding: 12px 4px; border-top: 1px solid var(--rule); min-height: 160px; }
+.tray .note { position: relative; width: 92px; min-height: 82px; font-size: 13px; padding: 9px; }
+
+/* notes: just paper and words; state lives in a quiet corner mark */
+.note { position: absolute; width: 142px; min-height: 118px; padding: 13px 13px 26px; background: var(--n-idea);
+  border-radius: 2px; font-size: 15.5px; line-height: 1.32; color: var(--ink); cursor: grab;
+  background-image: linear-gradient(rgba(180,150,40,.10), transparent 18px);
+  box-shadow: 0 1px 1px rgba(38,52,107,.07), 0 10px 16px -12px rgba(38,52,107,.45); }
+.note.doing { background-color: var(--n-doing); background-image: linear-gradient(rgba(60,90,170,.08), transparent 18px); }
+.note.done { background-color: var(--n-done); background-image: none; color: var(--ink-soft); }
+.note.done .t { text-decoration: line-through; text-decoration-color: var(--muted); }
+.note .meta { position: absolute; left: 13px; right: 11px; bottom: 7px; display: flex; justify-content: space-between; font-size: 11.5px; font-style: italic; color: var(--ink-soft); }
+.note .meta .wk { font-style: normal; font-size: 10.5px; letter-spacing: .04em; color: var(--muted); }
+.note .stamp { position: absolute; top: -9px; right: -9px; width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--ink-soft); background: var(--paper); color: var(--ink); display: grid; place-items: center; font-size: 13px; rotate: 8deg; }
+.note.sel { box-shadow: 0 0 0 1px var(--ink-soft), 0 14px 24px -12px rgba(38,52,107,.55); z-index: 5; }
+
+/* the selected note's actions float above it; the note itself never changes size */
+.bar { position: absolute; z-index: 6; translate: -50% 0; display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--ink); color: var(--paper); border-radius: 999px; font-size: 12.5px; white-space: nowrap; box-shadow: 0 8px 18px -8px rgba(38,52,107,.6); }
+.bar button { padding: 4px 10px; border-radius: 999px; color: #e9edf8; }
+.bar button:hover { background: rgba(255,255,255,.12); }
+.bar .sep { width: 1px; height: 14px; background: rgba(255,255,255,.25); margin: 0 2px; }
+.bar::after { content: ''; position: absolute; left: 50%; bottom: -5px; translate: -50% 0; border: 5px solid transparent; border-bottom: 0; border-top-color: var(--ink); }
+
+.wrap { position: relative; padding: 24px 28px; }
+.canvas { position: relative; height: 640px; border-radius: 2px;
+  background: linear-gradient(var(--rule), var(--rule)) center/1px 100% no-repeat, linear-gradient(var(--rule), var(--rule)) center/100% 1px no-repeat, radial-gradient(circle, var(--rule-soft) 1px, transparent 1.4px) 0 0/24px 24px; }
+.zone { position: absolute; font-size: 14px; font-style: italic; color: var(--muted); pointer-events: none; }
+.z1 { left: 10px; top: 6px; } .z2 { right: 10px; top: 6px; } .z3 { left: 10px; bottom: 6px; } .z4 { right: 10px; bottom: 6px; }
+.axis { position: absolute; font-size: 11px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.a-top { top: 2px; left: 50%; translate: -50% 0; } .a-bot { bottom: 2px; left: 50%; translate: -50% 0; }
+.a-l { left: 0; top: 50%; transform: translate(-30%,-50%) rotate(-90deg); } .a-r { right: 0; top: 50%; transform: translate(30%,-50%) rotate(90deg); }
+</style>
+</head>
+<body>
+<section class="sheet">
+  <header class="head">
+    <h1>FOCUS <i>map</i></h1>
+    <p>Place each idea by how much it matters and how hard it is.</p>
+    <nav class="filters"><button>Open <small>7</small></button><button>In progress <small>1</small></button><button>Completed <small>1</small></button><button class="on">All <small>8</small></button></nav>
+  </header>
+  <div class="board">
+    <aside>
+      <div class="pad"><div class="top"><textarea placeholder="Write an idea…"></textarea></div><div class="hint">Enter to tear it off</div></div>
+      <div class="tray-label">Tray <span>drag onto the map</span></div>
+      <div class="tray">
+        <div class="note" style="rotate:-1.5deg"><span class="t">Call grandma on Sunday</span></div>
+        <div class="note" style="rotate:1.2deg"><span class="t">Try a 5am morning for a week</span></div>
+      </div>
+    </aside>
+    <div class="wrap">
+      <span class="axis a-top">High impact</span><span class="axis a-bot">Low impact</span><span class="axis a-l">Hard</span><span class="axis a-r">Easy</span>
+      <div class="canvas">
+        <span class="zone z1">Big bets</span><span class="zone z2">Quick wins</span><span class="zone z3">Let go</span><span class="zone z4">Fill-ins</span>
+        <div class="note" style="left:12%;top:6%;rotate:-1.2deg"><span class="t">Write the Q4 essay on attention and slow tools</span><div class="meta"><span>Thu 30</span><span class="wk">WK 44</span></div></div>
+        <div class="bar" style="left:calc(32% + 71px);top:calc(30% - 44px)"><button>Start</button><span class="sep"></span><button>+ date</button><button>Plan · Wk 43</button><span class="sep"></span><button>Place ▾</button><button title="Remove">✕</button></div>
+        <div class="note sel" style="left:32%;top:30%;rotate:.6deg"><span class="t">Learn basic Figma auto-layout</span></div>
+        <div class="note doing" style="left:68%;top:8%;rotate:1deg"><span class="t">Rewrite onboarding emails</span><div class="meta"><span>◐ in progress</span><span>Sat 24</span></div></div>
+        <div class="note done" style="left:84%;top:30%;rotate:-1.6deg"><span class="stamp">✓</span><span class="t">Book dentist</span><div class="meta"><span>done</span></div></div>
+        <div class="note" style="left:9%;top:66%;rotate:.9deg"><span class="t">Start a sourdough habit</span></div>
+        <div class="note" style="left:62%;top:72%;rotate:-.7deg"><span class="t">Clean up the garage</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+</body>
+</html>
