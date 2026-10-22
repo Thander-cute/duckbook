@@ -1772,3 +1772,262 @@ button {
 .text-btn:disabled {
   opacity: 0.5;
 }
+
+/* ───────── Focus Map (optional module) ───────── */
+
+.tab-module {
+  margin-left: 10px;
+  position: relative;
+}
+.tab-module::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 9px;
+  bottom: 9px;
+  border-left: 1px solid var(--rule);
+}
+.tab-module .step-num {
+  border-style: dashed;
+}
+
+.idea-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.idea-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 8px 0 4px;
+  border-bottom: 1px solid var(--rule-soft);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.idea-row:hover {
+  background: #f7f9fd;
+}
+.idea-row.is-selected {
+  background: var(--tint);
+}
+.idea-row .write {
+  font-size: 15.5px;
+}
+.idea-dot {
+  justify-self: center;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 1px dashed var(--muted);
+}
+.idea-dot.is-placed {
+  border: 1.3px solid var(--ink);
+}
+.idea-dot.is-linked {
+  background: var(--ink);
+}
+.idea-zone {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.idea-add {
+  padding: 4px 0 0 26px;
+}
+
+.idea-detail {
+  margin-top: 8px;
+  padding: 2px 16px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+.zone-pick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.zone-btn {
+  padding: 8px 10px;
+  border-radius: 3px;
+  font-size: 14px;
+  text-align: left;
+  color: var(--ink);
+}
+.zone-btn.is-on {
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  font-weight: 500;
+}
+.zone-btn:hover {
+  box-shadow: inset 0 0 0 1px var(--ink-soft);
+}
+.zone-quick {
+  background: var(--qa);
+}
+.zone-big {
+  background: var(--qb);
+}
+.zone-fill {
+  background: var(--qc);
+}
+.zone-letgo {
+  background: var(--qd);
+}
+.pomo-btn.promote {
+  margin-top: 2px;
+}
+.idea-weeks a {
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+}
+.idea-remove {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.focus-map-page {
+  align-items: center;
+}
+.focus-map-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  padding: 26px 30px;
+}
+.map-axis {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.map-axis.axis-top {
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.map-axis.axis-bottom {
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.map-axis.axis-left {
+  left: 0;
+  top: 50%;
+  transform: translate(-30%, -50%) rotate(-90deg);
+}
+.map-axis.axis-right {
+  right: 0;
+  top: 50%;
+  transform: translate(30%, -50%) rotate(90deg);
+}
+.focus-map {
+  position: relative;
+  aspect-ratio: 1;
+  background:
+    linear-gradient(var(--rule), var(--rule)) center / 1px 100% no-repeat,
+    linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat,
+    linear-gradient(90deg, var(--qb) 50%, var(--qa) 50%) top / 100% 50% no-repeat,
+    linear-gradient(90deg, var(--qd) 50%, var(--qc) 50%) bottom / 100% 50% no-repeat;
+  border-radius: 2px;
+}
+.focus-map.has-selection {
+  cursor: crosshair;
+}
+.zone-label {
+  position: absolute;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-soft);
+  opacity: 0.8;
+}
+.zone-label.zone-big {
+  top: 10px;
+  left: 12px;
+}
+.zone-label.zone-quick {
+  top: 10px;
+  right: 12px;
+}
+.zone-label.zone-letgo {
+  bottom: 10px;
+  left: 12px;
+}
+.zone-label.zone-fill {
+  bottom: 10px;
+  right: 12px;
+}
+.pin {
+  position: absolute;
+  transform: translate(-9px, -9px);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px;
+  border-radius: 999px;
+  touch-action: none;
+  cursor: grab;
+  max-width: 180px;
+}
+.pin:active {
+  cursor: grabbing;
+}
+.pin-dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1.5px solid var(--ink);
+}
+.pin.is-linked .pin-dot {
+  background: var(--ink);
+}
+.pin-label {
+  font-family: var(--ink-font);
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 70%, transparent);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+.pin.is-selected .pin-dot {
+  box-shadow: 0 0 0 4px rgba(38, 52, 107, 0.18);
+}
+.pin.is-selected .pin-label {
+  background: var(--paper);
+  font-weight: 600;
+}
+.map-hint {
+  text-align: center;
+}
+
+.idea-mark {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-soft);
+  width: 16px;
+}
+.idea-mark:hover {
+  color: var(--ink);
+}
+
+.module-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 14px;
+  cursor: pointer;
+}
+.module-toggle input {
+  margin-top: 3px;
+  accent-color: var(--ink);
+}

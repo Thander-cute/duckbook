@@ -13,7 +13,8 @@ export interface MonthData {
   notes: string
 }
 
-export interface WeekTask { id: string; text: string; q: Quadrant | null; done: boolean }
+/** `ideaId` links a task back to the Focus Map idea it came from. */
+export interface WeekTask { id: string; text: string; q: Quadrant | null; done: boolean; ideaId?: string }
 export interface Habit { id: string; name: string; days: boolean[] }
 export interface Reflection { checkin: string; success: string; lesson: string; future: string; more: string; reviewed: boolean }
 
@@ -35,13 +36,24 @@ export interface DayData {
   sentence: string
 }
 
-export interface Settings { ink: 'serif' | 'hand'; focusMin: number; breakMin: number }
+export interface Settings {
+  ink: 'serif' | 'hand'
+  focusMin: number
+  breakMin: number
+  /** Optional modules. Turning one off hides it; its data is kept. */
+  modules: { focusMap: boolean }
+}
+
+/** Focus Map idea. x: 0 = hard (left) … 1 = easy (right); y: 0 = low impact (bottom) … 1 = high (top). null = not placed. */
+export interface Idea { id: string; text: string; x: number | null; y: number | null; createdAt: string }
+export interface FocusData { ideas: Idea[] }
 
 export interface State {
   version: 1
   months: Record<string, MonthData>
   weeks: Record<string, WeekData>
   days: Record<string, DayData>
+  focus: FocusData
   settings: Settings
 }
 
@@ -66,13 +78,18 @@ export const emptyWeek = (): WeekData => ({
 
 export const emptyDay = (): DayData => ({ grateful: '', tasks: [], notes: '', sentence: '' })
 
-export const defaultSettings = (): Settings => ({ ink: 'serif', focusMin: 25, breakMin: 5 })
+export const defaultSettings = (): Settings => ({ ink: 'serif', focusMin: 25, breakMin: 5, modules: { focusMap: false } })
 
-export const emptyState = (): State => ({ version: 1, months: {}, weeks: {}, days: {}, settings: defaultSettings() })
+export const emptyFocus = (): FocusData => ({ ideas: [] })
+
+export const emptyState = (): State => ({ version: 1, months: {}, weeks: {}, days: {}, focus: emptyFocus(), settings: defaultSettings() })
 
 // ───────── documents: how State is stored, one row per page ─────────
 
-export type DocKind = 'month' | 'week' | 'day' | 'settings'
+export type DocKind = 'month' | 'week' | 'day' | 'settings' | 'focus'
+
+/** Pages that always exist in State with a default value, whether or not they were ever saved. */
+export const SINGLETONS = ['settings', 'focus'] as const
 export interface Doc { key: string; value: unknown }
 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
@@ -87,7 +104,7 @@ export const validDayKey = (k: string) => {
 
 /** "month:2026-10" → ['month', '2026-10']; null if the key is not a valid document key. */
 export function parseDocKey(key: string): [DocKind, string] | null {
-  if (key === 'settings') return ['settings', '']
+  if (key === 'settings' || key === 'focus') return [key, '']
   const [kind, id] = key.split(':')
   if (kind === 'month' && MONTH_KEY.test(id ?? '')) return ['month', id]
   if ((kind === 'week' || kind === 'day') && validDayKey(id ?? '')) return [kind, id]
@@ -100,6 +117,8 @@ export function stateToDocs(s: State): Doc[] {
     ...Object.entries(s.weeks).map(([k, v]) => ({ key: `week:${k}`, value: v })),
     ...Object.entries(s.days).map(([k, v]) => ({ key: `day:${k}`, value: v })),
     { key: 'settings', value: s.settings },
+    // Only written once used, so older backups and exports stay identical.
+    ...(s.focus.ideas.length ? [{ key: 'focus', value: s.focus }] : []),
   ]
 }
 
@@ -113,7 +132,9 @@ export function docsToState(docs: Doc[]): State {
     if (kind === 'month') s.months[id] = value as MonthData
     else if (kind === 'week') s.weeks[id] = value as WeekData
     else if (kind === 'day') s.days[id] = value as DayData
-    else s.settings = value as Settings
+    else if (kind === 'focus') s.focus = value as FocusData
+    // Settings saved by older versions lack newer fields; fill them with defaults.
+    else s.settings = settings(isObj(value) ? value : {})
   }
   return s
 }
@@ -199,7 +220,9 @@ function week(c: Ctx, w: Record<string, unknown>, p: string): WeekData {
         return []
       }
       const q = t.q === 'A' || t.q === 'B' || t.q === 'C' || t.q === 'D' ? t.q : null
-      return [{ id: id(t.id, `${p}.tasks.${i}`), text: c.str(t.text, `${p}.tasks.${i}.text`), q, done: bool(t.done) }]
+      const task: WeekTask = { id: id(t.id, `${p}.tasks.${i}`), text: c.str(t.text, `${p}.tasks.${i}.text`), q, done: bool(t.done) }
+      if (typeof t.ideaId === 'string' && t.ideaId) task.ideaId = t.ideaId
+      return [task]
     }),
     habits: c.list(w.habits, `${p}.habits`).flatMap((h, i) => {
       if (!isObj(h)) {
@@ -245,7 +268,38 @@ function day(c: Ctx, d: Record<string, unknown>, p: string): DayData {
 
 function settings(s: Record<string, unknown>): Settings {
   const d = defaultSettings()
-  return { ink: s.ink === 'hand' ? 'hand' : 'serif', focusMin: num(s.focusMin, 1, 120, d.focusMin), breakMin: num(s.breakMin, 1, 60, d.breakMin) }
+  const m = isObj(s.modules) ? s.modules : {}
+  return {
+    ink: s.ink === 'hand' ? 'hand' : 'serif',
+    focusMin: num(s.focusMin, 1, 120, d.focusMin),
+    breakMin: num(s.breakMin, 1, 60, d.breakMin),
+    modules: { focusMap: bool(m.focusMap) },
+  }
+}
+
+const coord = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 1000) / 1000 : null)
+
+function focus(c: Ctx, f: Record<string, unknown>, p: string): FocusData {
+  return {
+    ideas: c.list(f.ideas, `${p}.ideas`).flatMap((it, i) => {
+      if (!isObj(it)) {
+        c.park(`${p}.ideas.${i}`, it, 'unrecognized idea')
+        return []
+      }
+      const x = coord(it.x)
+      const y = coord(it.y)
+      const placed = x !== null && y !== null
+      return [
+        {
+          id: id(it.id, `${p}.ideas.${i}`),
+          text: c.str(it.text, `${p}.ideas.${i}.text`),
+          x: placed ? x : null,
+          y: placed ? y : null,
+          createdAt: typeof it.createdAt === 'string' ? it.createdAt : '',
+        },
+      ]
+    }),
+  }
 }
 
 /** Validate one stored page. Strict: throws SchemaError instead of repairing. Used for every save. */
@@ -258,6 +312,7 @@ export function normalizeDoc(key: string, value: unknown): unknown {
   if (kind === 'month') return month(c, value, key)
   if (kind === 'week') return week(c, value, key)
   if (kind === 'day') return day(c, value, key)
+  if (kind === 'focus') return focus(c, value, key)
   return settings(value)
 }
 
@@ -296,6 +351,7 @@ export function normalizeState(raw: unknown): NormalizeResult {
     else c.park(`days.${k}`, d, 'unrecognized day')
   }
   s.settings = settings(c.record(raw.settings, 'settings'))
+  s.focus = focus(c, c.record(raw.focus, 'focus'), 'focus')
   return { state: s, issues: c.issues, quarantine: c.quarantine }
 }
 

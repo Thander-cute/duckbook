@@ -11,6 +11,7 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 | 2026-10-22 | Make it usable for the owner first; shipping to other people later. Web UI in the browser, not an installed desktop app (no Tauri). | Owner: "làm cho t xài trước đi, chuyện ship cho người ta để sau chưa cần" |
 | 2026-10-22 | Browser-only storage (IndexedDB) is too risky. Keep the web UI, but store data outside the browser through a local background process. Future mobile can use SQLite. | Owner steering, then "ok làm đơn giản trước thôi" |
 | 2026-10-22 | Optional privacy lock in Settings: 6-digit PIN, minimal blank/blurred screen, correct PIN enters. Backup settings in Settings. | Owner |
+| 2026-10-22 | Owner checked the local foundation and asked to continue. Supervisor picked Focus Map as the next bounded slice (the established next candidate; this does not approve the rest of the backlog). | Owner: "bên lead làm xong rồi, t check rồi, m giao cho nó làm tiếp đi" |
 
 ### How these were implemented (agent decisions within the approved scope)
 
@@ -20,10 +21,15 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 - Migration from `localStorage['duckbook:v1']` only runs when the user clicks. It is verified page by page, and the browser copy is kept until the user removes it.
 - Launch with `Duckbook.cmd` (optionally a desktop shortcut). No terminal is needed for daily use.
 - The earlier IndexedDB/crypto drafts are archived on branch `archive/indexeddb-vault-draft`. They were never used or tested.
+- Focus Map (see `docs/plans/2026-10-focus-map.md`):
+  - Optional module, off by default; turning it off hides it and keeps its data.
+  - Ideas are stored in a `focus` page with map coordinates.
+  - "Add to week" creates one unsorted task per idea per week, linked through `WeekTask.ideaId`.
+  - Ideas carry no dates or deadlines.
+  - It sits beside the Eisenhower matrix, not in place of it.
 
 ## Open (under discussion, not approved)
 
-- Next slice candidate: Focus Map (impact × difficulty) as an optional add-on beside the weekly Eisenhower matrix. Ideas stay separate from tasks and are promoted into the week explicitly.
 - Modular, optional features (no marketplace).
 - At-rest encryption of the database and backups; off-machine backup location.
 - Optional AI (task breakdown, weekly recall/chat). No data is sent and no AI is enabled until this is decided.

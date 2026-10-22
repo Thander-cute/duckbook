@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { produce, type Draft } from 'immer'
 import { weekStart } from './date'
 import { api, ApiError, OfflineError, setLockedHandler } from './api'
-import { docsToState, emptyDay, emptyMonth, emptyState, emptyWeek, type DayData, type Habit, type MonthData, type State, type WeekData } from './schema'
+import { SINGLETONS, docsToState, emptyDay, emptyFocus, emptyMonth, emptyState, emptyWeek, type DayData, type FocusData, type Habit, type MonthData, type State, type WeekData } from './schema'
 
 export * from './schema'
 
@@ -65,8 +65,9 @@ const emit = () => listeners.forEach((l) => l())
 
 /** Server revision per page, and the exact value object last confirmed saved. */
 let revs = new Map<string, number>()
-// Default settings count as saved until changed.
-let savedRefs = new Map<string, unknown>([['settings', state.settings]])
+/** Settings and the Focus Map exist with defaults even if never saved; defaults count as saved. */
+const defaultsSaved = (s: State) => new Map<string, unknown>(SINGLETONS.map((k) => [k, docRef(s, k)]))
+let savedRefs = defaultsSaved(state)
 /** Edits that could not be sent before a lock; resent (with their original base revision) after unlock. */
 let parked: { key: string; baseRev: number; value: unknown }[] = []
 
@@ -74,8 +75,11 @@ const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('
 
 export const uid = () => crypto.randomUUID().replace(/-/g, '').slice(0, 12)
 
+const splitKey = (key: string): [string, string] => ((SINGLETONS as readonly string[]).includes(key) ? [key, ''] : (key.split(':') as [string, string]))
+
 function docRef(s: State, key: string): unknown {
   if (key === 'settings') return s.settings
+  if (key === 'focus') return s.focus
   const [kind, id] = key.split(':')
   return kind === 'month' ? s.months[id] : kind === 'week' ? s.weeks[id] : s.days[id]
 }
@@ -85,7 +89,7 @@ function allKeys(s: State) {
     ...Object.keys(s.months).map((k) => `month:${k}`),
     ...Object.keys(s.weeks).map((k) => `week:${k}`),
     ...Object.keys(s.days).map((k) => `day:${k}`),
-    'settings',
+    ...SINGLETONS,
   ]
 }
 
@@ -128,18 +132,20 @@ function adoptDocs(docs: ServerDoc[], mode: 'merge' | 'replace') {
     if (mode === 'replace') {
       for (const key of allKeys(state)) {
         if (serverKeys.has(key) || dirty.has(key)) continue
-        const [kind, id] = key === 'settings' ? ['settings', ''] : key.split(':')
+        const [kind, id] = splitKey(key)
         if (kind === 'month') delete d.months[id]
         else if (kind === 'week') delete d.weeks[id]
         else if (kind === 'day') delete d.days[id]
+        else if (kind === 'focus') d.focus = emptyFocus()
         else d.settings = emptyState().settings
       }
     }
     for (const doc of take) {
-      const [kind, id] = doc.key === 'settings' ? ['settings', ''] : doc.key.split(':')
+      const [kind, id] = splitKey(doc.key)
       if (kind === 'month') d.months[id] = fresh.months[id] as Draft<MonthData>
       else if (kind === 'week') d.weeks[id] = fresh.weeks[id] as Draft<WeekData>
       else if (kind === 'day') d.days[id] = fresh.days[id] as Draft<DayData>
+      else if (kind === 'focus') d.focus = fresh.focus as Draft<FocusData>
       else if (kind === 'settings') d.settings = fresh.settings
     }
   })
@@ -147,8 +153,7 @@ function adoptDocs(docs: ServerDoc[], mode: 'merge' | 'replace') {
   if (mode === 'replace') {
     for (const key of [...revs.keys()]) if (!dirty.has(key)) revs.delete(key)
     for (const key of [...savedRefs.keys()]) if (!dirty.has(key)) savedRefs.delete(key)
-    // Default settings count as saved until changed.
-    if (!dirty.has('settings') && !serverKeys.has('settings')) savedRefs.set('settings', state.settings)
+    for (const k of SINGLETONS) if (!dirty.has(k) && !serverKeys.has(k)) savedRefs.set(k, docRef(state, k))
   }
   for (const doc of take) {
     revs.set(doc.key, doc.rev)
@@ -282,7 +287,7 @@ function clearPrivate() {
   window.clearTimeout(saveTimer)
   state = emptyState()
   revs = new Map()
-  savedRefs = new Map([['settings', state.settings]])
+  savedRefs = defaultsSaved(state)
   emit()
 }
 
@@ -313,10 +318,11 @@ async function enter(status: Status) {
     // changed elsewhere in the meantime surfaces as a conflict instead of being overwritten.
     state = produce(state, (d) => {
       for (const p of toApply) {
-        const [kind, id] = p.key === 'settings' ? ['settings', ''] : p.key.split(':')
+        const [kind, id] = splitKey(p.key)
         if (kind === 'month') d.months[id] = p.value as Draft<MonthData>
         else if (kind === 'week') d.weeks[id] = p.value as Draft<WeekData>
         else if (kind === 'day') d.days[id] = p.value as Draft<DayData>
+        else if (kind === 'focus') d.focus = p.value as Draft<FocusData>
         else d.settings = p.value as State['settings']
       }
     })
@@ -422,6 +428,8 @@ export const useMonth = (monthKey: string) => useStore((s) => s.months[monthKey]
 export const useWeek = (mondayKey: string) => useStore((s) => s.weeks[mondayKey] ?? EMPTY_WEEK)
 export const useDay = (dayKey: string) => useStore((s) => s.days[dayKey] ?? EMPTY_DAY)
 export const useSettings = () => useStore((s) => s.settings)
+export const useFocus = () => useStore((s) => s.focus)
+export const editFocus = (fn: (f: Draft<FocusData>) => void) => update((s) => fn(s.focus))
 
 /** Habits carry over: a new week starts with the habit names of the latest earlier week. */
 function carriedHabits(weeks: Record<string, WeekData>, mondayKey: string): Habit[] {

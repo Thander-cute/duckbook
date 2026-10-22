@@ -60,6 +60,21 @@ export function SettingsPanel({ onClose, legacy, onLegacyChange }: { onClose: ()
           </div>
         </div>
 
+        <div className="setting">
+          <div className="label">Modules</div>
+          <label className="module-toggle">
+            <input
+              type="checkbox"
+              checked={s.modules.focusMap}
+              onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))}
+            />
+            <span>
+              <strong>Focus Map</strong>
+              <span className="muted small"> · sort ideas by impact and effort, then bring the good ones into a week. Turning it off hides it; your ideas are kept.</span>
+            </span>
+          </label>
+        </div>
+
         <PrivacyLock pinEnabled={!!status?.pinEnabled} autoLockMin={status?.autoLockMin ?? 15} />
         <Backups />
         <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
@@ -74,6 +89,12 @@ export function SettingsPanel({ onClose, legacy, onLegacyChange }: { onClose: ()
             <dd>Today</dd>
             <dt>M W D R</dt>
             <dd>Month, Week, Day, Reflect</dd>
+            {s.modules.focusMap && (
+              <>
+                <dt>F</dt>
+                <dd>Focus Map</dd>
+              </>
+            )}
             {status?.pinEnabled && (
               <>
                 <dt>L</dt>

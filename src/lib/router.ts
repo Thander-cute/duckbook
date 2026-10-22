@@ -2,10 +2,10 @@ import { useSyncExternalStore } from 'react'
 import { todayKey } from './date'
 import { validDayKey } from './schema'
 
-export type View = 'month' | 'week' | 'day' | 'reflect'
+export type View = 'month' | 'week' | 'day' | 'reflect' | 'focus'
 export interface Route { view: View; date: string }
 
-const VIEWS: View[] = ['month', 'week', 'day', 'reflect']
+const VIEWS: View[] = ['month', 'week', 'day', 'reflect', 'focus']
 
 function parse(hash: string): Route {
   const [, view, date] = hash.replace(/^#/, '').split('/')

@@ -35,4 +35,6 @@ Never point development at port 5317 or at the real data directory.
 
 Working agreement: [AGENTS.md](AGENTS.md). Plan larger changes with [docs/templates/slice-plan.md](docs/templates/slice-plan.md).
 
-Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `L` lock (when a PIN is set).
+Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `F` Focus Map (when turned on) · `L` lock (when a PIN is set).
+
+**Focus Map** (optional, Settings → Modules): jot ideas and place them on an impact × difficulty map (left hard, right easy; top high impact, bottom low). Place an idea with a zone button, by dragging, by clicking the map, or with the arrow keys. "Add to Week" puts it once into that week's unsorted tasks, ready for the matrix. Turning the module off hides it and keeps your ideas.

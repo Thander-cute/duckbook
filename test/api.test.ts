@@ -243,3 +243,49 @@ test('retention never drops the pre-migration backup; other pools are capped', a
     await s.cleanup()
   }
 })
+
+test('Focus Map page: strict saves, idea links on tasks, backup round trip, older data compatible', async () => {
+  const s = await startTestServer()
+  try {
+    // Older export without focus or modules imports cleanly.
+    let r = await s.call('POST', '/api/import', { data: fixtureLegacy() })
+    assert.equal(r.status, 200)
+    assert.ok(!r.json.docs.some((d: { key: string }) => d.key === 'focus'), 'no focus page until used')
+    const settings = r.json.docs.find((d: { key: string }) => d.key === 'settings')
+    assert.deepEqual(settings.value.modules, { focusMap: false }, 'module defaults to off')
+
+    const focus = { ideas: [{ id: 'i1', text: 'synthetic idea', x: 0.8, y: 1.7, createdAt: '2026-10-22T00:00:00Z' }, { id: 'i2', text: 'unplaced', x: null, y: null, createdAt: '' }] }
+    r = await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: 0, value: focus }] })
+    assert.equal(r.status, 200)
+    const saved = (await s.call('GET', '/api/data')).json.docs.find((d: { key: string }) => d.key === 'focus')
+    assert.equal(saved.value.ideas[0].y, 1, 'coordinates are clamped to the map')
+    assert.equal(saved.value.ideas[1].x, null)
+
+    assert.equal((await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: saved.rev, value: { ideas: 'nope' } }] })).status, 400)
+    assert.equal((await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: saved.rev, value: { ideas: [{ id: 'x', text: 5 }] } }] })).status, 400)
+
+    const week = (await s.call('GET', '/api/data')).json.docs.find((d: { key: string }) => d.key === 'week:2026-10-19')
+    const withLink = { ...week.value, tasks: [...week.value.tasks, { id: 'from-idea', text: 'synthetic idea', q: null, done: false, ideaId: 'i1' }] }
+    r = await s.call('PUT', '/api/docs', { changes: [{ key: week.key, baseRev: week.rev, value: withLink }, { key: 'settings', baseRev: settings.rev, value: { ...settings.value, modules: { focusMap: true } } }] })
+    assert.equal(r.status, 200)
+
+    const b = (await s.call('POST', '/api/backups')).json.backup
+    const before = (await s.call('GET', '/api/data')).json.docs.map((d: { key: string; value: unknown }) => [d.key, d.value])
+    const cur = (await s.call('GET', '/api/data')).json.docs.find((d: { key: string }) => d.key === 'focus')
+    await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: cur.rev, value: { ideas: [] } }] })
+    assert.equal((await s.call('POST', '/api/backups/restore', { file: b.file })).status, 200)
+    const after = (await s.call('GET', '/api/data')).json.docs.map((d: { key: string; value: unknown }) => [d.key, d.value])
+    assert.deepEqual(after, before, 'restore brings back ideas, the module setting, and the task link')
+    const task = after.find(([k]: [string]) => k === 'week:2026-10-19')[1].tasks.find((t: { id: string }) => t.id === 'from-idea')
+    assert.equal(task.ideaId, 'i1')
+
+    // Export → import keeps everything.
+    const exp = (await s.call('GET', '/api/export')).json
+    assert.equal(exp.state.focus.ideas.length, 2)
+    r = await s.call('POST', '/api/import', { data: exp, replace: true })
+    assert.equal(r.status, 200)
+    assert.deepEqual(r.json.docs.map((d: { key: string; value: unknown }) => [d.key, d.value]), before)
+  } finally {
+    await s.cleanup()
+  }
+})

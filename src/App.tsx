@@ -10,6 +10,7 @@ import { MonthView } from './views/MonthView'
 import { WeekView } from './views/WeekView'
 import { DayView } from './views/DayView'
 import { ReflectView } from './views/ReflectView'
+import { FocusView } from './views/FocusView'
 import { PomodoroBar } from './components/PomodoroBar'
 import { SettingsPanel } from './components/SettingsPanel'
 
@@ -19,6 +20,9 @@ const TABS: { view: View; step: string; label: string; key: string }[] = [
   { view: 'day', step: '4', label: 'Day', key: 'D' },
   { view: 'reflect', step: '5', label: 'Reflect', key: 'R' },
 ]
+
+/** Optional module tabs, shown only when turned on in Settings. */
+const FOCUS_TAB = { view: 'focus' as View, step: '◎', label: 'Focus', key: 'F' }
 
 function periodLabel(view: View, date: string) {
   if (view === 'month') return fmtMonth(monthKeyOf(date))
@@ -48,24 +52,31 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
   const { status } = useSession()
   const [showSettings, setShowSettings] = useState(false)
   const pinEnabled = !!status?.pinEnabled
+  const focusOn = settings.modules.focusMap
+  const tabs = focusOn ? [...TABS, FOCUS_TAB] : TABS
+
+  // A turned-off module's page isn't reachable; its data stays untouched.
+  useEffect(() => {
+    if (view === 'focus' && !focusOn) go('week', date)
+  }, [view, focusOn, date])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
-      if (el.closest('input, textarea, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.defaultPrevented || el.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'ArrowLeft') go(view, step(view, date, -1))
       else if (e.key === 'ArrowRight') go(view, step(view, date, 1))
       else if (e.key.toLowerCase() === 't') go(view, todayKey())
       else if (e.key === 'Escape') setShowSettings(false)
       else if (e.key.toLowerCase() === 'l' && pinEnabled) void lock()
       else {
-        const tab = TABS.find((t) => t.key === e.key.toUpperCase())
+        const tab = tabs.find((t) => t.key === e.key.toUpperCase())
         if (tab) go(tab.view, date)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [view, date, pinEnabled])
+  }, [view, date, pinEnabled, focusOn])
 
   useEffect(() => {
     document.documentElement.dataset.ink = settings.ink
@@ -79,12 +90,12 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         </a>
 
         <div className="tabs" role="tablist">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.view}
               role="tab"
               aria-selected={view === t.view}
-              className={`tab ${view === t.view ? 'is-active' : ''}`}
+              className={`tab ${view === t.view ? 'is-active' : ''} ${t.view === 'focus' ? 'tab-module' : ''}`}
               onClick={() => go(t.view, date)}
               title={`${t.label} (${t.key})`}
             >
@@ -135,6 +146,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         {view === 'week' && <WeekView date={date} />}
         {view === 'day' && <DayView date={date} />}
         {view === 'reflect' && <ReflectView date={date} />}
+        {view === 'focus' && focusOn && <FocusView date={date} />}
       </main>
 
       <PomodoroBar />
