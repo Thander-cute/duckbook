@@ -418,7 +418,8 @@ function DataSection({ dataDir, quarantineCount }: { dataDir?: string; quarantin
         />
       </div>
       <p className="muted small">
-        Exported files are plain, readable text. Keep them somewhere private.
+        Exported files are plain, readable text. Keep them somewhere private. Day photos aren’t inside the export; they stay in the
+        data folder’s <code>photos</code> folder, which backups rely on too.
         {quarantineCount > 0 && ` ${quarantineCount} odd values set aside during imports are included in the export.`}
       </p>
       {pending && (

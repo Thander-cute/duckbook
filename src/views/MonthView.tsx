@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { PhotoMark, PhotoViewer, type Shown } from '../components/Photos'
 import { LANE, SpanEditor, placeSpans, rangeLabel } from '../components/Spans'
 import { Check, Label, Page, Spread, Write } from '../components/ui'
 import { MONTHS_SHORT, WEEKDAYS, addDays, daysInMonth, fmtShort, isoWeek, monthGrid, monthKeyOf, pad, todayKey, weekStart } from '../lib/date'
@@ -55,6 +56,13 @@ export function MonthView({ date }: { date: string }) {
   const setDraw = (d: Draw | null) => setDrawState((live.current.draw = d))
   const setSlide = (s: Slide | null) => setSlideState((live.current.slide = s))
   const swallowClick = useRef(false)
+  const days = useStore((s) => s.days)
+  // Every photo of the month in day order, so the viewer can step from one day to the next.
+  const shown: Shown[] = Object.keys(days)
+    .filter((k) => k >= first && k <= last)
+    .sort()
+    .flatMap((day) => (days[day].photos ?? []).map((photo) => ({ day, photo })))
+  const [viewing, setViewing] = useState<number | null>(null)
 
   // Lines in a week row reserve room at the foot of every cell in that row, so the rows line up.
   const rowLanes = rows.map((r) => {
@@ -146,6 +154,7 @@ export function MonthView({ date }: { date: string }) {
         >
           {Number(key.slice(8))}
         </a>
+        {days[key]?.photos?.length ? <PhotoMark count={days[key].photos!.length} day={key} onOpen={() => setViewing(shown.findIndex((s) => s.day === key))} /> : null}
         <Write value={month.cells[key] ?? ''} onChange={(v) => editMonth(mk, (m) => void (m.cells[key] = v))} ariaLabel={`Notes for ${fmtShort(key)}`} />
         {here.map(({ span, lane }) => {
           const at = slide?.id === span.id ? slide.at : span.at
@@ -232,6 +241,8 @@ export function MonthView({ date }: { date: string }) {
         <Label>Notes</Label>
         <Write className="dotgrid notes month-notes" value={month.notes} onChange={(v) => editMonth(mk, (m) => void (m.notes = v))} rows={4} ariaLabel="Month notes" />
       </Page>
+
+      {viewing !== null && shown.length > 0 && <PhotoViewer items={shown} start={viewing} onClose={() => setViewing(null)} showDayLink />}
 
       <Page side="right" className="month-right">
         <div className="month-head">

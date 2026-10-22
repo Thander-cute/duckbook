@@ -45,6 +45,7 @@ export interface Session { phase: Phase; status: Status | null }
 const session = observable<Session>({ phase: 'loading', status: null })
 export const useSession = () => useSyncExternalStore(session.subscribe, session.get)
 export const getSession = () => session.get()
+export const onSession = session.subscribe
 
 // ───────── save status ─────────
 

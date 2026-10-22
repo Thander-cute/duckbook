@@ -6,6 +6,7 @@
 |---|---|
 | Các trang sổ | `%LOCALAPPDATA%\Duckbook\duckbook.sqlite` (ví dụ `C:\Users\<bạn>\AppData\Local\Duckbook`) |
 | Bản sao lưu | `%LOCALAPPDATA%\Duckbook\backups\*.sqlite` |
+| Ảnh của ngày | `%LOCALAPPDATA%\Duckbook\photos\*.jpg`. Mỗi ảnh là một file JPEG đã thu nhỏ, tên file là mã băm nội dung. Trang ngày chỉ ghi tên file. |
 | Nhật ký server | `%LOCALAPPDATA%\Duckbook\logs\server.log`. Chỉ ghi sự kiện (khởi động, backup, import), không ghi nội dung sổ. |
 | Bản cũ trong trình duyệt | `localStorage['duckbook:v1']` của `http://localhost:5317`. Chỉ đọc. Bản này chỉ bị xóa khi bạn tự bấm "Remove old copy", và nút đó chỉ hiện ra sau khi dữ liệu đã chuyển sang database và được xác minh khớp. |
 
@@ -23,7 +24,8 @@ Không có gì được gửi ra ngoài máy. Server chỉ nghe trên `127.0.0.1
 - Tự động sao lưu mỗi khoảng 4 giờ nếu có thay đổi, lúc khởi động, và luôn sao lưu trước khi import hoặc restore.
 - Mỗi bản sao lưu được kiểm tra ngay sau khi tạo: chạy `integrity_check` của SQLite và so mã băm nội dung. Bản nào không đạt sẽ bị bỏ, không lưu lại.
 - Giữ 30 bản tự động và 20 bản thủ công hoặc trước thao tác. Restore nằm trong Settings → Backups. Trước khi restore, app sao lưu trang hiện tại, và sau khi restore thì xác minh lại nội dung.
-- **Giới hạn:** bản sao lưu nằm trên cùng ổ đĩa với dữ liệu. Nếu hỏng hoặc mất ổ, mất máy, thì mất cả hai. Hãy thỉnh thoảng chép thư mục `backups` ra nơi khác (USB, ổ ngoài). App chưa tự làm việc này.
+- **Ảnh không nằm trong file sao lưu `.sqlite`.** File ảnh chỉ có một bản trong thư mục `photos` và được giữ lại chừng nào trang hiện tại *hoặc* bất kỳ bản sao lưu nào còn trỏ tới nó. Vì vậy restore bản nào cũng có đủ ảnh. Gỡ ảnh khỏi một ngày không xóa file ngay; server chỉ dọn file khi không còn trang hay bản sao lưu nào cần tới (và file đã cũ hơn một ngày).
+- **Giới hạn:** bản sao lưu nằm trên cùng ổ đĩa với dữ liệu. Nếu hỏng hoặc mất ổ, mất máy, thì mất cả hai. Hãy thỉnh thoảng chép thư mục `backups` **và** `photos` ra nơi khác (USB, ổ ngoài). App chưa tự làm việc này.
 
 ## Khóa PIN: làm được gì và không làm được gì
 
@@ -31,13 +33,14 @@ Khóa PIN là tùy chọn, bật trong Settings → Privacy lock: 6 chữ số, 
 
 **Làm được:**
 - Che toàn bộ nội dung: khi khóa, app gỡ hẳn các trang khỏi trang web, không chỉ phủ lớp mờ lên trên. Tiêu đề tab cũng không còn tên task.
-- Server từ chối mọi yêu cầu đọc, ghi, sao lưu hoặc xuất dữ liệu khi chưa nhập đúng PIN.
+- Server từ chối mọi yêu cầu đọc, ghi, sao lưu hoặc xuất dữ liệu khi chưa nhập đúng PIN, kể cả ảnh.
+- Ảnh được tab giữ trong bộ nhớ (không lưu vào cache của trình duyệt), và bị xóa khỏi bộ nhớ ngay khi khóa.
 - Sai 5 lần thì phải chờ, thời gian chờ tăng dần đến 15 phút.
 - Khởi động lại server thì app khóa lại.
 - Trang web khác mở trong trình duyệt không gửi được yêu cầu tới server này: server kiểm tra Host, Origin và một header riêng của app.
 
 **Không làm được:**
-- **Không mã hóa.** Người hoặc chương trình nào mở được file trong tài khoản Windows của bạn vẫn đọc được `duckbook.sqlite`, các bản sao lưu và file export. Điều này bao gồm cả các AI agent có quyền đọc ổ đĩa.
+- **Không mã hóa.** Người hoặc chương trình nào mở được file trong tài khoản Windows của bạn vẫn đọc được `duckbook.sqlite`, các bản sao lưu, thư mục ảnh và file export. Điều này bao gồm cả các AI agent có quyền đọc ổ đĩa.
 - Không chống được ai đó đang dùng chính tab đã mở khóa, hoặc người có toàn quyền trên máy.
 - Mã PIN 6 số chỉ là khóa nhanh, không thay được mật khẩu Windows hay mã hóa ổ đĩa (BitLocker hoặc Device Encryption). Muốn bảo vệ khi mất máy thì nên bật mã hóa ổ đĩa của Windows.
 
@@ -46,4 +49,5 @@ Mã hóa dữ liệu trên ổ đĩa đang được để ngỏ, chưa làm (xem
 ## Export và import
 
 - **Export JSON** tạo một file văn bản đọc được, không mã hóa. Hãy cất ở nơi riêng tư.
+- File export **không chứa ảnh**, chỉ chứa tên file ảnh. Nhập file đó trên máy khác thì ô ảnh hiện "Not on this computer". Muốn mang ảnh theo thì chép cả thư mục `photos`.
 - **Import** kiểm tra dữ liệu trước khi nhập. File không phải dữ liệu duckbook bị từ chối. Giá trị nào lạ sẽ được để riêng, không bị bỏ đi. Trước khi thay thế trang hiện tại, app luôn sao lưu.

@@ -15,6 +15,8 @@ import { ConflictError, RestoreError, type Change, type Store } from './db.ts'
 import type { Auth } from './auth.ts'
 
 const MAX_BODY = 20 * 1024 * 1024
+const MAX_PHOTO = 15 * 1024 * 1024
+const PHOTO_ROUTE = /^GET \/api\/photos\/([0-9a-f]{64})$/
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -87,6 +89,26 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
       req.on('error', reject)
     })
 
+  const readJpeg = (req: http.IncomingMessage) =>
+    new Promise<Buffer>((resolve, reject) => {
+      if (req.headers['content-type'] !== 'image/jpeg') return reject(new HttpError(415, 'Expected a JPEG photo.'))
+      const chunks: Buffer[] = []
+      let size = 0
+      req.on('data', (c: Buffer) => {
+        size += c.length
+        if (size > MAX_PHOTO) {
+          reject(new HttpError(413, 'That photo is too large.'))
+          req.destroy()
+        } else chunks.push(c)
+      })
+      req.on('end', () => {
+        const b = Buffer.concat(chunks)
+        if (b.length < 4 || b[0] !== 0xff || b[1] !== 0xd8 || b[2] !== 0xff) reject(new HttpError(415, 'Expected a JPEG photo.'))
+        else resolve(b)
+      })
+      req.on('error', reject)
+    })
+
   const sessionToken = (req: http.IncomingMessage) => {
     for (const part of (req.headers.cookie ?? '').split(';')) {
       const [k, v] = part.trim().split('=')
@@ -142,6 +164,16 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
     if (route === 'POST /api/ping') return send(res, 200, { ok: true })
 
     if (route === 'GET /api/data') return send(res, 200, { docs: store.allDocs() })
+
+    if (route === 'POST /api/photos') return send(res, 200, { id: store.savePhoto(await readJpeg(req)) })
+
+    const photo = PHOTO_ROUTE.exec(route)
+    if (photo) {
+      const bytes = store.readPhoto(photo[1])
+      if (!bytes) throw new HttpError(404, 'That photo is not on this computer.')
+      res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': bytes.length, 'Cache-Control': 'no-store' })
+      return res.end(bytes)
+    }
 
     if (route === 'PUT /api/docs') {
       const body = await readJson(req)

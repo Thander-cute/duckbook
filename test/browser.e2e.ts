@@ -463,6 +463,61 @@ async function main() {
       await page.waitForSelector('.day-page')
     })
 
+    await step('Day photos: add up to three, see the mark on the month, view them in place', async () => {
+      // A synthetic picture drawn in the page, not a real photo.
+      const pngs = await page.evaluate(() =>
+        ['#7f8fbf', '#bf8f7f', '#8fbf7f', '#bfbf7f'].map((color) => {
+          const c = document.createElement('canvas')
+          c.width = 300
+          c.height = 200
+          const g = c.getContext('2d')!
+          g.fillStyle = color
+          g.fillRect(0, 0, 300, 200)
+          g.fillStyle = '#fff'
+          g.fillRect(40, 40, 60, 60)
+          return c.toDataURL('image/png').split(',')[1]
+        }),
+      )
+      const files = pngs.map((png, i) => {
+        const f = path.join(dataDir, `synthetic-${i}.png`)
+        fs.writeFileSync(f, Buffer.from(png, 'base64'))
+        return f
+      })
+      await page.goto(`${BASE}/#/day/2026-10-21`)
+      await page.waitForSelector('.day-photos input[type=file]')
+      await (await page.$('.day-photos input[type=file]'))!.uploadFile(...files)
+      await page.waitForFunction(() => document.querySelectorAll('.day-photos .polaroid-img img').length === 3, { timeout: 20000 })
+      assert.match(await page.$eval('.photo-error', (e) => e.textContent!), /up to 3/)
+      assert.equal(await page.$$eval('.polaroid.is-add', (x) => x.length), 0, 'no add frame once full')
+      await waitSaved(page)
+      let photos = (await apiDocs(page)).find((d) => d.key === 'day:2026-10-21')!.value.photos
+      assert.equal(photos.length, 3)
+
+      await page.goto(`${BASE}/#/month/2026-10-21`)
+      await page.waitForSelector('[data-day="2026-10-21"] .photo-mark')
+      await page.click('[data-day="2026-10-21"] .photo-mark')
+      await page.waitForSelector('.viewer img')
+      await page.keyboard.press('ArrowRight')
+      await page.waitForFunction(() => /2 \/ 3/.test(document.querySelector('.viewer figcaption')!.textContent!))
+      assert.equal(await page.evaluate(() => location.hash), '#/month/2026-10-21', 'arrows step photos, not months')
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => !document.querySelector('.viewer'))
+
+      // Remove one on the day page.
+      await page.goto(`${BASE}/#/day/2026-10-21`)
+      await page.waitForSelector('.day-photos .polaroid-img img')
+      await page.hover('.day-photos .polaroid')
+      await page.click('.day-photos .polaroid-x')
+      const rm = await page.waitForSelector('xpath/.//span[contains(@class,"polaroid-confirm")]//button[normalize-space(.)="Remove"]')
+      await rm!.click()
+      await waitSaved(page)
+      photos = (await apiDocs(page)).find((d) => d.key === 'day:2026-10-21')!.value.photos
+      assert.equal(photos.length, 2)
+      assert.equal(await page.$$eval('.polaroid.is-add', (x) => x.length), 1)
+      await page.goto(`${BASE}/#/day/2026-10-19`)
+      await page.waitForSelector('.day-page')
+    })
+
     await step('PIN lock: blank shell, no journal in the DOM, API refuses', async () => {
       await openSettings(page, 'Privacy')
       const [set] = await page.$$('xpath/.//button[contains(., "Set a 6-digit PIN")]')
@@ -474,9 +529,26 @@ async function main() {
       await save.click()
       await page.waitForFunction(() => document.body.innerText.includes('PIN saved'))
       await closeSettings(page)
+      await page.goto(`${BASE}/#/day/2026-10-21`)
+      await page.waitForSelector('.day-photos .polaroid-img img')
+      const blob = await page.$eval('.day-photos .polaroid-img img', (e) => (e as HTMLImageElement).src)
+      await page.goto(`${BASE}/#/day/2026-10-19`)
+      await page.waitForSelector('.day-page')
       await page.click('button[aria-label="Lock"]')
       await page.waitForSelector('.lock-shell .pin-dots')
       await shot(page, '06-locked')
+      assert.equal(await page.$$eval('img', (x) => x.length), 0, 'no photos on the lock screen')
+      const stillReadable = await page.evaluate(
+        (u) =>
+          new Promise<boolean>((done) => {
+            const img = new Image()
+            img.onload = () => done(true)
+            img.onerror = () => done(false)
+            img.src = u
+          }),
+        blob,
+      )
+      assert.equal(stillReadable, false, 'photos held by the tab are forgotten on lock')
       const t = await textOf(page)
       assert.doesNotMatch(t, /typed in tab one|fixture|from elsewhere|synthetic note|synthetic work|synthetic stretch/)
       assert.equal(await page.$$eval('textarea', (x) => x.length), 0)

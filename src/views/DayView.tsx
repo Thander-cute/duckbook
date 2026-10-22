@@ -1,3 +1,4 @@
+import { DayPhotos } from '../components/Photos'
 import { useState } from 'react'
 import { Check, Label, Line, Page, PageTitle, Spread, Write } from '../components/ui'
 import { InkDot } from '../components/InkDot'
@@ -264,6 +265,8 @@ function WeekCompanion({ date }: { date: string }) {
           </ul>
         </div>
       )}
+
+      <DayPhotos date={date} />
 
       <div className="companion-foot">
         <a href={href('reflect', date)} className="text-link">

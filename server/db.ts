@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { docsToState, normalizeDoc, parseDocKey, stateToDocs, summarize, type Doc, type Quarantined, type State } from '../src/lib/schema.ts'
+import { PHOTO_ID, docsToState, normalizeDoc, parseDocKey, photoRefs, stateToDocs, summarize, type Doc, type Quarantined, type State } from '../src/lib/schema.ts'
 
 export interface StoredDoc { key: string; rev: number; value: unknown }
 export interface Change { key: string; baseRev: number; value: unknown }
@@ -29,11 +29,14 @@ export class Store {
   readonly db: DatabaseSync
   readonly dataDir: string
   readonly backupDir: string
+  readonly photoDir: string
 
   constructor(dataDir: string) {
     this.dataDir = dataDir
     this.backupDir = path.join(dataDir, 'backups')
+    this.photoDir = path.join(dataDir, 'photos')
     fs.mkdirSync(this.backupDir, { recursive: true })
+    fs.mkdirSync(this.photoDir, { recursive: true })
     this.db = new DatabaseSync(path.join(dataDir, 'duckbook.sqlite'))
     this.db.exec(`
       PRAGMA journal_mode = WAL;
@@ -234,6 +237,59 @@ export class Store {
       fs.rmSync(path.join(this.backupDir, b.file), { force: true })
       this.db.prepare('DELETE FROM backups WHERE file = ?').run(b.file)
     }
+  }
+
+  // ───────── photos: JPEG files named by the sha256 of their bytes, shared by the pages and every backup ─────────
+
+  /** Store a photo and return its name. The same bytes always get the same name and are kept once. */
+  savePhoto(bytes: Buffer): string {
+    const id = createHash('sha256').update(bytes).digest('hex')
+    const file = path.join(this.photoDir, `${id}.jpg`)
+    if (fs.existsSync(file) && fs.statSync(file).size === bytes.length) return id
+    const tmp = `${file}.${process.pid}.tmp`
+    const fd = fs.openSync(tmp, 'w')
+    try {
+      fs.writeSync(fd, bytes)
+      fs.fsyncSync(fd)
+    } finally {
+      fs.closeSync(fd)
+    }
+    fs.renameSync(tmp, file)
+    return id
+  }
+
+  readPhoto(id: string): Buffer | null {
+    if (!PHOTO_ID.test(id)) return null
+    const file = path.join(this.photoDir, `${id}.jpg`)
+    return fs.existsSync(file) ? fs.readFileSync(file) : null
+  }
+
+  /**
+   * Delete photo files that neither the pages nor any kept backup refer to, so restoring any backup
+   * always finds its photos. Files younger than `graceMs` are kept: a photo is uploaded a moment
+   * before the page that refers to it is saved.
+   */
+  cleanPhotos(graceMs = DAY): number {
+    const keep = photoRefs(this.allDocs())
+    for (const b of this.listBackups()) {
+      const copy = new DatabaseSync(path.join(this.backupDir, b.file), { readOnly: true })
+      try {
+        for (const id of photoRefs(this.allDocs(copy))) keep.add(id)
+      } finally {
+        copy.close()
+      }
+    }
+    let removed = 0
+    for (const name of fs.readdirSync(this.photoDir)) {
+      const file = path.join(this.photoDir, name)
+      const id = name.replace(/\.jpg$/, '')
+      const stale = Date.now() - fs.statSync(file).mtimeMs > graceMs
+      if (stale && (name.endsWith('.tmp') || (name.endsWith('.jpg') && !keep.has(id)))) {
+        fs.rmSync(file, { force: true })
+        removed++
+      }
+    }
+    return removed
   }
 
   quarantined(): { at: string; source: string; path: string; value: unknown }[] {

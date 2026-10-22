@@ -49,6 +49,8 @@ Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect �
 
 **Month: notes for a stretch of days.** Press a day number and drag to another day to draw a line, then write on it. Drag the words along the line to move them. Click the words or the line to change the text or the From/To days (a stretch may run into the next month) or to remove it.
 
+**Day photos.** The right page of a Day keeps up to 3 photos: click "Add a photo", drop files on it, or paste. On the Month page a day with photos shows a small picture mark in its corner; click it to view them over the page (← → to step through the month's photos, Esc to close). Photos are stored as JPEG files in the data folder's `photos` folder, not inside the JSON export.
+
 **Settings** (⚙) is its own page with paper tabs: Notebook, Focus timer, Privacy, Data (backups, export/import), Add-ons. Back or Esc returns to where you were.
 
 **Focus Map** (optional, Settings → Add-ons) is a board of sticky notes on an impact × difficulty map (left hard, right easy; top high impact, bottom low).

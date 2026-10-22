@@ -417,3 +417,63 @@ test('spans page: notes for a range of days, strict saves, crossing months, back
     await s.cleanup()
   }
 })
+
+test('day photos: stored by hash behind the lock, at most three, kept while any backup needs them', async () => {
+  const { API_LEVEL } = await import('../src/lib/schema.ts')
+  const fsm = await import('node:fs')
+  const pathm = await import('node:path')
+  const s = await startTestServer()
+  const jpeg = (n: number) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from(`synthetic photo ${n}`)])
+  const up = (body: Buffer, type = 'image/jpeg', extra: Record<string, string> = {}) =>
+    fetch(`${s.base}/api/photos`, { method: 'POST', headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': String(API_LEVEL), 'Content-Type': type, ...extra }, body: new Uint8Array(body) })
+  try {
+    const ids: string[] = []
+    for (let n = 0; n < 5; n++) {
+      const r = await up(jpeg(n))
+      assert.equal(r.status, 200)
+      ids.push(((await r.json()) as { id: string }).id)
+    }
+    assert.match(ids[0], /^[0-9a-f]{64}$/)
+    assert.equal(((await (await up(jpeg(0))).json()) as { id: string }).id, ids[0], 'same bytes, same name')
+    assert.equal((await up(Buffer.from('not a jpeg'))).status, 415)
+    assert.equal((await up(jpeg(9), 'image/png')).status, 415)
+    assert.equal((await up(jpeg(9), 'image/jpeg', { 'X-Duckbook': '0' })).status, 403, 'app header required')
+    assert.equal((await up(jpeg(9), 'image/jpeg', { 'X-Duckbook-Api': '1' })).status, 409, 'old pages cannot upload')
+
+    const got = await fetch(`${s.base}/api/photos/${ids[0]}`, { headers: { 'X-Duckbook': '1' } })
+    assert.equal(got.status, 200)
+    assert.equal(got.headers.get('cache-control'), 'no-store')
+    assert.deepEqual(Buffer.from(await got.arrayBuffer()), jpeg(0))
+    assert.equal((await fetch(`${s.base}/api/photos/${'0'.repeat(64)}`, { headers: { 'X-Duckbook': '1' } })).status, 404)
+    assert.equal((await fetch(`${s.base}/api/photos/../duckbook.sqlite`, { headers: { 'X-Duckbook': '1' } })).status, 404)
+
+    const ph = (i: number) => ({ full: ids[i], thumb: ids[i], w: 4, h: 3 })
+    const day = { grateful: '', tasks: [], notes: 'synthetic', sentence: '' }
+    assert.equal((await s.call('PUT', '/api/docs', { changes: [{ key: 'day:2026-10-19', baseRev: 0, value: { ...day, photos: [ph(0), ph(1), ph(2), ph(3)] } }] })).status, 400, 'at most three')
+    assert.equal((await s.call('PUT', '/api/docs', { changes: [{ key: 'day:2026-10-19', baseRev: 0, value: { ...day, photos: [{ full: 'x', thumb: ids[0], w: 1, h: 1 }] } }] })).status, 400)
+    let r = await s.call('PUT', '/api/docs', { changes: [{ key: 'day:2026-10-19', baseRev: 0, value: { ...day, photos: [ph(0), ph(1)] } }, { key: 'day:2026-10-20', baseRev: 0, value: day }] })
+    assert.equal(r.status, 200)
+    const docs = (await s.call('GET', '/api/data')).json.docs
+    assert.equal(docs.find((d: { key: string }) => d.key === 'day:2026-10-19').value.photos.length, 2)
+    assert.ok(!('photos' in docs.find((d: { key: string }) => d.key === 'day:2026-10-20').value), 'days without photos stay as before')
+
+    // Cleanup: photo 1 leaves the page but stays in a backup; 2 is referenced nowhere; 4 was just uploaded.
+    s.store.createBackup('manual')
+    const cur = docs.find((d: { key: string }) => d.key === 'day:2026-10-19')
+    await s.call('PUT', '/api/docs', { changes: [{ key: cur.key, baseRev: cur.rev, value: { ...day, photos: [ph(0)] } }] })
+    const old = new Date(Date.now() - 3 * 86_400_000)
+    for (const i of [0, 1, 2, 3]) fsm.utimesSync(pathm.join(s.store.photoDir, `${ids[i]}.jpg`), old, old)
+    assert.equal(s.store.cleanPhotos(), 2, 'photos 2 and 3 removed')
+    const left = new Set(fsm.readdirSync(s.store.photoDir).map((f) => f.slice(0, 64)))
+    assert.deepEqual([0, 1, 2, 3, 4].map((i) => left.has(ids[i])), [true, true, false, false, true])
+
+    // Locked: no photo leaves the server.
+    r = await s.call('PUT', '/api/lock-settings', { pin: '135792' })
+    assert.equal(r.status, 200)
+    s.dropCookie()
+    assert.equal((await fetch(`${s.base}/api/photos/${ids[0]}`, { headers: { 'X-Duckbook': '1' } })).status, 401)
+    assert.equal((await up(jpeg(7))).status, 401)
+  } finally {
+    await s.cleanup()
+  }
+})

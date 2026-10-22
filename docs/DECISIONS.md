@@ -14,6 +14,7 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 | 2026-10-22 | Owner checked the local foundation and asked to continue. Supervisor picked Focus Map as the next bounded slice (the established next candidate; this does not approve the rest of the backlog). | Owner: "bên lead làm xong rồi, t check rồi, m giao cho nó làm tiếp đi" |
 | 2026-10-23 | Focus Map as paper sticky notes on a wide canvas with a tray. Optional planned date and states Idea / In progress / Completed, with filters. A planned idea is one work item, consistent across Focus, Week, and Day. Settings becomes a dedicated paper page with tabs (Notebook, Focus timer, Privacy, Data, Add-ons). | Owner-approved UX slice |
 | 2026-10-22 | Month: notes for a range of days. Drag a hand-drawn line with arrowheads across days and write on it, anywhere along it; a range may cross months, and its from/to days are edited in a light editor. | Owner: "giống bản giấy, kéo 1 đường dài… vắt qua 2 tháng cũng được" |
+| 2026-10-22 | Day photos: up to 3 per day on the Day page's right side; the Month page marks days with photos and opens them in an overlay viewer. | Owner: "thêm hình vào, cho tối đa 3 tấm thôi… bấm vào coi trực tiếp trong trang tháng" |
 
 ### How these were implemented (agent decisions within the approved scope)
 
@@ -38,6 +39,11 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
   - Ranges live in their own `spans` page, one entry per range, so a range across months is never split.
   - `API_LEVEL` is 4.
 - Date picking and short choices use the notebook's own calendar (`DatePicker.tsx`) and menu (`Menu.tsx`) instead of the browser's controls (owner found them ugly). A picked date applies at once, so half-typed dates can't occur.
+- Day photos (see `docs/plans/2026-10-day-photos.md`):
+  - Photos are JPEG files named by their hash in `photos/`, outside SQLite, so backups stay small and share them.
+  - Files are kept while the pages or any kept backup refer to them.
+  - The export has references only.
+  - `API_LEVEL` is 5.
 - Update safety (found in Supervisor review of `ad3eafe`):
   - A server left running from before an update would reject Focus Map saves, failing the whole save batch, and would silently drop `settings.modules` and `ideaId`. This was reproduced on a synthetic instance.
   - Guard: `API_LEVEL` handshake. The page shows an "updated" screen and edits nothing until the server matches.

@@ -73,10 +73,19 @@ export async function start(opts: { port?: number; dataDir?: string; distDir?: s
     throw e
   }
 
+  const cleanPhotos = () => {
+    try {
+      const n = store.cleanPhotos()
+      if (n) log(`removed ${n} photo files no page or backup refers to`)
+    } catch (e) {
+      log(`photo cleanup failed: ${(e as Error).message}`)
+    }
+  }
   const backupTimer = setInterval(() => {
     try {
       const b = store.autoBackup(4)
       if (b) log(`auto backup: ${b.file}`)
+      if (b) cleanPhotos()
     } catch (e) {
       log(`auto backup failed: ${(e as Error).message}`)
     }
@@ -88,6 +97,8 @@ export async function start(opts: { port?: number; dataDir?: string; distDir?: s
   } catch (e) {
     log(`startup backup failed: ${(e as Error).message}`)
   }
+
+  cleanPhotos()
 
   log(`duckbook on http://localhost:${port}  data: ${dataDir}`)
 

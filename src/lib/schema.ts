@@ -29,11 +29,18 @@ export interface WeekData {
 
 export interface DayTask { id: string; text: string; estimate: number; pomos: number; done: boolean; weekTaskId?: string }
 
+/** A kept photo: sha256 names of its full-size and thumbnail JPEG files, and the full size in pixels. */
+export interface DayPhoto { full: string; thumb: string; w: number; h: number }
+export const MAX_DAY_PHOTOS = 3
+export const PHOTO_ID = /^[0-9a-f]{64}$/
+
 export interface DayData {
   grateful: string
   tasks: DayTask[]
   notes: string
   sentence: string
+  /** Absent when there are none, so days without photos are stored exactly as before. */
+  photos?: DayPhoto[]
 }
 
 export interface Settings {
@@ -77,9 +84,9 @@ export const SCHEMA_VERSION = 1
  * What the browser and server must agree on. Bump whenever a page shape or key changes, so a
  * browser with new code refuses to save through a server still running old code (which would
  * reject or silently drop new fields). 2 = Focus Map page, settings.modules, WeekTask.ideaId.
- * 3 = idea status and planned date. 4 = spans page (notes for a range of days).
+ * 3 = idea status and planned date. 4 = spans page (notes for a range of days). 5 = day photos.
  */
-export const API_LEVEL = 4
+export const API_LEVEL = 5
 
 export const emptyMonth = (): MonthData => ({
   theme: '',
@@ -334,7 +341,30 @@ function day(c: Ctx, d: Record<string, unknown>, p: string): DayData {
       if (typeof t.weekTaskId === 'string') task.weekTaskId = t.weekTaskId
       return [task]
     }),
+    ...dayPhotos(c, d.photos, `${p}.photos`),
   }
+}
+
+function dayPhotos(c: Ctx, v: unknown, p: string): { photos?: DayPhoto[] } {
+  const photos: DayPhoto[] = []
+  c.list(v, p).forEach((ph, i) => {
+    if (!isObj(ph) || typeof ph.full !== 'string' || typeof ph.thumb !== 'string' || !PHOTO_ID.test(ph.full) || !PHOTO_ID.test(ph.thumb)) {
+      c.park(`${p}.${i}`, ph, 'not a photo reference')
+    } else if (photos.length >= MAX_DAY_PHOTOS) {
+      c.park(`${p}.${i}`, ph, `more than ${MAX_DAY_PHOTOS} photos`)
+    } else photos.push({ full: ph.full, thumb: ph.thumb, w: num(ph.w, 1, 100_000, 1), h: num(ph.h, 1, 100_000, 1) })
+  })
+  return photos.length ? { photos } : {}
+}
+
+/** Every photo file a set of pages refers to (for cleaning up files nothing needs any more). */
+export function photoRefs(docs: Doc[]): Set<string> {
+  const out = new Set<string>()
+  for (const d of docs) {
+    if (!d.key.startsWith('day:') || !isObj(d.value) || !Array.isArray(d.value.photos)) continue
+    for (const ph of d.value.photos) if (isObj(ph)) for (const k of ['full', 'thumb']) if (typeof ph[k] === 'string') out.add(ph[k] as string)
+  }
+  return out
 }
 
 function settings(s: Record<string, unknown>): Settings {

@@ -2706,3 +2706,257 @@ button {
   padding: 2px 9px;
   font-size: 13px;
 }
+
+/* ───────── Day photos: keepsakes on the companion page ───────── */
+.day-photos {
+  margin: 30px -10px 0;
+  padding: 0 10px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.day-photos.is-dropping {
+  background: var(--tint);
+}
+.photo-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  padding: 10px 6px 4px;
+}
+.polaroid {
+  position: relative;
+  margin: 0;
+  padding: 9px 9px 30px;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: 2px;
+  box-shadow:
+    0 1px 2px rgba(38, 52, 107, 0.08),
+    0 12px 20px -14px rgba(38, 52, 107, 0.45);
+  transition: box-shadow 0.15s, translate 0.15s;
+}
+.polaroid:not(.is-add):hover {
+  translate: 0 -2px;
+  box-shadow:
+    0 1px 2px rgba(38, 52, 107, 0.1),
+    0 16px 26px -14px rgba(38, 52, 107, 0.55);
+}
+.polaroid-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--desk);
+  cursor: zoom-in;
+}
+.polaroid-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.polaroid-x {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  font-size: 11px;
+  color: var(--ink-soft);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.polaroid:hover .polaroid-x,
+.polaroid-x:focus-visible {
+  opacity: 1;
+}
+.polaroid-x:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+.polaroid-confirm {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 5px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.polaroid.is-add {
+  padding: 9px 9px 30px;
+  border: 1.5px dashed var(--tint-2);
+  box-shadow: none;
+  background: transparent;
+  color: var(--ink-soft);
+}
+.polaroid.is-add:hover {
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+.polaroid.is-add .polaroid-img {
+  flex-direction: column;
+  gap: 2px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-style: italic;
+}
+.add-plus {
+  font-size: 26px;
+  font-style: normal;
+  line-height: 1;
+  color: var(--muted);
+}
+.add-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+.photo-loading {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(100deg, var(--desk) 30%, var(--paper) 50%, var(--desk) 70%) 0 0 / 300% 100%;
+  animation: photo-shimmer 1.2s linear infinite;
+}
+@keyframes photo-shimmer {
+  to {
+    background-position: -150% 0;
+  }
+}
+.photo-missing {
+  padding: 8px;
+  font-size: 12px;
+  font-style: italic;
+  text-align: center;
+  color: var(--muted);
+}
+.photo-error {
+  margin: 10px 6px 0;
+  font-size: 13px;
+  color: #9a4a3c;
+}
+
+/* The small picture mark in a month cell */
+.photo-mark {
+  position: absolute;
+  z-index: 1;
+  top: 4px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.photo-mark svg {
+  width: 15px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.photo-mark:hover {
+  background: var(--tint);
+  color: var(--ink);
+}
+
+/* The viewer: the photo on a paper mount over a dimmed notebook */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgba(24, 32, 66, 0.72);
+  backdrop-filter: blur(3px);
+  animation: viewer-in 0.16s ease-out;
+}
+@keyframes viewer-in {
+  from {
+    opacity: 0;
+  }
+}
+.viewer-mount {
+  margin: 0;
+  padding: 14px 14px 12px;
+  background: var(--paper);
+  border-radius: 3px;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
+  animation: mount-in 0.2s ease-out;
+}
+@keyframes mount-in {
+  from {
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.viewer-mount img,
+.viewer-missing {
+  display: block;
+  max-width: min(84vw, 1400px);
+  max-height: calc(100vh - 150px);
+  width: auto;
+  height: auto;
+}
+.viewer-missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 320px;
+  min-height: 220px;
+  height: 60vh;
+  background: var(--desk);
+  font-style: italic;
+  color: var(--muted);
+}
+.viewer-mount figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-top: 10px;
+  font-size: 15px;
+}
+.viewer-mount figcaption .text-link {
+  margin-left: auto;
+  font-size: 14px;
+}
+.viewer-nav,
+.viewer-close {
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #eef1f8;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.12s;
+}
+.viewer-nav {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  font-size: 28px;
+  line-height: 1;
+}
+.viewer-close {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  width: 38px;
+  height: 38px;
+  font-size: 15px;
+}
+.viewer-nav:hover,
+.viewer-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
