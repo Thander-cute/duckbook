@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { boot, reloadAll, useSaveStatus, resolveConflict } from '../lib/store'
+import { boot, reloadAll, useSaveStatus, useSession, useStore, resolveConflict } from '../lib/store'
 import { migrateLegacy, type LegacyInfo } from '../lib/legacy'
 import type { Summary } from '../lib/schema'
 
@@ -107,8 +107,18 @@ export function MigrationScreen({ legacy, onDone, onSkip }: { legacy: LegacyInfo
 
 export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null; onOpenSettings: () => void }) {
   const save = useSaveStatus()
+  const { status } = useSession()
+  const empty = useStore((s) => !Object.keys(s.days).length && !Object.keys(s.weeks).length && !Object.keys(s.months).length)
   return (
     <>
+      {status?.docCount === 0 && empty && legacy === null && (
+        <div className="banner">
+          <span>
+            This notebook is empty. If you used duckbook before in a different browser, open <strong>http://localhost:5317</strong> in that browser to move your
+            pages in.
+          </span>
+        </div>
+      )}
       {save.kind === 'conflict' && (
         <div className="banner is-warn" role="alert">
           <span>Some pages were changed in another tab or window since you opened them.</span>
