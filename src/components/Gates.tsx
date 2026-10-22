@@ -31,6 +31,28 @@ export function OfflineScreen() {
   )
 }
 
+/** This page is newer than the background server still running. Nothing can be edited until it restarts. */
+export function OutdatedScreen() {
+  useEffect(() => {
+    const t = setInterval(() => void boot(), 3000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <div className="lock-shell">
+      <div className="lock-card wide">
+        <div className="wordmark">
+          <em>duck</em>book
+        </div>
+        <p>duckbook was updated, but its background server is still running the old version.</p>
+        <p className="muted small">
+          Open <strong>Duckbook</strong> again (desktop shortcut or <code>Duckbook.cmd</code>): it restarts the server for you. This page continues by itself once the
+          new server is up. Nothing was changed.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 /** First run with an empty database and pages still in this browser: ask before anything else. */
 export function MigrationScreen({ legacy, onDone, onSkip }: { legacy: LegacyInfo; onDone: () => void; onSkip: () => void }) {
   const [busy, setBusy] = useState(false)

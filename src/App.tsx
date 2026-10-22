@@ -5,7 +5,7 @@ import { boot, getSession, lock, useSaveStatus, useSession, useSettings } from '
 import { api } from './lib/api'
 import { LEGACY_KEY, readLegacy, type LegacyInfo } from './lib/legacy'
 import { LockScreen } from './components/LockScreen'
-import { Banners, LoadingScreen, MigrationScreen, OfflineScreen } from './components/Gates'
+import { Banners, LoadingScreen, MigrationScreen, OfflineScreen, OutdatedScreen } from './components/Gates'
 import { MonthView } from './views/MonthView'
 import { WeekView } from './views/WeekView'
 import { DayView } from './views/DayView'
@@ -229,6 +229,7 @@ export function App() {
 
   if (phase === 'loading') return <LoadingScreen />
   if (phase === 'offline') return <OfflineScreen />
+  if (phase === 'outdated') return <OutdatedScreen />
   if (phase === 'locked') return <LockScreen />
   if (legacy === undefined || migration === 'unknown') return <LoadingScreen />
   if (migration === 'show' && legacy) {

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { produce, type Draft } from 'immer'
 import { weekStart } from './date'
 import { api, ApiError, OfflineError, setLockedHandler } from './api'
-import { SINGLETONS, docsToState, emptyDay, emptyFocus, emptyMonth, emptyState, emptyWeek, type DayData, type FocusData, type Habit, type MonthData, type State, type WeekData } from './schema'
+import { API_LEVEL, SINGLETONS, docsToState, emptyDay, emptyFocus, emptyMonth, emptyState, emptyWeek, type DayData, type FocusData, type Habit, type MonthData, type State, type WeekData } from './schema'
 
 export * from './schema'
 
@@ -27,6 +27,7 @@ function observable<T>(initial: T) {
 // ───────── session: is the server reachable, is the notebook locked ─────────
 
 export interface Status {
+  apiLevel?: number
   pinEnabled: boolean
   autoLockMin: number
   locked: boolean
@@ -38,7 +39,7 @@ export interface Status {
   lastBackup?: { at: string } | null
 }
 
-export type Phase = 'loading' | 'offline' | 'locked' | 'unlocked'
+export type Phase = 'loading' | 'offline' | 'outdated' | 'locked' | 'unlocked'
 export interface Session { phase: Phase; status: Status | null }
 
 const session = observable<Session>({ phase: 'loading', status: null })
@@ -336,7 +337,9 @@ async function enter(status: Status) {
 export async function boot() {
   try {
     const status = await fetchStatus()
-    if (status.locked) session.set({ phase: 'locked', status })
+    // A server started before an update would reject or drop newer fields: don't edit through it.
+    if (status.apiLevel !== API_LEVEL) session.set({ phase: 'outdated', status })
+    else if (status.locked) session.set({ phase: 'locked', status })
     else await enter(status)
   } catch (e) {
     session.set({ phase: 'offline', status: null })

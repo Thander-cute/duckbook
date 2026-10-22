@@ -11,6 +11,16 @@ Double-click **`Duckbook.cmd`**. It starts a small background server (once) and 
 - Stop the background server: `Duckbook.cmd --stop`.
 - Requires Node.js 24+. The first launch installs and builds automatically.
 
+### Updating
+
+The background server keeps running the code it started with. After pulling or building a new version:
+
+1. Let open duckbook tabs finish saving (no "Saving…" or "Not saved" in the top bar).
+2. Double-click **Duckbook** again. If the server is from an older version, the launcher builds, asks **"Restart the server now?"**, and restarts it. Answer `Y`.
+3. Reload any duckbook tab that was open from before.
+
+If a page loads before the server is restarted, it shows **"duckbook was updated, but its background server is still running the old version"** and allows no editing until the restart. The page then continues by itself. Manual alternative: `Duckbook.cmd --stop`, then `Duckbook.cmd`.
+
 Your pages are stored in `%LOCALAPPDATA%\Duckbook\duckbook.sqlite`, with automatic verified backups in `backups\` beside it. Copy that folder elsewhere now and then: backups on the same disk don't survive a lost disk.
 
 **Pages from the earlier version** (kept in your browser) are offered for moving the first time you open the new duckbook, in the same browser you used before at `http://localhost:5317`. Moving is verified, and the browser copy is kept until you remove it in Settings.

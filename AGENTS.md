@@ -15,6 +15,7 @@ A personal, single-user planner after *The Present Day Planner*. The notebook UI
 - The earlier version's data is in the browser's `localStorage['duckbook:v1']` at that exact origin. The app only reads it; removal is a user action after a verified move.
 - Any change that touches persistence, import, or migration must be non-destructive, show failures visibly, and keep a way to recover (backups before replace, verify after write).
 - The PIN is an access lock, not encryption. Don't describe it as more.
+- The running server keeps the code it started with. Any change to a page shape or key in `src/lib/schema.ts` must bump `API_LEVEL`, so updated pages refuse to save through an old server. Update instructions must include a server restart (`Duckbook.cmd` detects and restarts a stale server). `npm run test:upgrade` checks this path.
 - No network calls to third parties (fonts are self-hosted). No AI or cloud calls unless a decision says otherwise.
 
 ## Commands

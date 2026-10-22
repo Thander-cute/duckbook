@@ -9,7 +9,8 @@
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
-import { SchemaError, docsToState, normalizeState, summarize } from '../src/lib/schema.ts'
+import { API_LEVEL, SchemaError, docsToState, normalizeState, summarize } from '../src/lib/schema.ts'
+import { codeFingerprint } from './version.ts'
 import { ConflictError, RestoreError, type Change, type Store } from './db.ts'
 import type { Auth } from './auth.ts'
 
@@ -53,6 +54,7 @@ class HttpError extends Error {
 export interface AppOptions { store: Store; auth: Auth; port: number; distDir: string; log?: (msg: string) => void }
 
 export function createHandler({ store, auth, port, distDir, log = () => {} }: AppOptions) {
+  const code = codeFingerprint()
   const hosts = new Set([`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`])
   const cookieName = `duckbook_sid_${port}`
 
@@ -102,7 +104,7 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
 
   const statusBody = (req: http.IncomingMessage) => {
     const unlocked = auth.allows(sessionToken(req))
-    const base = { app: 'duckbook', pinEnabled: auth.enabled, autoLockMin: auth.autoLockMin, locked: !unlocked, retryAfterMs: auth.retryAfterMs() }
+    const base = { app: 'duckbook', apiLevel: API_LEVEL, pinEnabled: auth.enabled, autoLockMin: auth.autoLockMin, locked: !unlocked, retryAfterMs: auth.retryAfterMs() }
     if (!unlocked) return base
     return { ...base, docCount: store.docCount(), quarantineCount: store.quarantined().length, migration: store.getMeta('migration') ?? null, dataDir: store.dataDir, lastBackup: store.getMeta('last_backup') ?? null }
   }
@@ -110,7 +112,7 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
   async function api(req: http.IncomingMessage, res: http.ServerResponse, route: string) {
     const method = req.method ?? 'GET'
 
-    if (route === 'GET /api/health') return send(res, 200, { app: 'duckbook', version: 1, pid: process.pid })
+    if (route === 'GET /api/health') return send(res, 200, { app: 'duckbook', version: 1, apiLevel: API_LEVEL, code, pid: process.pid })
     if (route === 'GET /api/status') return send(res, 200, statusBody(req))
 
     if (route === 'POST /api/unlock') {

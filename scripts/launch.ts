@@ -10,6 +10,7 @@ import path from 'node:path'
 import readline from 'node:readline/promises'
 import { fileURLToPath } from 'node:url'
 import { DEFAULT_PORT, defaultDataDir } from '../server/main.ts'
+import { codeFingerprint } from '../server/version.ts'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const port = Number(process.env.DUCKBOOK_PORT ?? DEFAULT_PORT)
@@ -19,13 +20,25 @@ const args = new Set(process.argv.slice(2))
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-async function isDuckbook() {
+interface Health { app?: string; code?: string; pid?: number }
+
+async function health(): Promise<Health | null> {
   try {
     const r = await fetch(`${url}api/health`, { headers: { 'X-Duckbook': '1' }, signal: AbortSignal.timeout(1500) })
-    return r.ok && ((await r.json()) as { app?: string }).app === 'duckbook'
+    const h = (await r.json()) as Health
+    return r.ok && h.app === 'duckbook' ? h : null
   } catch {
-    return false
+    return null
   }
+}
+
+const isDuckbook = async () => (await health()) !== null
+
+async function ask(question: string, dflt: boolean) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+  const a = (await rl.question(question)).trim().toLowerCase()
+  rl.close()
+  return a === '' ? dflt : a === 'y' || a === 'yes'
 }
 
 const portBusy = (host: string) =>
@@ -81,18 +94,17 @@ function run(cmd: string, cmdArgs: string[]) {
   if (r.status !== 0) throw new Error(`${cmd} ${cmdArgs.join(' ')} failed`)
 }
 
-async function stop() {
-  // Ask the running server who it is, instead of trusting a pid file that may be stale.
-  let pid: number | null = null
-  try {
-    const r = await fetch(`${url}api/health`, { headers: { 'X-Duckbook': '1' }, signal: AbortSignal.timeout(1500) })
-    const h = (await r.json()) as { app?: string; pid?: number }
-    if (h.app === 'duckbook' && typeof h.pid === 'number') pid = h.pid
-  } catch {}
+/** Stop the running server. Asks the server for its pid instead of trusting a possibly stale pid file. */
+async function stop(quiet = false) {
+  const h = await health()
+  let pid = typeof h?.pid === 'number' ? h.pid : null
+  // Servers from before the pid was reported: fall back to the pid file, but only while the port answers as duckbook.
+  if (h && pid === null && fs.existsSync(path.join(dataDir, 'server.pid'))) pid = Number(fs.readFileSync(path.join(dataDir, 'server.pid'), 'utf8'))
   fs.rmSync(path.join(dataDir, 'server.pid'), { force: true })
-  if (pid === null) return console.log('duckbook is not running.')
+  if (pid === null) return quiet || console.log('duckbook is not running.')
   process.kill(pid)
-  console.log('duckbook stopped.')
+  for (let i = 0; i < 40 && ((await portBusy('127.0.0.1')) || (await portBusy('::1'))); i++) await sleep(250)
+  quiet || console.log('duckbook stopped.')
 }
 
 function shortcut() {
@@ -107,7 +119,8 @@ async function main() {
   if (args.has('--stop')) return stop()
   if (args.has('--shortcut')) return shortcut()
 
-  if (await isDuckbook()) {
+  const running = await health()
+  if (running && running.code === codeFingerprint()) {
     openBrowser()
     return
   }
@@ -120,6 +133,18 @@ async function main() {
   if (needsBuild()) {
     console.log('Preparing duckbook…')
     run('npm', ['run', 'build'])
+  }
+
+  // A server started before an update still runs the old code; the updated page won't save through it.
+  if (running) {
+    console.log('duckbook was updated, but the background server is still running the old version.')
+    console.log('Open duckbook tabs can stay open: unsaved edits are sent again once the server is back. Reload them afterwards.')
+    if (!(await ask('Restart the server now? [Y/n] ', true))) {
+      console.log('Not restarted. duckbook will show an "updated" note and won’t save until it is.')
+      openBrowser()
+      return
+    }
+    await stop(true)
   }
 
   if ((await portBusy('127.0.0.1')) || (await portBusy('::1'))) {

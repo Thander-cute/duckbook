@@ -289,3 +289,17 @@ test('Focus Map page: strict saves, idea links on tasks, backup round trip, olde
     await s.cleanup()
   }
 })
+
+test('server reports its API level and code fingerprint for update checks', async () => {
+  const { API_LEVEL } = await import('../src/lib/schema.ts')
+  const { codeFingerprint } = await import('../server/version.ts')
+  const s = await startTestServer()
+  try {
+    const h = (await s.call('GET', '/api/health')).json
+    assert.equal(h.apiLevel, API_LEVEL)
+    assert.equal(h.code, codeFingerprint())
+    assert.equal((await s.call('GET', '/api/status')).json.apiLevel, API_LEVEL, 'visible even while locked')
+  } finally {
+    await s.cleanup()
+  }
+})

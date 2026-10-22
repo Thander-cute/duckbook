@@ -59,6 +59,13 @@ export interface State {
 
 export const SCHEMA_VERSION = 1
 
+/**
+ * What the browser and server must agree on. Bump whenever a page shape or key changes, so a
+ * browser with new code refuses to save through a server still running old code (which would
+ * reject or silently drop new fields). 2 = Focus Map page, settings.modules, WeekTask.ideaId.
+ */
+export const API_LEVEL = 2
+
 export const emptyMonth = (): MonthData => ({
   theme: '',
   goals: [0, 1, 2].map(() => ({ text: '', done: false })),

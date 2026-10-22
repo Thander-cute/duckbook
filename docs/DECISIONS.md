@@ -27,6 +27,10 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
   - "Add to week" creates one unsorted task per idea per week, linked through `WeekTask.ideaId`.
   - Ideas carry no dates or deadlines.
   - It sits beside the Eisenhower matrix, not in place of it.
+- Update safety (found in Supervisor review of `ad3eafe`):
+  - A server left running from before an update would reject Focus Map saves, failing the whole save batch, and would silently drop `settings.modules` and `ideaId`. This was reproduced on a synthetic instance.
+  - Guard: `API_LEVEL` handshake. The page shows an "updated" screen and edits nothing until the server matches.
+  - The launcher compares a code fingerprint and offers to restart a stale server after building.
 
 ## Open (under discussion, not approved)
 
