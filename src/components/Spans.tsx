@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { addDays, fmtShort } from '../lib/date'
 import { editSpans, validDayKey, type Span } from '../lib/store'
+import { DateChip } from './DatePicker'
+import { inPopover } from './Popover'
 import { Write } from './ui'
 
 /** Height of one line of span notes at the foot of a calendar cell. */
@@ -44,32 +46,16 @@ export function setSpanRange(id: string, start: string, end: string) {
   })
 }
 
-function RangeDate({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return <input type="date" className="date-input" aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
-}
-
-/** The small editor for one span: its words, from and to, remove. Dates apply on Enter, blur, or close. */
+/** The small editor for one span: its words, from and to, remove. */
 export function SpanEditor({ span, alignRight, onClose }: { span: Span; alignRight: boolean; onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null)
-  const [start, setStart] = useState(span.start)
-  const [end, setEnd] = useState(span.end)
   const [confirm, setConfirm] = useState(false)
-  const pending = useRef({ start, end })
-  pending.current = { start, end }
-
-  const commit = () => {
-    const p = pending.current
-    if (p.start !== span.start || p.end !== span.end) setSpanRange(span.id, p.start, p.end)
-  }
-  const close = useRef(() => {})
-  close.current = () => {
-    commit()
-    onClose()
-  }
+  const close = useRef(onClose)
+  close.current = onClose
 
   useEffect(() => {
     const down = (e: PointerEvent) => {
-      if (!box.current?.contains(e.target as Node)) close.current()
+      if (!box.current?.contains(e.target as Node) && !inPopover(e.target)) close.current()
     }
     document.addEventListener('pointerdown', down, true)
     return () => document.removeEventListener('pointerdown', down, true)
@@ -87,9 +73,6 @@ export function SpanEditor({ span, alignRight, onClose }: { span: Span; alignRig
           e.preventDefault()
           e.stopPropagation()
           close.current()
-        } else if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
-          e.preventDefault()
-          commit()
         }
       }}
     >
@@ -109,10 +92,10 @@ export function SpanEditor({ span, alignRight, onClose }: { span: Span; alignRig
         }}
       />
       <div className="span-dates">
-        <RangeDate label="From" value={start} onChange={setStart} />
+        <DateChip value={span.start} onChange={(d) => d && setSpanRange(span.id, d, span.end)} label="From" clearable={false} range={[span.start, span.end]} className="span-date" />
         <span className="muted">→</span>
-        <RangeDate label="To" value={end} onChange={setEnd} />
-        <span className="span-days muted small">{days(start, end)}</span>
+        <DateChip value={span.end} onChange={(d) => d && setSpanRange(span.id, span.start, d)} label="To" clearable={false} range={[span.start, span.end]} className="span-date" />
+        <span className="span-days muted small">{days(span.start, span.end)}</span>
         {confirm ? (
           <span className="remove-confirm">
             <button className="text-btn" onClick={() => editSpans((f) => void (f.spans = f.spans.filter((x) => x.id !== span.id)))}>

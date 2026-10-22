@@ -71,17 +71,24 @@ async function closeSettings(page: Page) {
   await page.click('button[aria-label="Back to notebook"]')
   await page.waitForFunction(() => !document.querySelector('.settings'))
 }
-/** Set a native date input the way picking a date does (React sees an input event). */
-async function pickDate(page: Page, sel: string, value: string) {
-  await page.$eval(
-    sel,
-    (el, v) => {
-      const input = el as HTMLInputElement
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, v)
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-    },
-    value,
-  )
+/** Open the date chip's calendar, page to the month, and click the day. */
+async function chooseDate(page: Page, chip: string, value: string) {
+  await page.click(chip)
+  await page.waitForSelector('.dp-pop')
+  for (let i = 0; i < 24; i++) {
+    const month = await page.$eval('.dp-pop .dp', (e) => (e as HTMLElement).dataset.month!)
+    if (month === value.slice(0, 7)) break
+    await page.click(`.dp-pop button[aria-label="${month < value.slice(0, 7) ? 'Next' : 'Previous'} month"]`)
+  }
+  await page.click(`.dp-pop [data-date="${value}"]`)
+  await page.waitForFunction(() => !document.querySelector('.dp-pop'))
+}
+/** Open a menu and click the option with this label. */
+async function chooseMenu(page: Page, button: string, label: string) {
+  await page.click(button)
+  const item = await page.waitForSelector(`xpath/.//div[contains(@class,"menu-pop")]//button[@role="menuitemradio"][span[normalize-space(.)="${label}"]]`)
+  await item!.click()
+  await page.waitForFunction(() => !document.querySelector('.menu-pop'))
 }
 async function dragTo(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
   await page.mouse.move(from.x, from.y)
@@ -272,16 +279,14 @@ async function main() {
       for (let i = 0; i < 12; i++) await page.keyboard.press("ArrowLeft")
       await page.waitForFunction(() => /Big bets/.test(document.querySelector('.canvas .note')!.getAttribute('aria-label')!))
       assert.equal(await page.evaluate(() => location.hash), '#/focus/2026-10-19', 'arrow keys did not flip the week')
-      await page.select('.canvas .note .place-select', 'fill')
+      await chooseMenu(page, '.canvas .note .place-btn', 'Fill-ins')
       await page.waitForFunction(() => /Fill-ins/.test(document.querySelector('.canvas .note')!.getAttribute('aria-label')!))
       await waitSaved(page)
     })
 
     await step('Focus Map: date and plan from the note; one week task, unsorted, marked', async () => {
       await page.click('.canvas .note .note-head')
-      await page.click('.canvas .note .date-chip')
-      await pickDate(page, '.canvas .note .date-input', '2026-10-24')
-      await page.keyboard.press('Enter')
+      await chooseDate(page, '.canvas .note .date-chip', '2026-10-24')
       await page.waitForFunction(() => document.querySelector('.canvas .note .date-chip')?.textContent === 'Oct 24')
       const plan = await page.waitForSelector('xpath/.//div[contains(@class,"canvas")]//button[contains(., "Plan · Wk 43")]')
       await plan!.click()
@@ -333,11 +338,8 @@ async function main() {
       await page.goto(`${BASE}/#/week/2026-10-19`)
       await page.waitForSelector('.dump-list')
       await page.hover('.dump-list .wtask:last-child')
-      await page.click('.dump-list .wtask:last-child .date-chip')
-      // Half-typed years from a date field must never reach the data.
-      await pickDate(page, '.dump-list .wtask:last-child .date-input', '0202-10-28')
-      await pickDate(page, '.dump-list .wtask:last-child .date-input', '2026-10-28')
-      await page.keyboard.press('Enter')
+      // Dates are picked from a calendar, so a half-typed year can't reach the data.
+      await chooseDate(page, '.dump-list .wtask:last-child .date-chip', '2026-10-28')
       await waitSaved(page)
       const docs = await apiDocs(page)
       const all = docs.filter((d) => d.key.startsWith('week:')).flatMap((d) => d.value.tasks.filter((t: any) => t.ideaId).map(() => d.key))
@@ -428,7 +430,7 @@ async function main() {
       // A click on the words opens the small editor; To moves into November.
       await page.click('[data-day="2026-10-15"] .span-label')
       await page.waitForSelector('.span-pop')
-      await pickDate(page, '.span-pop input[aria-label="To"]', '2026-11-04')
+      await chooseDate(page, '.span-pop .date-chip[aria-label^="To"]', '2026-11-04')
       await page.keyboard.press('Escape')
       await page.waitForFunction(() => !document.querySelector('.span-pop'))
       await waitSaved(page)

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { PageTitle, Write } from '../components/ui'
-import { DateField } from '../components/WorkMeta'
+import { DateChip } from '../components/DatePicker'
+import { Menu } from '../components/Menu'
 import { fmtShort, isoWeek, weekStart } from '../lib/date'
 import { href } from '../lib/router'
 import { editFocus, editWork, planIdea, plannedWeeks, uid, useFocus, useStore, type Idea, type IdeaStatus } from '../lib/store'
@@ -275,7 +276,6 @@ function Note({
 }) {
   const weeks = useStore((s) => s.weeks)
   const planned = plannedWeeks({ weeks } as Parameters<typeof plannedWeeks>[0], idea.id)
-  const [editingDate, setEditingDate] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const target = idea.date ? weekStart(idea.date) : viewWeek
   const z = zoneOf(idea)
@@ -337,13 +337,7 @@ function Note({
           {nextState.label}
         </button>
         <span className="bar-sep" />
-        {editingDate ? (
-          <DateField value={idea.date} onCommit={(date) => editWork(idea.id, { date })} onDone={() => setEditingDate(false)} />
-        ) : (
-          <button className={`date-chip ${idea.date ? 'has-date' : ''}`} onClick={() => setEditingDate(true)} aria-label={idea.date ? `Planned ${fmtShort(idea.date)}, change` : 'Set a planned date'}>
-            {idea.date ? fmtShort(idea.date) : '+ date'}
-          </button>
-        )}
+        <DateChip value={idea.date} onChange={(date) => editWork(idea.id, { date })} label="Planned date" />
         {planned.includes(target) ? (
           <a className="note-act is-planned" href={href('week', target)} title="Planned in this week">
             {weekLabel(target)} ↗
@@ -354,24 +348,17 @@ function Note({
           </button>
         )}
         <span className="bar-sep" />
-        <select
-          className="place-select"
-          aria-label="Place"
-          value={z ? z.key : where === 'tray' ? 'tray' : ''}
-          onChange={(e) => {
-            const v = e.target.value
+        <Menu
+          className="place-btn"
+          label="Place"
+          value={z ? z.key : 'tray'}
+          options={[{ value: 'tray', label: 'Tray', hint: 'off the map' }, ...ZONES.map((zone) => ({ value: zone.key, label: zone.name, hint: zone.hint }))]}
+          onChange={(v) => {
             if (v === 'tray') return setPos(idea.id, null, null)
             const zone = ZONES.find((x) => x.key === v)
             if (zone) setPos(idea.id, zone.x, zone.y)
           }}
-        >
-          <option value="tray">Tray</option>
-          {ZONES.map((zone) => (
-            <option key={zone.key} value={zone.key}>
-              {zone.name}
-            </option>
-          ))}
-        </select>
+        />
         {confirmRemove ? (
           <span className="remove-confirm">
             <button

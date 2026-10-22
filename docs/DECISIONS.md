@@ -37,6 +37,7 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 - Month spans (see `docs/plans/2026-10-month-spans.md`):
   - Ranges live in their own `spans` page, one entry per range, so a range across months is never split.
   - `API_LEVEL` is 4.
+- Date picking and short choices use the notebook's own calendar (`DatePicker.tsx`) and menu (`Menu.tsx`) instead of the browser's controls (owner found them ugly). A picked date applies at once, so half-typed dates can't occur.
 - Update safety (found in Supervisor review of `ad3eafe`):
   - A server left running from before an update would reject Focus Map saves, failing the whole save batch, and would silently drop `settings.modules` and `ideaId`. This was reproduced on a synthetic instance.
   - Guard: `API_LEVEL` handshake. The page shows an "updated" screen and edits nothing until the server matches.

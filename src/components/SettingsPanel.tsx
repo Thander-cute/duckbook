@@ -5,6 +5,7 @@ import { migrateLegacy, removeLegacy, type LegacyInfo } from '../lib/legacy'
 import { todayKey } from '../lib/date'
 import type { Summary } from '../lib/schema'
 import { describe } from './Gates'
+import { Menu } from './Menu'
 
 interface Backup { file: string; kind: string; createdAt: string; docs: number; bytes: number; verified: boolean }
 
@@ -218,17 +219,15 @@ function PrivacyLock({ pinEnabled, autoLockMin }: { pinEnabled: boolean; autoLoc
                 Turn off
               </button>
             </div>
-            <label className="inline-select">
+            <div className="inline-select">
               Lock after
-              <select value={autoLockMin} onChange={(e) => void setAuto(+e.target.value)}>
-                {[1, 5, 15, 30, 60].map((m) => (
-                  <option key={m} value={m}>
-                    {m} min idle
-                  </option>
-                ))}
-                <option value={0}>only when I lock</option>
-              </select>
-            </label>
+              <Menu
+                label="Lock after"
+                value={autoLockMin}
+                options={[...[1, 5, 15, 30, 60].map((m) => ({ value: m, label: `${m} min idle` })), { value: 0, label: 'only when I lock' }]}
+                onChange={(m) => void setAuto(m)}
+              />
+            </div>
           </>
         ) : (
           <button className="text-btn" onClick={() => setMode('set')}>
