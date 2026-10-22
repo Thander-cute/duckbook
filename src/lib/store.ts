@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { produce, type Draft } from 'immer'
 import { weekStart } from './date'
 import { api, ApiError, OfflineError, setLockedHandler } from './api'
-import { API_LEVEL, SINGLETONS, docsToState, emptyDay, emptyFocus, emptyMonth, emptyState, emptyWeek, type DayData, type FocusData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
+import { API_LEVEL, SINGLETONS, validDayKey, docsToState, emptyDay, emptyFocus, emptyMonth, emptyState, emptyWeek, type DayData, type FocusData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
 
 export * from './schema'
 
@@ -226,7 +226,10 @@ export async function flush(force = false): Promise<boolean> {
       saveStatus.set(dirtyKeys().length ? { kind: 'saving' } : { kind: 'saved' })
       if (dirtyKeys().length) scheduleSave(50)
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
+      if (e instanceof ApiError && e.status === 409 && e.body.outdated) {
+        // The server is a different version now; nothing more is sent until that is sorted out.
+        void reloadStatus().catch(() => {})
+      } else if (e instanceof ApiError && e.status === 409) {
         const conflicts = (e.body.conflicts as { key: string }[] | undefined) ?? []
         saveStatus.set({ kind: 'conflict', keys: conflicts.map((c) => c.key) })
       } else if (e instanceof ApiError && e.status === 401) {
@@ -245,31 +248,22 @@ export async function flush(force = false): Promise<boolean> {
   return !dirtyKeys().length && saveStatus.get().kind === 'saved'
 }
 
-/** Resolve a conflict: take the saved version from the server, or overwrite it with this tab's. */
+/**
+ * Resolve a conflict. One edit can touch several pages (a moved task: the idea and two weeks), so
+ * both choices act on the whole batch: "theirs" drops every unsaved edit in this tab and reloads;
+ * "mine" saves all of this tab's pages over what is stored.
+ */
 export async function resolveConflict(choice: 'theirs' | 'mine') {
   if (choice === 'mine') {
     await flush(true)
     return
   }
   const { docs } = await api<{ docs: ServerDoc[] }>('GET', '/api/data')
-  const conflictKeys = new Set(saveStatus.get().kind === 'conflict' ? (saveStatus.get() as { keys: string[] }).keys : [])
-  for (const k of conflictKeys) savedRefs.delete(k)
-  // Drop local versions of the conflicting pages, then adopt everything clean from the server.
-  state = produce(state, (d) => {
-    for (const k of conflictKeys) {
-      const [kind, id] = k.split(':')
-      if (kind === 'month') delete d.months[id]
-      else if (kind === 'week') delete d.weeks[id]
-      else if (kind === 'day') delete d.days[id]
-    }
-  })
-  for (const k of conflictKeys) {
-    savedRefs.set(k, docRef(state, k))
-    revs.delete(k)
-  }
+  state = emptyState()
+  revs = new Map()
+  savedRefs = defaultsSaved(state)
   saveStatus.set({ kind: 'saved' })
-  adoptDocs(docs, 'merge')
-  if (dirtyKeys().length) scheduleSave()
+  adoptDocs(docs, 'replace')
 }
 
 window.addEventListener('beforeunload', (e) => {
@@ -309,6 +303,7 @@ export async function fetchStatus() {
 }
 
 async function enter(status: Status) {
+  if (status.apiLevel !== API_LEVEL) return session.set({ phase: 'outdated', status })
   await loadAll()
   session.set({ phase: 'unlocked', status })
   saveStatus.set({ kind: 'saved' })
@@ -378,7 +373,10 @@ export async function lock() {
 /** Refresh status (PIN on/off, backups, migration) without touching pages. */
 export async function reloadStatus() {
   const status = await fetchStatus()
-  if (status.locked) goLocked(status)
+  if (status.apiLevel !== API_LEVEL) {
+    goLocked(status)
+    session.set({ phase: 'outdated', status })
+  } else if (status.locked) goLocked(status)
   else session.set({ ...session.get(), status })
   return status
 }
@@ -521,6 +519,7 @@ function moveWeekTask(s: S, from: string, to: string, taskId: string) {
 function applyWork(s: S, ideaId: string, patch: WorkPatch) {
   const idea = s.focus.ideas.find((i) => i.id === ideaId)
   if (!idea) return
+  if (patch.date && !validDayKey(patch.date)) return
   if (patch.text !== undefined) idea.text = patch.text
   if (patch.status !== undefined) idea.status = patch.status
   if (patch.date !== undefined) idea.date = patch.date
@@ -528,7 +527,8 @@ function applyWork(s: S, ideaId: string, patch: WorkPatch) {
   const done = idea.status === 'done'
   // Titles are only rewritten when the title is what changed, so older copies renamed on their
   // own keep their wording until the work item itself is renamed.
-  const retitle = patch.text !== undefined
+  // An emptied title is a moment in typing (or a row about to be deleted), not a new name for the work.
+  const retitle = patch.text !== undefined && patch.text.trim() !== ''
   const restate = patch.status !== undefined
   for (const { task } of linked) {
     if (retitle) task.text = idea.text
@@ -563,7 +563,6 @@ export function planIdea(ideaId: string, monday: string) {
     if (linked.some((l) => l.monday === monday)) return
     if (linked.length) moveWeekTask(s, linked[linked.length - 1].monday, monday, linked[linked.length - 1].task.id)
     else ensureWeek(s, monday).tasks.push({ id: uid(), text: idea.text.trim(), q: null, done: idea.status === 'done', ideaId })
-    if (idea.date && weekStart(idea.date) !== monday) idea.date = null
   })
 }
 
@@ -600,8 +599,8 @@ export function renameWeekTask(mondayKey: string, taskId: string, text: string) 
   update((s) => {
     const t = s.weeks[mondayKey]?.tasks.find((x) => x.id === taskId)
     if (!t) return
-    if (ideaOfWeekTask(s as State, t)) return applyWork(s, t.ideaId!, { text })
     t.text = text
+    if (text.trim() && ideaOfWeekTask(s as State, t)) applyWork(s, t.ideaId!, { text })
   })
 }
 
@@ -609,9 +608,9 @@ export function renameDayTask(dayKey: string, taskId: string, text: string) {
   update((s) => {
     const dt = s.days[dayKey]?.tasks.find((x) => x.id === taskId)
     if (!dt) return
-    const idea = ideaOfDayTask(s as State, dt)
-    if (idea) return applyWork(s, idea.id, { text })
     dt.text = text
+    const idea = text.trim() ? ideaOfDayTask(s as State, dt) : undefined
+    if (idea) applyWork(s, idea.id, { text })
   })
 }
 

@@ -45,6 +45,13 @@ Never point development at port 5317 or at the real data directory.
 
 Working agreement: [AGENTS.md](AGENTS.md). Plan larger changes with [docs/templates/slice-plan.md](docs/templates/slice-plan.md).
 
-Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `F` Focus Map (when turned on) · `L` lock (when a PIN is set).
+Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `F` Focus Map (when turned on) · `L` lock (when a PIN is set) · `Esc` leave Settings.
 
-**Focus Map** (optional, Settings → Modules): jot ideas and place them on an impact × difficulty map (left hard, right easy; top high impact, bottom low). Place an idea with a zone button, by dragging, by clicking the map, or with the arrow keys. "Add to Week" puts it once into that week's unsorted tasks, ready for the matrix. Turning the module off hides it and keeps your ideas.
+**Settings** (⚙) is its own page with paper tabs: Notebook, Focus timer, Privacy, Data (backups, export/import), Add-ons. Back or Esc returns to where you were.
+
+**Focus Map** (optional, Settings → Add-ons) is a board of sticky notes on an impact × difficulty map (left hard, right easy; top high impact, bottom low).
+- **Write and place:** write a new idea in the Tray, then drag the note onto the map. You can also focus a note and use the arrow keys, or use its Place menu.
+- **States:** each note has a state (Idea, In progress, Completed) and an optional planned date. Start, Complete, Reopen, the date, and Plan all sit on the note.
+- **Planning:** Plan puts the idea once into the week of its date, or the week shown in the top bar, ready for the matrix. It stays one piece of work: rename it, tick it done, or change its date from Week, Day, or the note, and every place agrees. Changing the date moves it to that week.
+- **Day page:** ideas planned for a day show up in that day's "Pick from your plan".
+- **Turning it off:** hides the board and its marks; your notes and links are kept.

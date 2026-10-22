@@ -1,5 +1,7 @@
 // Thin client for the local duckbook server (same origin).
 
+import { API_LEVEL } from './schema'
+
 export class ApiError extends Error {
   status: number
   body: Record<string, unknown>
@@ -27,7 +29,7 @@ export async function api<T = Record<string, unknown>>(method: string, url: stri
       method,
       credentials: 'same-origin',
       cache: 'no-store',
-      headers: { 'X-Duckbook': '1', ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+      headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': String(API_LEVEL), ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     })
   } catch {

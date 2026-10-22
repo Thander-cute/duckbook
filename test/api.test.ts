@@ -335,17 +335,49 @@ test('ideas keep state and planned date; older ideas get a derived state that su
     assert.equal(st.focus.ideas[0].status, 'done', 'restoring an older backup keeps finished work finished')
     assert.ok(st.weeks['2026-10-19'].tasks.filter((t: { ideaId?: string; done: boolean }) => t.ideaId === 'old-done').every((t: { done: boolean }) => t.done), 'both older copies stay done')
 
-    // New fields are validated strictly.
+    // New fields are validated strictly: a wrong state or date is refused, not quietly dropped.
     const cur = docs.find((d: { key: string }) => d.key === 'focus')
-    const next = { ideas: [{ id: 'n', text: 'new idea', x: null, y: null, status: 'doing', date: '2026-10-24', createdAt: '' }, { id: 'm', text: 'odd', x: null, y: null, status: 'bogus', date: '2026-02-31', createdAt: '' }] }
-    r = await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: cur.rev, value: next }] })
+    const good = { id: 'n', text: 'new idea', x: null, y: null, status: 'doing', date: '2026-10-24', createdAt: '' }
+    for (const bad of [{ status: 'bogus' }, { date: '2026-02-31' }, { date: '0202-10-28' }]) {
+      r = await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: cur.rev, value: { ideas: [{ ...good, ...bad }] } }] })
+      assert.equal(r.status, 400, JSON.stringify(bad))
+    }
+    assert.equal((await s.call('PUT', '/api/docs', { changes: [{ key: 'week:0202-10-18', baseRev: 0, value: {} }] })).status, 400, 'no pages for half-typed years')
+    r = await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: cur.rev, value: { ideas: [good] } }] })
     assert.equal(r.status, 200)
     const saved = (await s.call('GET', '/api/data')).json.docs.find((d: { key: string }) => d.key === 'focus').value.ideas
     assert.equal(saved[0].status, 'doing')
     assert.equal(saved[0].date, '2026-10-24')
-    assert.equal('status' in saved[1], false, 'unknown state is not stored')
-    assert.equal(saved[1].date, null, 'impossible date is not stored')
   } finally {
     await s.cleanup()
   }
+})
+
+test('writes from a page of another version are refused; reads are not', async () => {
+  const s = await startTestServer()
+  try {
+    const day = { grateful: '', tasks: [], notes: 'synthetic', sentence: '' }
+    for (const v of [undefined, '2']) {
+      const r = await s.call('PUT', '/api/docs', { changes: [{ key: 'day:2026-10-19', baseRev: 0, value: day }] }, v === undefined ? { 'X-Duckbook-Api': '' } : { 'X-Duckbook-Api': v })
+      assert.equal(r.status, 409, `version ${v}`)
+      assert.equal(r.json.outdated, true)
+    }
+    assert.equal((await s.call('GET', '/api/data', undefined, { 'X-Duckbook-Api': '' })).status, 200)
+    assert.equal((await s.call('PUT', '/api/docs', { changes: [{ key: 'day:2026-10-19', baseRev: 0, value: day }] })).status, 200)
+  } finally {
+    await s.cleanup()
+  }
+})
+
+test('a task id stored in two weeks is shown once (planned week wins)', async () => {
+  const { docsToState } = await import('../src/lib/schema.ts')
+  const task = { id: 'dup', text: 'x', q: null, done: false, ideaId: 'i' }
+  const week = (tasks: unknown[]) => ({ goal: '', notes: '', selfCare: '', tasks, habits: [], reflection: {} })
+  const st = docsToState([
+    { key: 'week:2026-10-19', value: week([task]) },
+    { key: 'week:2026-10-26', value: week([task]) },
+    { key: 'focus', value: { ideas: [{ id: 'i', text: 'x', x: null, y: null, status: 'idea', date: '2026-10-21', createdAt: '' }] } },
+  ])
+  assert.equal(st.weeks['2026-10-19'].tasks.length, 1)
+  assert.equal(st.weeks['2026-10-26'].tasks.length, 0)
 })

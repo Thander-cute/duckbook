@@ -1,6 +1,6 @@
 # Slice: Focus Map as sticky notes, Settings as a notebook page
 
-**Status:** in progress
+**Status:** done (2026-10-23)
 **Decision link:** DECISIONS.md, 2026-10-23 "Focus notes + Settings page" (owner approved)
 
 ## Why (owner-approved outcomes)
@@ -51,7 +51,17 @@
 Photos, Year view, mobile, AI, encryption, recurring items, unplanning or deleting week history.
 
 ## Done when
-- [ ] Browser: create → place (drag + keyboard) → date → plan → edit title/date/done from Week and Day → complete/reopen on the note; one week task, consistent everywhere.
-- [ ] Legacy ideas and promoted tasks reconcile without losing tasks.
-- [ ] Module off/on, PIN, conflicts, backup/restore, upgrade path still pass.
-- [ ] typecheck, `npm test`, build, browser and upgrade checks pass.
+- [x] Browser: create → place (drag + keyboard) → date → plan → edit title/date/done from Week and Day → complete/reopen on the note; one week task, consistent everywhere.
+- [x] Legacy ideas and promoted tasks reconcile without losing tasks.
+- [x] Module off/on, PIN, conflicts, backup/restore, upgrade path still pass.
+- [x] typecheck, `npm test` (15), build, browser checks (21), upgrade checks (from 766cc72, b912506, 6aa816b) pass.
+
+## Independent review (Peer, read-only) and fixes
+- **Half-typed dates** (`0202-…`) from a date input created invalid week pages and froze saving.
+  - Dates now commit only on Enter or blur; Escape cancels.
+  - Years outside 1900–2999 are rejected everywhere, and strict save refuses a bad date or state instead of dropping it.
+- **Backspacing a linked task to delete it** blanked the idea and all of its copies. An empty title now stays local to that row.
+- **"Use the saved version"** kept the other pages of a multi-page edit, which could split a moved task.
+  - It now discards the tab's whole unsaved batch. "Keep this tab's" says it overwrites.
+  - Duplicate task ids are shown once when read.
+- **Version check only ran at boot.** It now also runs on unlock and status reload. The server refuses writes whose `X-Duckbook-Api` doesn't match, so a tab left open across an update is asked to reload.

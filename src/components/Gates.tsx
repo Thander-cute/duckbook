@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { boot, reloadAll, useSaveStatus, useSession, useStore, resolveConflict } from '../lib/store'
+import { API_LEVEL, boot, reloadAll, useSaveStatus, useSession, useStore, resolveConflict } from '../lib/store'
 import { migrateLegacy, type LegacyInfo } from '../lib/legacy'
 import type { Summary } from '../lib/schema'
 
@@ -33,6 +33,8 @@ export function OfflineScreen() {
 
 /** This page is newer than the background server still running. Nothing can be edited until it restarts. */
 export function OutdatedScreen() {
+  const { status } = useSession()
+  const pageIsOlder = (status?.apiLevel ?? 0) > API_LEVEL
   useEffect(() => {
     const t = setInterval(() => void boot(), 3000)
     return () => clearInterval(t)
@@ -43,11 +45,20 @@ export function OutdatedScreen() {
         <div className="wordmark">
           <em>duck</em>book
         </div>
-        <p>duckbook was updated, but its background server is still running the old version.</p>
-        <p className="muted small">
-          Open <strong>Duckbook</strong> again (desktop shortcut or <code>Duckbook.cmd</code>): it restarts the server for you. This page continues by itself once the
-          new server is up. Nothing was changed.
-        </p>
+        {pageIsOlder ? (
+          <>
+            <p>duckbook was updated. This tab still has the old version.</p>
+            <p className="muted small">Reload this tab to continue. Nothing was changed.</p>
+          </>
+        ) : (
+          <>
+            <p>duckbook was updated, but its background server is still running the old version.</p>
+            <p className="muted small">
+              Open <strong>Duckbook</strong> again (desktop shortcut or <code>Duckbook.cmd</code>): it restarts the server for you. This page continues by itself once
+              the new server is up. Nothing was changed.
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
@@ -144,10 +155,10 @@ export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null;
       {save.kind === 'conflict' && (
         <div className="banner is-warn" role="alert">
           <span>Some pages were changed in another tab or window since you opened them.</span>
-          <button className="text-btn" onClick={() => void resolveConflict('theirs')}>
+          <button className="text-btn" onClick={() => void resolveConflict('theirs')} title="Discards this tab’s unsaved edits">
             Use the saved version
           </button>
-          <button className="text-btn" onClick={() => void resolveConflict('mine')}>
+          <button className="text-btn" onClick={() => void resolveConflict('mine')} title="Overwrites what was saved elsewhere on these pages">
             Keep this tab’s
           </button>
         </div>

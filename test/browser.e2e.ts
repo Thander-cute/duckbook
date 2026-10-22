@@ -8,6 +8,7 @@ import os from 'node:os'
 import path from 'node:path'
 import puppeteer, { type Page } from 'puppeteer-core'
 import { fixtureLegacy } from './helpers.ts'
+import { API_LEVEL } from '../src/lib/schema.ts'
 
 const PORT = 5399
 const BASE = `http://localhost:${PORT}`
@@ -148,15 +149,15 @@ async function main() {
     })
 
     await step('another writer changed the page: conflict banner, nothing overwritten', async () => {
-      await page.evaluate(async () => {
+      await page.evaluate(async (apiLevel: string) => {
         const data = (await (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).json()) as { docs: { key: string; rev: number; value: object }[] }
         const d = data.docs.find((x) => x.key === 'day:2026-10-19')!
         await fetch('/api/docs', {
           method: 'PUT',
-          headers: { 'X-Duckbook': '1', 'Content-Type': 'application/json' },
+          headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': apiLevel, 'Content-Type': 'application/json' },
           body: JSON.stringify({ changes: [{ key: d.key, baseRev: d.rev, value: { ...d.value, notes: 'from elsewhere' } }] }),
         })
-      })
+      }, String(API_LEVEL))
       await typeInto(page, '.page-foot textarea', 'this tab edit')
       await page.waitForSelector('.save-status.is-conflict', { timeout: 5000 })
       await shot(page, '04-conflict')
@@ -167,16 +168,16 @@ async function main() {
     })
 
     await step('restore is refused while an edit is unsaved; the edit survives', async () => {
-      await page.evaluate(async () => {
+      await page.evaluate(async (apiLevel: string) => {
         const data = (await (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).json()) as { docs: { key: string; rev: number; value: object }[] }
         const d = data.docs.find((x) => x.key === 'day:2026-10-19')!
         await fetch('/api/docs', {
           method: 'PUT',
-          headers: { 'X-Duckbook': '1', 'Content-Type': 'application/json' },
+          headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': apiLevel, 'Content-Type': 'application/json' },
           body: JSON.stringify({ changes: [{ key: d.key, baseRev: d.rev, value: { ...d.value, notes: 'second outside edit' } }] }),
         })
-        await fetch('/api/backups', { method: 'POST', headers: { 'X-Duckbook': '1' } })
-      })
+        await fetch('/api/backups', { method: 'POST', headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': apiLevel } })
+      }, String(API_LEVEL))
       await typeInto(page, '.page-foot textarea', 'unsaved precious words')
       await page.waitForSelector('.save-status.is-conflict', { timeout: 5000 })
       await openSettings(page, 'Data')
@@ -280,7 +281,7 @@ async function main() {
       await page.click('.canvas .note .note-head')
       await page.click('.canvas .note .date-chip')
       await pickDate(page, '.canvas .note .date-input', '2026-10-24')
-      await page.keyboard.press('Escape')
+      await page.keyboard.press('Enter')
       await page.waitForFunction(() => document.querySelector('.canvas .note .date-chip')?.textContent === 'Oct 24')
       const plan = await page.waitForSelector('xpath/.//div[contains(@class,"canvas")]//button[contains(., "Plan · Wk 43")]')
       await plan!.click()
@@ -333,11 +334,15 @@ async function main() {
       await page.waitForSelector('.dump-list')
       await page.hover('.dump-list .wtask:last-child')
       await page.click('.dump-list .wtask:last-child .date-chip')
+      // Half-typed years from a date field must never reach the data.
+      await pickDate(page, '.dump-list .wtask:last-child .date-input', '0202-10-28')
       await pickDate(page, '.dump-list .wtask:last-child .date-input', '2026-10-28')
+      await page.keyboard.press('Enter')
       await waitSaved(page)
       const docs = await apiDocs(page)
       const all = docs.filter((d) => d.key.startsWith('week:')).flatMap((d) => d.value.tasks.filter((t: any) => t.ideaId).map(() => d.key))
       assert.deepEqual(all, ['week:2026-10-26'], 'exactly one linked task, now in the week of the date')
+      assert.ok(docs.every((d) => !/^week:(0|1[0-8])/.test(d.key)), 'no pages for half-typed years')
       await page.goto(`${BASE}/#/focus/2026-10-19`)
       await page.waitForSelector('xpath/.//div[contains(@class,"canvas")]//a[contains(., "Wk 44")]')
     })
@@ -375,6 +380,22 @@ async function main() {
       await page.waitForSelector('.canvas .note')
       await page.goto(`${BASE}/#/week/2026-10-26`)
       await page.waitForSelector('.dump-list .idea-mark')
+      await page.goto(`${BASE}/#/day/2026-10-19`)
+      await page.waitForSelector('.day-page')
+    })
+
+    await step('Deleting a linked task by backspacing never blanks the idea', async () => {
+      await page.goto(`${BASE}/#/week/2026-10-26`)
+      const sel = '.dump-list .wtask:last-child textarea'
+      await page.waitForSelector(sel)
+      await page.click(sel, { count: 3 })
+      await page.keyboard.press('Backspace')
+      await page.keyboard.press('Backspace')
+      await waitSaved(page)
+      const docs = await apiDocs(page)
+      assert.equal(docs.find((d) => d.key === 'focus')!.value.ideas[0].text, 'synthetic work renamed')
+      assert.ok(!docs.find((d) => d.key === 'week:2026-10-26')!.value.tasks.some((t: any) => t.ideaId), 'row removed')
+      assert.equal(docs.find((d) => d.key === 'day:2026-10-24')!.value.tasks[0].text, 'synthetic work renamed', 'day copy keeps its title')
       await page.goto(`${BASE}/#/day/2026-10-19`)
       await page.waitForSelector('.day-page')
     })

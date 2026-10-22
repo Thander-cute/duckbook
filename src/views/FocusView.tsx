@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { PageTitle, Write } from '../components/ui'
+import { DateField } from '../components/WorkMeta'
 import { fmtShort, isoWeek, weekStart } from '../lib/date'
 import { href } from '../lib/router'
 import { editFocus, editWork, planIdea, plannedWeeks, uid, useFocus, useStore, type Idea, type IdeaStatus } from '../lib/store'
@@ -308,16 +309,7 @@ function Note({
         </button>
 
         {editingDate ? (
-          <input
-            type="date"
-            className="date-input"
-            autoFocus
-            aria-label="Planned date"
-            value={idea.date ?? ''}
-            onChange={(e) => editWork(idea.id, { date: e.target.value || null })}
-            onBlur={() => setEditingDate(false)}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === 'Escape') && setEditingDate(false)}
-          />
+          <DateField value={idea.date} onCommit={(date) => editWork(idea.id, { date })} onDone={() => setEditingDate(false)} />
         ) : (
           <button className={`date-chip ${idea.date ? 'has-date' : ''}`} onClick={() => setEditingDate(true)} aria-label={idea.date ? `Planned ${fmtShort(idea.date)}, change` : 'Set a planned date'}>
             {idea.date ? fmtShort(idea.date) : '+ date'}

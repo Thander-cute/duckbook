@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { API_LEVEL } from '../src/lib/schema.ts'
 import os from 'node:os'
 import path from 'node:path'
 import { start } from '../server/main.ts'
@@ -54,6 +55,7 @@ export async function startTestServer() {
       method,
       headers: {
         'X-Duckbook': '1',
+        'X-Duckbook-Api': String(API_LEVEL),
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         ...(cookie ? { Cookie: cookie } : {}),
         ...headers,

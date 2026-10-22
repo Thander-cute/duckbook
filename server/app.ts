@@ -134,6 +134,11 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
     // Everything below touches private data.
     requireUnlocked(req)
 
+    // A tab left open across an update would write the old shape; make it reload instead.
+    if (method !== 'GET' && route !== 'POST /api/ping' && req.headers['x-duckbook-api'] !== String(API_LEVEL)) {
+      throw new HttpError(409, 'duckbook was updated. Reload this tab to keep saving.', { outdated: true })
+    }
+
     if (route === 'POST /api/ping') return send(res, 200, { ok: true })
 
     if (route === 'GET /api/data') return send(res, 200, { docs: store.allDocs() })

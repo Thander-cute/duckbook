@@ -11,6 +11,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import puppeteer from 'puppeteer-core'
 import { codeFingerprint } from '../server/version.ts'
+import { API_LEVEL } from '../src/lib/schema.ts'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const OLD = process.argv[2] ?? '766cc72'
@@ -47,9 +48,16 @@ async function main() {
 
     const page = await browser.newPage()
     await page.goto(`${BASE}/#/day/2026-10-19`)
-    await page.waitForFunction(() => document.body.innerText.includes('still running the old version'))
-    assert.equal(await page.$$eval('textarea', (x) => x.length), 0, 'no editing through the old server')
-    console.log('ok - new page refuses to edit through an old server')
+    const oldLevel = ((await (await fetch(`${BASE}/api/health`, { headers: { 'X-Duckbook': '1' } })).json()) as { apiLevel?: number }).apiLevel
+    if (oldLevel !== API_LEVEL) {
+      await page.waitForFunction(() => document.body.innerText.includes('still running the old version'))
+      assert.equal(await page.$$eval('textarea', (x) => x.length), 0, 'no editing through the old server')
+      console.log('ok - new page refuses to edit through an old server')
+    } else {
+      // Same data version: the shapes match, so the page may work; the launcher still restarts it below.
+      await page.waitForSelector('.day-page')
+      console.log('ok - same data version: page works, restart still offered')
+    }
 
     const launcher = spawn(process.execPath, ['scripts/launch.ts', '--no-open'], { cwd: repo, env, stdio: ['pipe', 'pipe', 'inherit'] })
     let out = ''
@@ -61,6 +69,7 @@ async function main() {
     assert.equal((await health())?.code, codeFingerprint(), 'launcher restarted onto the current code')
     console.log('ok - launcher restarts a server running old code')
 
+    await page.reload()
     await page.waitForSelector('.day-page', { timeout: 15_000 })
     await page.click('.day-page .line textarea')
     await page.keyboard.type('after the update')

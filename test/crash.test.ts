@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
+import { API_LEVEL } from '../src/lib/schema.ts'
 import os from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
@@ -42,7 +43,7 @@ test('server killed mid-write: database stays intact and holds the last acknowle
         try {
           const r = await fetch(url, {
             method: 'PUT',
-            headers: { 'X-Duckbook': '1', 'Content-Type': 'application/json' },
+            headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': String(API_LEVEL), 'Content-Type': 'application/json' },
             body: JSON.stringify({ changes: [{ key: 'day:2026-10-19', baseRev: rev, value: { grateful: '', tasks: [], notes: `n=${i} ${'x'.repeat(2000)}`, sentence: '' } }] }),
           })
           if (!r.ok) break

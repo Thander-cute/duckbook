@@ -112,6 +112,8 @@ const MONTH_KEY = /^\d{4}-(0[1-9]|1[0-2])$/
 export const validDayKey = (k: string) => {
   if (!DAY_KEY.test(k)) return false
   const [y, m, d] = k.split('-').map(Number)
+  // Half-typed dates from a date field (0002-10-22, 0202-…) are not real planner days.
+  if (y < 1900 || y > 2999) return false
   const dt = new Date(y, m - 1, d)
   return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d
 }
@@ -141,6 +143,7 @@ export function stateToDocs(s: State): Doc[] {
  * is done, otherwise Idea. Derived on read, never written back on its own.
  */
 export function withIdeaStatus(s: State): State {
+  dedupeWeekTasks(s)
   if (!s.focus.ideas.some((i) => !i.status)) return s
   const tasks = Object.values(s.weeks).flatMap((w) => w.tasks)
   s.focus = {
@@ -152,6 +155,30 @@ export function withIdeaStatus(s: State): State {
     }),
   }
   return s
+}
+
+/**
+ * A task id should live in one week. If an interrupted move ever left it in two, show it once:
+ * in the week of its idea's planned date if that is one of them, otherwise the latest week.
+ */
+function dedupeWeekTasks(s: State) {
+  const where = new Map<string, string[]>()
+  for (const [monday, w] of Object.entries(s.weeks)) for (const t of w.tasks) where.set(t.id, [...(where.get(t.id) ?? []), monday])
+  for (const [id, mondays] of where) {
+    if (mondays.length < 2) continue
+    const task = s.weeks[mondays[0]].tasks.find((t) => t.id === id)!
+    const date = task.ideaId ? s.focus.ideas.find((i) => i.id === task.ideaId)?.date : null
+    const preferred = date ? mondays.find((m) => m === weekMonday(date)) : undefined
+    const keep = preferred ?? [...mondays].sort().pop()!
+    for (const m of mondays) if (m !== keep) s.weeks[m] = { ...s.weeks[m], tasks: s.weeks[m].tasks.filter((t) => t.id !== id) }
+  }
+}
+
+const weekMonday = (key: string) => {
+  const [y, m, d] = key.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  dt.setDate(dt.getDate() - ((dt.getDay() + 6) % 7))
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
 }
 
 /** Assemble State from already-validated documents. */
@@ -309,6 +336,21 @@ function settings(s: Record<string, unknown>): Settings {
   }
 }
 
+/** A missing status stays missing (derived on read); a wrong one is refused on save, set aside on import. */
+function ideaStatus(c: Ctx, v: unknown, path: string): { status?: IdeaStatus } {
+  if (v === undefined || v === null) return {}
+  if (v === 'idea' || v === 'doing' || v === 'done') return { status: v }
+  c.park(path, v, 'unknown state')
+  return {}
+}
+
+function ideaDate(c: Ctx, v: unknown, path: string): string | null {
+  if (v === undefined || v === null || v === '') return null
+  if (typeof v === 'string' && validDayKey(v)) return v
+  c.park(path, v, 'not a valid date')
+  return null
+}
+
 const coord = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(Math.min(1, Math.max(0, v)) * 1000) / 1000 : null)
 
 function focus(c: Ctx, f: Record<string, unknown>, p: string): FocusData {
@@ -329,8 +371,8 @@ function focus(c: Ctx, f: Record<string, unknown>, p: string): FocusData {
           y: placed ? y : null,
           // Ideas saved before states existed have none; it is derived from their tasks when read
           // (see withIdeaStatus), so validation must not invent one here.
-          ...(it.status === 'idea' || it.status === 'doing' || it.status === 'done' ? { status: it.status } : {}),
-          date: typeof it.date === 'string' && validDayKey(it.date) ? it.date : null,
+          ...ideaStatus(c, it.status, `${p}.ideas.${i}.status`),
+          date: ideaDate(c, it.date, `${p}.ideas.${i}.date`),
           createdAt: typeof it.createdAt === 'string' ? it.createdAt : '',
         } as Idea,
       ]
