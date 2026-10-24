@@ -418,6 +418,26 @@ async function main() {
       await page.waitForSelector('.day-page')
     })
 
+    await step('Month: no mood column; each week row has its own mark that peeks at the goal and opens the week', async () => {
+      await page.goto(`${BASE}/#/week/2026-11-02`)
+      await page.waitForSelector('[aria-label="Biggest goal of the week:"]')
+      await page.click('[aria-label="Biggest goal of the week:"]')
+      await page.keyboard.type('synthetic week goal')
+      await waitSaved(page)
+      await page.goto(`${BASE}/#/month/2026-11-05`)
+      await page.waitForSelector('.cal-wk')
+      assert.equal(await page.$$eval('.mood, .weeks-of-month', (x) => x.length), 0)
+      assert.equal(await page.$$eval('.cal-wk', (x) => x.length), 6, 'November 2026 spans six week rows')
+      await page.click('[aria-label="Goal of week 45"]')
+      await page.waitForFunction(() => document.querySelector('.wk-pop')?.textContent!.includes('synthetic week goal'))
+      await page.click('[aria-label="Reflection of week 45"]')
+      await page.waitForFunction(() => document.querySelector('.wk-pop')?.textContent!.includes('Not reflected yet'))
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => !document.querySelector('.wk-pop'))
+      await page.click('.cal-wk a[title^="Open week 45"]')
+      await page.waitForFunction(() => location.hash === '#/week/2026-11-02')
+    })
+
     await step('Month: draw a line across days, write on it, cross into next month, slide the words, remove', async () => {
       await page.goto(`${BASE}/#/month/2026-10-19`)
       await page.waitForSelector('[data-day="2026-10-13"] .cal-num')

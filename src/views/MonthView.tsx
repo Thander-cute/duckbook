@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { PhotoMark, PhotoViewer, type Shown } from '../components/Photos'
 import { LANE, SpanEditor, placeSpans, rangeLabel } from '../components/Spans'
-import { Check, Label, Page, Spread, Write } from '../components/ui'
+import { Popover } from '../components/Popover'
+import { Check, Page, Spread, Write } from '../components/ui'
+import { PROMPTS } from './ReflectView'
 import { MONTHS_SHORT, WEEKDAYS, addDays, daysInMonth, fmtShort, isoWeek, monthGrid, monthKeyOf, pad, todayKey, weekStart } from '../lib/date'
 import { go, href } from '../lib/router'
 import { editMonth, editSpans, uid, useMonth, useSpans, useStore } from '../lib/store'
-
-const MOODS = [1, 2, 3, 4, 5]
 
 /** Where a line starts in the cycle of three hand-drawn strokes; stable per line. */
 const pen = (id: string) => [...id].reduce((h, c) => h + c.charCodeAt(0), 0) % 3
@@ -227,19 +227,20 @@ export function MonthView({ date }: { date: string }) {
         </div>
 
         <div className="month-body">
-          <MoodTracker mk={mk} />
+          <div className="month-notes-col">
+            <div className="cal-wd month-notes-head">Notes</div>
+            <Write className="dotgrid notes month-notes" value={month.notes} onChange={(v) => editMonth(mk, (m) => void (m.notes = v))} rows={4} ariaLabel="Month notes" />
+          </div>
           <div className="cal cal-3">
+            <div className="cal-wd cal-wd-wk" aria-hidden />
             {WEEKDAYS.slice(0, 3).map((w) => (
               <div key={w} className="cal-wd">
                 {w}
               </div>
             ))}
-            {rows.flatMap((r, ri) => r.slice(0, 3).map((k, ci) => cell(k, ri * 7 + ci)))}
+            {rows.flatMap((r, ri) => [<WeekMark key={`wk-${ri}`} monday={weekStart(r.find(Boolean)!)} />, ...r.slice(0, 3).map((k, ci) => cell(k, ri * 7 + ci))])}
           </div>
         </div>
-
-        <Label>Notes</Label>
-        <Write className="dotgrid notes month-notes" value={month.notes} onChange={(v) => editMonth(mk, (m) => void (m.notes = v))} rows={4} ariaLabel="Month notes" />
       </Page>
 
       {viewing !== null && shown.length > 0 && <PhotoViewer items={shown} start={viewing} onClose={() => setViewing(null)} showDayLink />}
@@ -273,68 +274,68 @@ export function MonthView({ date }: { date: string }) {
             {rows.flatMap((r, ri) => r.slice(3).map((k, ci) => cell(k, ri * 7 + ci + 3)))}
           </div>
         </div>
-
-        <WeeksOfMonth rows={rows} />
       </Page>
     </Spread>
   )
 }
 
-function MoodTracker({ mk }: { mk: string }) {
-  const month = useMonth(mk)
-  const n = daysInMonth(mk)
-  const today = todayKey()
+/** The week's column on the Month calendar: its number opens the week; two marks peek at its goal and reflection. */
+function WeekMark({ monday }: { monday: string }) {
+  const week = useStore((s) => s.weeks[monday])
+  const [peek, setPeek] = useState<{ kind: 'goal' | 'reflect'; at: HTMLElement } | null>(null)
+  const n = isoWeek(monday)
+  const goal = week?.goal.trim() ?? ''
+  const r = week?.reflection
+  const said = PROMPTS.filter((p) => r?.[p.key].trim())
+  const toggle = (kind: 'goal' | 'reflect', at: HTMLElement) => setPeek(peek?.kind === kind ? null : { kind, at })
   return (
-    <div className="mood" aria-label="Mood tracker">
-      <div className="mood-head">
-        <em>mood</em>
-        <span className="mood-scale" aria-hidden>
-          <span>low</span>
-          <span>high</span>
-        </span>
-      </div>
-      <div className="mood-rows">
-        {Array.from({ length: n }, (_, i) => {
-          const key = `${mk}-${pad(i + 1)}`
-          const v = month.moods[key]
-          return (
-            <div key={key} className={`mood-row ${key === today ? 'is-today' : ''}`}>
-              <span className="mood-d">{i + 1}</span>
-              {MOODS.map((m) => (
-                <button
-                  key={m}
-                  className={`mood-dot ${v === m ? 'is-on' : ''}`}
-                  aria-label={`Day ${i + 1} mood ${m} of 5`}
-                  onClick={() => editMonth(mk, (d) => void (v === m ? delete d.moods[key] : (d.moods[key] = m)))}
-                />
-              ))}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function WeeksOfMonth({ rows }: { rows: (string | null)[][] }) {
-  const weeks = useStore((s) => s.weeks)
-  const mondays = rows.map((r) => weekStart(r.find(Boolean)!))
-  return (
-    <div className="weeks-of-month">
-      <Label>Weeks</Label>
-      <ul>
-        {mondays.map((m) => (
-          <li key={m}>
-            <a href={href('week', m)}>
-              <span className="wk-n">W{isoWeek(m)}</span>
-              <span className="wk-range muted">
-                {fmtShort(m)} – {fmtShort(addDays(m, 6))}
-              </span>
-              <span className="ink wk-goal">{weeks[m]?.goal || <span className="muted">no goal yet</span>}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
+    <div className="cal-wk" onKeyDown={(e) => e.key === 'Escape' && peek && (e.stopPropagation(), setPeek(null))}>
+      <a className="wk-name" href={href('week', monday)} title={`Open week ${n} · ${fmtShort(monday)} – ${fmtShort(addDays(monday, 6))}`}>
+        W{n}
+      </a>
+      <button className={`wk-peek ${goal ? '' : 'is-empty'} ${peek?.kind === 'goal' ? 'is-on' : ''}`} aria-label={`Goal of week ${n}`} title="Goal of the week" onClick={(e) => toggle('goal', e.currentTarget)}>
+        <svg viewBox="0 0 20 20" aria-hidden>
+          <path d="M5 18 V3 M5 3.5 H15 L12.5 7 L15 10.5 H5" />
+        </svg>
+      </button>
+      <button className={`wk-peek ${said.length ? '' : 'is-empty'} ${peek?.kind === 'reflect' ? 'is-on' : ''}`} aria-label={`Reflection of week ${n}`} title="Reflection" onClick={(e) => toggle('reflect', e.currentTarget)}>
+        <svg viewBox="0 0 20 20" aria-hidden>
+          <ellipse cx="10" cy="7.5" rx="5" ry="5.5" />
+          <path d="M10 13 V18 M7.5 18 H12.5 M8 5.5 C8.5 4.5 9.3 4 10.3 4" />
+        </svg>
+      </button>
+      {peek && (
+        <Popover anchor={peek.at} onClose={() => setPeek(null)} beside className="wk-pop" label={peek.kind === 'goal' ? `Goal of week ${n}` : `Reflection of week ${n}`}>
+          <div className="wk-pop-head">
+            W{n} <span>{fmtShort(monday)} – {fmtShort(addDays(monday, 6))}</span>
+          </div>
+          {peek.kind === 'goal' ? (
+            <>
+              <div className="wk-pop-label">Biggest goal of the week</div>
+              <p className={goal ? 'ink' : 'muted'}>{goal || 'No goal yet.'}</p>
+              <a className="text-link" href={href('week', monday)}>
+                Open week →
+              </a>
+            </>
+          ) : (
+            <>
+              {said.length ? (
+                said.map((p) => (
+                  <div key={p.key} className="wk-pop-item">
+                    <div className="wk-pop-label">{p.title}</div>
+                    <p className="ink">{r![p.key]}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="muted">Not reflected yet.</p>
+              )}
+              <a className="text-link" href={href('reflect', monday)}>
+                Open reflection →
+              </a>
+            </>
+          )}
+        </Popover>
+      )}
     </div>
   )
 }

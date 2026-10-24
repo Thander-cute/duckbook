@@ -5,7 +5,7 @@ import { WEEKDAYS, WEEKDAYS_MIN, fmtMonth, monthKeyOf, weekDays, weekStart } fro
 import { href } from '../lib/router'
 import { editMonth, editWeek, useMonth, useStore, useWeekWithSeed, type Reflection } from '../lib/store'
 
-const PROMPTS: { key: keyof Omit<Reflection, 'more' | 'reviewed'>; title: string; q: string; icon: ReactNode }[] = [
+export const PROMPTS: { key: keyof Omit<Reflection, 'more' | 'reviewed'>; title: string; q: string; icon: ReactNode }[] = [
   {
     key: 'checkin',
     title: 'Check-in',

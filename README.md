@@ -47,6 +47,8 @@ Working agreement: [AGENTS.md](AGENTS.md). Plan larger changes with [docs/templa
 
 Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `F` Focus Map (when turned on) · `L` lock (when a PIN is set) · `Esc` leave Settings.
 
+**Month: weeks.** Month notes sit in the left column, as in the paper planner. Each week row starts with a narrow column: its number (W43) opens the week, the flag shows the week's goal, the hand mirror shows its reflection. A faint mark means nothing is written yet. Mood tracking is gone from the page; moods saved earlier stay in your data.
+
 **Month: notes for a stretch of days.** Press a day number and drag to another day to draw a line, then write on it. Drag the words along the line to move them. Click the words or the line to change the text or the From/To days (a stretch may run into the next month) or to remove it.
 
 **Day photos.** The right page of a Day keeps up to 3 photos: click "Add a photo", drop files on it, or paste. On the Month page a day with photos shows a small picture mark in its corner; click it to view them over the page (← → to step through the month's photos, Esc to close). Photos are stored as JPEG files in the data folder's `photos` folder, not inside the JSON export.
