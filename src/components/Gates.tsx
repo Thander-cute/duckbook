@@ -76,7 +76,10 @@ export function OutdatedScreen() {
   )
 }
 
-/** Desktop app, empty notebook, and the browser version has pages on this computer: offer to bring them over. */
+/**
+ * Desktop app with an empty notebook: start fresh, or bring pages over from the browser version.
+ * The browser version's pages are only looked at after the person asks for it.
+ */
 export function DesktopWelcome({ onDone }: { onDone: () => void }) {
   type Preview = { found: boolean; summary: Summary; photos: number; webServerRunning: boolean }
   const [p, setP] = useState<Preview | null>(null)
@@ -84,11 +87,17 @@ export function DesktopWelcome({ onDone }: { onDone: () => void }) {
   const [result, setResult] = useState<{ summary: Summary; photosCopied: number } | null>(null)
   const [error, setError] = useState('')
 
-  const check = () =>
-    api<Preview>('GET', '/api/import/web/preview')
-      .then((x) => (x.found ? setP(x) : onDone()))
-      .catch(() => onDone())
-  useEffect(() => void check(), []) // eslint-disable-line react-hooks/exhaustive-deps
+  const look = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      setP(await api<Preview>('GET', '/api/import/web/preview'))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const bring = async () => {
     setBusy(true)
@@ -98,13 +107,12 @@ export function DesktopWelcome({ onDone }: { onDone: () => void }) {
       await reloadAll()
     } catch (e) {
       setError((e as Error).message)
-      void check()
+      void look()
     } finally {
       setBusy(false)
     }
   }
 
-  if (!p) return <LoadingScreen />
   return (
     <div className="lock-shell">
       <div className="lock-card wide">
@@ -121,18 +129,45 @@ export function DesktopWelcome({ onDone }: { onDone: () => void }) {
               Open my notebook
             </button>
           </>
+        ) : !p ? (
+          <>
+            <p>This notebook is empty.</p>
+            <p className="muted small">
+              If you used duckbook in the browser on this computer, you can bring those pages and photos into this app. The browser version is only read, never
+              changed. You can also do this later in Settings → Data.
+            </p>
+            {error && (
+              <p className="lock-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="row-btns center">
+              <button className="pomo-btn" disabled={busy} onClick={() => void look()}>
+                {busy ? 'Looking…' : 'Look for my browser pages'}
+              </button>
+              <button className="pomo-btn ghost-dark" disabled={busy} onClick={onDone}>
+                Start with an empty notebook
+              </button>
+            </div>
+          </>
+        ) : !p.found ? (
+          <>
+            <p>No pages from the browser version were found on this computer.</p>
+            <button className="pomo-btn" onClick={onDone}>
+              Start with an empty notebook
+            </button>
+          </>
         ) : (
           <>
             <p>
               The browser version on this computer holds <strong>{describe(p.summary)}</strong> and {plural(p.photos, 'photo')}.
             </p>
-            <p className="muted small">
-              Bring them into this app? The browser version is only read, never changed. You can also do this later in Settings → Data.
-            </p>
-            {p.webServerRunning && (
+            {p.webServerRunning ? (
               <p className="lock-error" role="alert">
-                The browser version is running right now. Close its server window first, then press the button again.
+                The browser version is running right now. Close its server window first, then check again.
               </p>
+            ) : (
+              <p className="muted small">They’re copied into this app and checked. The browser version keeps its own copy.</p>
             )}
             {error && !p.webServerRunning && (
               <p className="lock-error" role="alert">
@@ -140,8 +175,8 @@ export function DesktopWelcome({ onDone }: { onDone: () => void }) {
               </p>
             )}
             <div className="row-btns center">
-              <button className="pomo-btn" disabled={busy} onClick={() => void (p.webServerRunning ? check() : bring())}>
-                {busy ? 'Bringing over…' : p.webServerRunning ? 'Check again' : 'Bring them over'}
+              <button className="pomo-btn" disabled={busy} onClick={() => void (p.webServerRunning ? look() : bring())}>
+                {busy ? 'Working…' : p.webServerRunning ? 'Check again' : 'Bring them over'}
               </button>
               <button className="pomo-btn ghost-dark" disabled={busy} onClick={onDone}>
                 Start with an empty notebook

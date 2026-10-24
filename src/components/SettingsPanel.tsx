@@ -475,7 +475,7 @@ function DataSection({ dataDir, quarantineCount }: { dataDir?: string; quarantin
 
 interface WebPreview { found: boolean; summary: Summary; photos: number; missingPhotos: number; webServerRunning: boolean; existingPages: number }
 
-/** Desktop app only: bring the pages and photos over from the browser version's database, which is only read. */
+/** Desktop app only: bring the pages and photos over from the browser version's database, which is only read, and only once asked. */
 function FromBrowserVersion() {
   const [preview, setPreview] = useState<WebPreview | null>(null)
   const [busy, setBusy] = useState(false)
@@ -490,8 +490,6 @@ function FromBrowserVersion() {
       setMsg((e as Error).message)
     }
   }
-  useEffect(() => void check(), [])
-
   const bring = async () => {
     setBusy(true)
     setMsg('')
@@ -519,7 +517,14 @@ function FromBrowserVersion() {
     <div className="setting">
       <div className="label">From the browser version</div>
       {!p ? (
-        <p className="muted small">Looking for the browser version’s pages…</p>
+        <>
+          <p className="muted small">This app keeps its own pages. It can copy in the pages and photos of the browser version on this computer; that version is only read.</p>
+          <div className="row-btns">
+            <button className="text-btn" onClick={() => void check()}>
+              Look for the browser version’s pages…
+            </button>
+          </div>
+        </>
       ) : !p.found ? (
         <p className="muted small">No pages from the browser version were found on this computer.</p>
       ) : (
