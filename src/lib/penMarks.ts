@@ -47,26 +47,26 @@ export function tickPath(seed: string) {
   return outline(pts, (t) => (t < k ? 0.9 + (t / k) * 1.5 : 2.4 - ((t - k) / (1 - k)) ** 0.8 * 2))
 }
 
-/** The circle shaded with separate quick strokes, each pressed down and flicked off, a little uneven. */
+/** The circle shaded with separate pen lines, one stroke each, even in weight but never quite straight or equal. Drawn as a stroke. */
 export function hatchPath(seed: string) {
   const r = rng(seed)
   const n = 6
-  const base = -0.85 + (r() - 0.5) * 0.25
-  const R = 8.2
-  const parts: string[] = []
+  const base = -0.85 + (r() - 0.5) * 0.2
+  const R = 8.3
+  const f = (p: Pt) => `${p[0].toFixed(2)},${p[1].toFixed(2)}`
+  const lines: string[] = []
   for (let i = 0; i < n; i++) {
-    const ang = base + (r() - 0.5) * 0.18
+    const ang = base + (r() - 0.5) * 0.12
     const d: Pt = [Math.cos(ang), Math.sin(ang)]
     const perp: Pt = [-d[1], d[0]]
-    const off = -R * 0.8 + (i / (n - 1)) * R * 1.6 + (r() - 0.5) * 0.6
+    const off = -R * 0.78 + (i / (n - 1)) * R * 1.56 + (r() - 0.5) * 0.5
     const half = Math.sqrt(Math.max(R * R - off * off, 3))
-    const from = -half * (0.8 + r() * 0.25)
-    const to = half * (0.85 + r() * 0.3)
-    const a: Pt = [10 + perp[0] * off + d[0] * from, 10 + perp[1] * off + d[1] * from]
-    const b: Pt = [10 + perp[0] * off + d[0] * to, 10 + perp[1] * off + d[1] * to]
-    const bow = (r() - 0.5) * 1.6
-    const w = 1.2 + r() * 0.35
-    parts.push(outline(qbez(a, [(a[0] + b[0]) / 2 + perp[0] * bow, (a[1] + b[1]) / 2 + perp[1] * bow], b, 12), (t) => w * (t < 0.15 ? 0.55 + t * 3 : 1 - Math.max(0, t - 0.55) * 1.9)))
+    const at = (k: number, wob: number): Pt => [10 + perp[0] * (off + wob) + d[0] * k, 10 + perp[1] * (off + wob) + d[1] * k]
+    const from = -half * (0.84 + r() * 0.2)
+    const to = half * (0.86 + r() * 0.2)
+    const c1 = at(from + (to - from) / 3, (r() - 0.5) * 0.9)
+    const c2 = at(from + ((to - from) * 2) / 3, (r() - 0.5) * 0.9)
+    lines.push(`M${f(at(from, 0))} C${f(c1)} ${f(c2)} ${f(at(to, (r() - 0.5) * 0.4))}`)
   }
-  return parts.join(' ')
+  return lines.join(' ')
 }
