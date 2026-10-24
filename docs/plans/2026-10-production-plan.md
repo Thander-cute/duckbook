@@ -30,7 +30,8 @@
 - Windows first. Electron main runs the existing `server/` code in a utility process with Electron's own Node; the window loads the built notebook from a fixed loopback port (not 5317) so browser-local preferences keep one origin. No Node install needed.
 - Desktop data lives in its own folder under the app's user data, never `%LOCALAPPDATA%\Duckbook`. The web version and Duckbook.cmd keep working on their own data, so there are never two writers on one database.
 - Moving over is explicit: Settings → Data → bring in pages and photos from the browser version. The source is opened read-only, refused while the web server runs, photos verified by hash, desktop pages backed up before replace and read back after. Legacy browser localStorage and browser-local preferences (Paper, Habit marks) do not carry over by themselves.
-- Per-launch token injected by the app on every API request; other local programs cannot use the desktop API. Renderer: context isolation, sandbox, no Node, navigation and new windows blocked.
+- Per-launch token injected by the app on every API request; API calls without this launch's token are refused. This raises the bar for other local programs but is not a guarantee against software already running as the same Windows user, which could read app memory or files.
+- The browser version's database is only read when the person asks in the app (first-run screen or Settings → Data); startup never looks at it. Renderer: context isolation, sandbox, no Node, navigation and new windows blocked.
 - Closing the window flushes pending edits first (`window.duckbookFlush`) and asks before closing with unsaved edits.
 - Single instance; unsigned per-user installer plus unpacked build for local use. No auto-update, signing, sync or encryption in this slice.
 
