@@ -599,22 +599,18 @@ button {
   color: var(--ink);
   animation: blot 0.22s ease-out;
 }
-.habit-hatch circle,
-.habit-tick circle {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.3;
+.habit-hatch,
+.habit-tick {
+  overflow: visible;
 }
-.habit-hatch path,
-.habit-tick path {
+.habit-print {
   fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  stroke: var(--tint-2);
+  stroke-width: 1.1;
 }
-.habit-tick path {
-  stroke-width: 2;
+.seg-marks .habit-print {
+  stroke: currentColor;
+  opacity: 0.45;
 }
 @keyframes blot {
   from {
