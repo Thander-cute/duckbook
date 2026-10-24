@@ -289,19 +289,28 @@ function WeekMark({ monday }: { monday: string }) {
   const said = PROMPTS.filter((p) => r?.[p.key].trim())
   const toggle = (kind: 'goal' | 'reflect', at: HTMLElement) => setPeek(peek?.kind === kind ? null : { kind, at })
   return (
-    <div className="cal-wk" onKeyDown={(e) => e.key === 'Escape' && peek && (e.stopPropagation(), setPeek(null))}>
+    <div className={`cal-wk ${monday === weekStart(todayKey()) ? 'is-now' : ''}`} onKeyDown={(e) => e.key === 'Escape' && peek && (e.stopPropagation(), setPeek(null))}>
+      {monday === weekStart(todayKey()) && (
+        <svg className="wk-ribbon" viewBox="0 0 16 30" aria-label="This week">
+          <path d="M2.2 0 C2 9 2.6 19 2 29 L8.2 21.5 L14.2 29.2 C13.6 19 14.2 9 13.8 0 Z" />
+        </svg>
+      )}
       <a className="wk-name" href={href('week', monday)} title={`Open week ${n} · ${fmtShort(monday)} – ${fmtShort(addDays(monday, 6))}`}>
         W{n}
       </a>
       <button className={`wk-peek ${goal ? '' : 'is-empty'} ${peek?.kind === 'goal' ? 'is-on' : ''}`} aria-label={`Goal of week ${n}`} title="Goal of the week" onClick={(e) => toggle('goal', e.currentTarget)}>
-        <svg viewBox="0 0 20 20" aria-hidden>
-          <path d="M5 18 V3 M5 3.5 H15 L12.5 7 L15 10.5 H5" />
+        <svg viewBox="0 0 24 24" aria-hidden>
+          <circle cx="11" cy="13" r="8.5" />
+          <circle cx="11" cy="13" r="4.5" />
+          <path d="M11 13 L21 3" />
+          <path d="M18 6 V3 M18 6 H21 M20.5 3.5 V1 M20.5 3.5 H23" />
         </svg>
       </button>
       <button className={`wk-peek ${said.length ? '' : 'is-empty'} ${peek?.kind === 'reflect' ? 'is-on' : ''}`} aria-label={`Reflection of week ${n}`} title="Reflection" onClick={(e) => toggle('reflect', e.currentTarget)}>
-        <svg viewBox="0 0 20 20" aria-hidden>
-          <ellipse cx="10" cy="7.5" rx="5" ry="5.5" />
-          <path d="M10 13 V18 M7.5 18 H12.5 M8 5.5 C8.5 4.5 9.3 4 10.3 4" />
+        <svg viewBox="0 0 24 24" aria-hidden>
+          <path d="M3.5 12 A8.5 8.5 0 1 0 6 6" />
+          <path d="M3 3 V7.5 H7.5" />
+          <path d="M12 7.5 V12 L15 14" />
         </svg>
       </button>
       {peek && (
