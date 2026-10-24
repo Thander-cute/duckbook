@@ -47,7 +47,7 @@ Working agreement: [AGENTS.md](AGENTS.md). Plan larger changes with [docs/templa
 
 Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `F` Focus Map (when turned on) · `L` lock (when a PIN is set) · `Esc` leave Settings.
 
-**Month: weeks.** Month notes sit in the left column, as in the paper planner. Each week row starts with a narrow column: its number (W43) opens the week, the target shows the week's goal, the look-back clock shows its reflection. The current week's column is tinted pale blue. A mark appears only when there is something written to show. Mood tracking is gone from the page; moods saved earlier stay in your data.
+**Month: weeks.** Month notes sit in the left column, as in the paper planner. Each week row has its number in the left margin, outside the table: the number (W43) opens the week, the target shows the week's goal, the look-back clock shows its reflection. The current week's column is tinted pale blue. A mark appears only when there is something written to show. Mood tracking is gone from the page; moods saved earlier stay in your data.
 
 **Month: notes for a stretch of days.** Press a day number and drag to another day to draw a line, then write on it. Drag the words along the line to move them. Click the words or the line to change the text or the From/To days (a stretch may run into the next month) or to remove it.
 

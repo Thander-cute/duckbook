@@ -1315,7 +1315,7 @@ button {
 }
 
 /* The week's own narrow column, as wide as the weekday row is tall. */
-/* No corner cell above the week column: its outline starts at the first week. */
+/* Week numbers sit in the margin, outside the ruled table; the table's left edge is drawn by the week column. */
 .cal-3 {
   grid-template-columns: 28px repeat(3, 1fr);
   border: 0;
@@ -1327,12 +1327,6 @@ button {
   grid-column-start: 2;
   border-left: 1px solid var(--rule);
 }
-.cal-3 > .cal-wk {
-  border-left: 1px solid var(--rule);
-}
-.cal-3 > .cal-wd + .cal-wk {
-  border-top: 1px solid var(--rule);
-}
 .cal-wk {
   display: flex;
   flex-direction: column;
@@ -1340,7 +1334,6 @@ button {
   gap: 2px;
   padding: 6px 0 6px;
   border-right: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
 }
 .cal-wk {
   position: relative;
