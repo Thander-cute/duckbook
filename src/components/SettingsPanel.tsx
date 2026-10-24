@@ -1,56 +1,36 @@
-import { useEffect, useRef, useState } from "react";
-import { api, ApiError } from "../lib/api";
-import {
-  flush,
-  lock,
-  reloadAll,
-  reloadStatus,
-  update,
-  useSession,
-  useSettings,
-} from "../lib/store";
-import { migrateLegacy, removeLegacy, type LegacyInfo } from "../lib/legacy";
-import { todayKey } from "../lib/date";
-import type { Summary } from "../lib/schema";
-import { describe } from "./Gates";
-import { Menu } from "./Menu";
-import { getPaper, setPaper } from "../lib/paper";
-import { setHabitMark, useHabitMark } from "../lib/habitMark";
-import { HabitMark } from "./HabitMark";
+import { useEffect, useRef, useState } from 'react'
+import { api, ApiError } from '../lib/api'
+import { flush, lock, reloadAll, reloadStatus, update, useSession, useSettings } from '../lib/store'
+import { migrateLegacy, removeLegacy, type LegacyInfo } from '../lib/legacy'
+import { todayKey } from '../lib/date'
+import type { Summary } from '../lib/schema'
+import { describe } from './Gates'
+import { Menu } from './Menu'
+import { getPaper, setPaper } from '../lib/paper'
+import { setHabitMark, useHabitMark } from '../lib/habitMark'
+import { HabitMark } from './HabitMark'
 
-interface Backup {
-  file: string;
-  kind: string;
-  createdAt: string;
-  docs: number;
-  bytes: number;
-  verified: boolean;
-}
+interface Backup { file: string; kind: string; createdAt: string; docs: number; bytes: number; verified: boolean }
 
 const KIND: Record<string, string> = {
-  auto: "Automatic",
-  manual: "Manual",
-  "pre-import": "Before import",
-  "pre-migration": "Before moving browser pages",
-  "pre-restore": "Before restore",
-};
+  auto: 'Automatic',
+  manual: 'Manual',
+  'pre-import': 'Before import',
+  'pre-migration': 'Before moving browser pages',
+  'pre-restore': 'Before restore',
+}
 
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-export type SettingsSection =
-  "notebook" | "timer" | "privacy" | "data" | "addons";
+export type SettingsSection = 'notebook' | 'timer' | 'privacy' | 'data' | 'addons'
 
 const SECTIONS: { key: SettingsSection; label: string }[] = [
-  { key: "notebook", label: "Notebook" },
-  { key: "timer", label: "Focus timer" },
-  { key: "privacy", label: "Privacy" },
-  { key: "data", label: "Data" },
-  { key: "addons", label: "Add-ons" },
-];
+  { key: 'notebook', label: 'Notebook' },
+  { key: 'timer', label: 'Focus timer' },
+  { key: 'privacy', label: 'Privacy' },
+  { key: 'data', label: 'Data' },
+  { key: 'addons', label: 'Add-ons' },
+]
 
 /** Settings as a page of the notebook, with paper tabs on its edge. */
 export function SettingsPage({
@@ -60,96 +40,64 @@ export function SettingsPage({
   legacy,
   onLegacyChange,
 }: {
-  section: SettingsSection;
-  onSection: (s: SettingsSection) => void;
-  onBack: () => void;
-  legacy: LegacyInfo | null;
-  onLegacyChange: () => void;
+  section: SettingsSection
+  onSection: (s: SettingsSection) => void
+  onBack: () => void
+  legacy: LegacyInfo | null
+  onLegacyChange: () => void
 }) {
-  const s = useSettings();
-  const [paper, setPaperState] = useState(getPaper);
-  const habitMark = useHabitMark();
-  const { status } = useSession();
+  const s = useSettings()
+  const [paper, setPaperState] = useState(getPaper)
+  const habitMark = useHabitMark()
+  const { status } = useSession()
 
   return (
     <div className="settings-book">
       <section className="sheet settings" aria-label="Settings">
         <header className="settings-head">
           <h2 className="page-title-h">
-            <span className="caps-word">SETTINGS</span>{" "}
-            <em>
-              {SECTIONS.find((x) => x.key === section)!.label.toLowerCase()}
-            </em>
+            <span className="caps-word">SETTINGS</span> <em>{SECTIONS.find((x) => x.key === section)!.label.toLowerCase()}</em>
           </h2>
-          <button
-            className="text-link back-link"
-            onClick={onBack}
-            aria-label="Back to notebook"
-          >
+          <button className="text-link back-link" onClick={onBack} aria-label="Back to notebook">
             ← Back to notebook
           </button>
         </header>
 
-        {section === "notebook" && (
+        {section === 'notebook' && (
           <>
             <div className="setting">
               <div className="label">Ink</div>
               <div className="seg">
-                {(["serif", "hand"] as const).map((ink) => (
-                  <button
-                    key={ink}
-                    className={s.ink === ink ? "is-on" : ""}
-                    onClick={() => update((st) => void (st.settings.ink = ink))}
-                    data-ink-sample={ink}
-                  >
-                    {ink === "serif" ? "Serif" : "Handwritten"}
+                {(['serif', 'hand'] as const).map((ink) => (
+                  <button key={ink} className={s.ink === ink ? 'is-on' : ''} onClick={() => update((st) => void (st.settings.ink = ink))} data-ink-sample={ink}>
+                    {ink === 'serif' ? 'Serif' : 'Handwritten'}
                   </button>
                 ))}
               </div>
-              <p className="muted small">
-                How your own writing looks on every page.
-              </p>
+              <p className="muted small">How your own writing looks on every page.</p>
             </div>
             <div className="setting">
               <div className="label">Paper</div>
               <div className="seg">
-                {(["white", "cream"] as const).map((p) => (
-                  <button
-                    key={p}
-                    className={paper === p ? "is-on" : ""}
-                    onClick={() => (setPaper(p), setPaperState(p))}
-                  >
-                    {p === "white" ? "White" : "Cream"}
+                {(['white', 'cream'] as const).map((p) => (
+                  <button key={p} className={paper === p ? 'is-on' : ''} onClick={() => (setPaper(p), setPaperState(p))}>
+                    {p === 'white' ? 'White' : 'Cream'}
                   </button>
                 ))}
               </div>
-              <p className="muted small">
-                White with blue ink, or cream paper on a linen desk. Remembered
-                in this browser, lock screen included.
-              </p>
+              <p className="muted small">White with blue ink, or cream paper on a linen desk. Remembered in this browser, lock screen included.</p>
             </div>
             <div className="setting">
               <div className="label">Habit marks</div>
               <div className="seg seg-marks">
-                {(["dot", "hatch", "tick"] as const).map((m) => (
-                  <button
-                    key={m}
-                    className={habitMark === m ? "is-on" : ""}
-                    onClick={() => setHabitMark(m)}
-                  >
+                {(['dot', 'hatch', 'tick'] as const).map((m) => (
+                  <button key={m} className={habitMark === m ? 'is-on' : ''} onClick={() => setHabitMark(m)}>
                     <HabitMark on seed={`sample-${m}`} />
-                    {m === "dot"
-                      ? "Ink dot"
-                      : m === "hatch"
-                        ? "Hatched"
-                        : "Tick"}
+                    {m === 'dot' ? 'Ink dot' : m === 'hatch' ? 'Hatched' : 'Tick'}
                   </button>
                 ))}
               </div>
-              <p className="muted small">
-                How a done day looks in the habit tracker. Remembered in this
-                browser.
-              </p>
+              <p className="muted small">How a done day looks in the habit tracker. Remembered in this browser.</p>
             </div>
             <div className="setting">
               <div className="label">Keys</div>
@@ -179,97 +127,43 @@ export function SettingsPage({
           </>
         )}
 
-        {section === "timer" && (
+        {section === 'timer' && (
           <div className="setting">
             <div className="label">Pomodoro</div>
             <div className="pomo-settings">
               <label>
-                <input
-                  type="number"
-                  min={5}
-                  max={90}
-                  value={s.focusMin}
-                  onChange={(e) =>
-                    update(
-                      (st) =>
-                        void (st.settings.focusMin = clamp(
-                          +e.target.value,
-                          5,
-                          90,
-                        )),
-                    )
-                  }
-                />
+                <input type="number" min={5} max={90} value={s.focusMin} onChange={(e) => update((st) => void (st.settings.focusMin = clamp(+e.target.value, 5, 90)))} />
                 min focus
               </label>
               <label>
-                <input
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={s.breakMin}
-                  onChange={(e) =>
-                    update(
-                      (st) =>
-                        void (st.settings.breakMin = clamp(
-                          +e.target.value,
-                          1,
-                          30,
-                        )),
-                    )
-                  }
-                />
+                <input type="number" min={1} max={30} value={s.breakMin} onChange={(e) => update((st) => void (st.settings.breakMin = clamp(+e.target.value, 1, 30)))} />
                 min break
               </label>
             </div>
-            <p className="muted small">
-              Each focus block fills one circle on the Day page. Changes apply
-              to the next block.
-            </p>
+            <p className="muted small">Each focus block fills one circle on the Day page. Changes apply to the next block.</p>
           </div>
         )}
 
-        {section === "privacy" && (
-          <PrivacyLock
-            pinEnabled={!!status?.pinEnabled}
-            autoLockMin={status?.autoLockMin ?? 15}
-          />
-        )}
+        {section === 'privacy' && <PrivacyLock pinEnabled={!!status?.pinEnabled} autoLockMin={status?.autoLockMin ?? 15} />}
 
-        {section === "data" && (
+        {section === 'data' && (
           <>
             <Backups />
-            <DataSection
-              dataDir={status?.dataDir}
-              quarantineCount={status?.quarantineCount ?? 0}
-            />
-            {legacy && (
-              <OldBrowserCopy legacy={legacy} onChange={onLegacyChange} />
-            )}
+            <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
+            {legacy && <OldBrowserCopy legacy={legacy} onChange={onLegacyChange} />}
           </>
         )}
 
-        {section === "addons" && (
+        {section === 'addons' && (
           <div className="setting">
             <div className="label">Add-ons</div>
             <label className="module-toggle">
-              <input
-                type="checkbox"
-                checked={s.modules.focusMap}
-                onChange={(e) =>
-                  update(
-                    (st) =>
-                      void (st.settings.modules.focusMap = e.target.checked),
-                  )
-                }
-              />
+              <input type="checkbox" checked={s.modules.focusMap} onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))} />
               <span>
                 <strong>Focus Map</strong>
                 <span className="muted small">
-                  {" "}
-                  · sticky notes on an impact × difficulty map; plan the good
-                  ones into a week. Turning it off hides it; your ideas and
-                  their links are kept.
+                  {' '}
+                  · sticky notes on an impact × difficulty map; plan the good ones into a week. Turning it off hides it; your ideas and their links are kept.
                 </span>
               </span>
             </label>
@@ -279,31 +173,16 @@ export function SettingsPage({
 
       <nav className="paper-tabs" aria-label="Settings sections">
         {SECTIONS.map((x) => (
-          <button
-            key={x.key}
-            className={`paper-tab ${section === x.key ? "is-on" : ""}`}
-            aria-current={section === x.key ? "page" : undefined}
-            onClick={() => onSection(x.key)}
-          >
+          <button key={x.key} className={`paper-tab ${section === x.key ? 'is-on' : ''}`} aria-current={section === x.key ? 'page' : undefined} onClick={() => onSection(x.key)}>
             {x.label}
           </button>
         ))}
       </nav>
     </div>
-  );
+  )
 }
 
-function PinField({
-  value,
-  onChange,
-  label,
-  autoFocus,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  label: string;
-  autoFocus?: boolean;
-}) {
+function PinField({ value, onChange, label, autoFocus }: { value: string; onChange: (v: string) => void; label: string; autoFocus?: boolean }) {
   return (
     <label className="pin-field">
       <span>{label}</span>
@@ -314,75 +193,57 @@ function PinField({
         maxLength={6}
         autoFocus={autoFocus}
         value={value}
-        onChange={(e) =>
-          onChange(e.target.value.replace(/\D/g, "").slice(0, 6))
-        }
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
       />
     </label>
-  );
+  )
 }
 
-function PrivacyLock({
-  pinEnabled,
-  autoLockMin,
-}: {
-  pinEnabled: boolean;
-  autoLockMin: number;
-}) {
-  const [mode, setMode] = useState<"idle" | "set" | "change" | "remove">(
-    "idle",
-  );
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [again, setAgain] = useState("");
-  const [msg, setMsg] = useState("");
+function PrivacyLock({ pinEnabled, autoLockMin }: { pinEnabled: boolean; autoLockMin: number }) {
+  const [mode, setMode] = useState<'idle' | 'set' | 'change' | 'remove'>('idle')
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [again, setAgain] = useState('')
+  const [msg, setMsg] = useState('')
 
   const reset = () => {
-    setMode("idle");
-    setCurrent("");
-    setNext("");
-    setAgain("");
-  };
+    setMode('idle')
+    setCurrent('')
+    setNext('')
+    setAgain('')
+  }
 
   const save = async () => {
-    if (mode !== "remove" && (next.length !== 6 || next !== again))
-      return setMsg(
-        next.length !== 6
-          ? "Use exactly 6 digits."
-          : "The two PINs don’t match.",
-      );
+    if (mode !== 'remove' && (next.length !== 6 || next !== again)) return setMsg(next.length !== 6 ? 'Use exactly 6 digits.' : 'The two PINs don’t match.')
     try {
-      await api("PUT", "/api/lock-settings", {
-        currentPin: current || undefined,
-        pin: mode === "remove" ? null : next,
-      });
-      setMsg(mode === "remove" ? "PIN removed." : "PIN saved.");
-      reset();
-      await reloadStatus();
+      await api('PUT', '/api/lock-settings', { currentPin: current || undefined, pin: mode === 'remove' ? null : next })
+      setMsg(mode === 'remove' ? 'PIN removed.' : 'PIN saved.')
+      reset()
+      await reloadStatus()
     } catch (e) {
-      setMsg((e as Error).message);
+      setMsg((e as Error).message)
     }
-  };
+  }
 
   const setAuto = async (min: number) => {
-    await api("PUT", "/api/lock-settings", { autoLockMin: min });
-    await reloadStatus();
-  };
+    await api('PUT', '/api/lock-settings', { autoLockMin: min })
+    await reloadStatus()
+  }
 
   return (
     <div className="setting">
       <div className="label">Privacy lock</div>
-      {mode === "idle" ? (
+      {mode === 'idle' ? (
         pinEnabled ? (
           <>
             <div className="row-btns">
               <button className="text-btn" onClick={() => void lock()}>
                 Lock now
               </button>
-              <button className="text-btn" onClick={() => setMode("change")}>
+              <button className="text-btn" onClick={() => setMode('change')}>
                 Change PIN
               </button>
-              <button className="text-btn" onClick={() => setMode("remove")}>
+              <button className="text-btn" onClick={() => setMode('remove')}>
                 Turn off
               </button>
             </div>
@@ -391,46 +252,28 @@ function PrivacyLock({
               <Menu
                 label="Lock after"
                 value={autoLockMin}
-                options={[
-                  ...[1, 5, 15, 30, 60].map((m) => ({
-                    value: m,
-                    label: `${m} min idle`,
-                  })),
-                  { value: 0, label: "only when I lock" },
-                ]}
+                options={[...[1, 5, 15, 30, 60].map((m) => ({ value: m, label: `${m} min idle` })), { value: 0, label: 'only when I lock' }]}
                 onChange={(m) => void setAuto(m)}
               />
             </div>
           </>
         ) : (
-          <button className="text-btn" onClick={() => setMode("set")}>
+          <button className="text-btn" onClick={() => setMode('set')}>
             Set a 6-digit PIN
           </button>
         )
       ) : (
         <div className="pin-form">
-          {mode !== "set" && (
-            <PinField
-              label="Current PIN"
-              value={current}
-              onChange={setCurrent}
-              autoFocus
-            />
-          )}
-          {mode !== "remove" && (
+          {mode !== 'set' && <PinField label="Current PIN" value={current} onChange={setCurrent} autoFocus />}
+          {mode !== 'remove' && (
             <>
-              <PinField
-                label="New PIN"
-                value={next}
-                onChange={setNext}
-                autoFocus={mode === "set"}
-              />
+              <PinField label="New PIN" value={next} onChange={setNext} autoFocus={mode === 'set'} />
               <PinField label="Again" value={again} onChange={setAgain} />
             </>
           )}
           <div className="row-btns">
             <button className="text-btn" onClick={() => void save()}>
-              {mode === "remove" ? "Turn off lock" : "Save PIN"}
+              {mode === 'remove' ? 'Turn off lock' : 'Save PIN'}
             </button>
             <button className="text-btn" onClick={reset}>
               Cancel
@@ -440,83 +283,63 @@ function PrivacyLock({
       )}
       {msg && <p className="small setting-msg">{msg}</p>}
       <p className="muted small">
-        The PIN hides your pages in the browser and is checked by the duckbook
-        server. It is not encryption: anyone, or any program, that can open
-        files on this computer can still read the database.
+        The PIN hides your pages in the browser and is checked by the duckbook server. It is not encryption: anyone, or any program, that can open files on this
+        computer can still read the database.
       </p>
     </div>
-  );
+  )
 }
 
 function Backups() {
-  const [list, setList] = useState<Backup[] | null>(null);
-  const [dir, setDir] = useState("");
-  const [msg, setMsg] = useState("");
-  const [confirm, setConfirm] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [list, setList] = useState<Backup[] | null>(null)
+  const [dir, setDir] = useState('')
+  const [msg, setMsg] = useState('')
+  const [confirm, setConfirm] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const load = async () => {
-    const r = await api<{ backups: Backup[]; dir: string }>(
-      "GET",
-      "/api/backups",
-    );
-    setList(r.backups);
-    setDir(r.dir);
-  };
-  useEffect(() => void load().catch((e) => setMsg((e as Error).message)), []);
+    const r = await api<{ backups: Backup[]; dir: string }>('GET', '/api/backups')
+    setList(r.backups)
+    setDir(r.dir)
+  }
+  useEffect(() => void load().catch((e) => setMsg((e as Error).message)), [])
 
   const backUp = async () => {
-    setBusy(true);
+    setBusy(true)
     try {
-      await flush();
-      await api("POST", "/api/backups");
-      setMsg("Backup saved and verified.");
-      await load();
+      await flush()
+      await api('POST', '/api/backups')
+      setMsg('Backup saved and verified.')
+      await load()
     } catch (e) {
-      setMsg((e as Error).message);
+      setMsg((e as Error).message)
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
-  };
+  }
 
   const restore = async (file: string) => {
-    setBusy(true);
+    setBusy(true)
     try {
-      if (!(await flush()))
-        return setMsg(
-          "Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.",
-        );
-      const r = await api<{ summary: Summary }>(
-        "POST",
-        "/api/backups/restore",
-        { file },
-      );
-      await reloadAll();
-      setMsg(
-        `Restored and verified: ${describe(r.summary)}. Your pages from just before are in a “Before restore” backup.`,
-      );
-      setConfirm(null);
-      await load();
+      if (!(await flush())) return setMsg('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
+      const r = await api<{ summary: Summary }>('POST', '/api/backups/restore', { file })
+      await reloadAll()
+      setMsg(`Restored and verified: ${describe(r.summary)}. Your pages from just before are in a “Before restore” backup.`)
+      setConfirm(null)
+      await load()
     } catch (e) {
-      setMsg((e as Error).message);
+      setMsg((e as Error).message)
     } finally {
-      setBusy(false);
+      setBusy(false)
     }
-  };
+  }
 
   return (
     <div className="setting">
       <div className="label">Backups</div>
-      <p className="muted small">
-        Automatic every few hours while pages change, and before any import or
-        restore.
-      </p>
+      <p className="muted small">Automatic every few hours while pages change, and before any import or restore.</p>
       <div className="row-btns">
-        <button
-          className="text-btn"
-          disabled={busy}
-          onClick={() => void backUp()}
-        >
+        <button className="text-btn" disabled={busy} onClick={() => void backUp()}>
           Back up now
         </button>
       </div>
@@ -526,18 +349,11 @@ function Backups() {
             <li key={b.file}>
               <span>
                 {fmtTime(b.createdAt)}
-                <span className="muted small">
-                  {" "}
-                  · {KIND[b.kind] ?? b.kind} · {b.docs} pages
-                </span>
+                <span className="muted small"> · {KIND[b.kind] ?? b.kind} · {b.docs} pages</span>
               </span>
               {confirm === b.file ? (
                 <span className="confirm">
-                  <button
-                    className="text-btn"
-                    disabled={busy}
-                    onClick={() => void restore(b.file)}
-                  >
+                  <button className="text-btn" disabled={busy} onClick={() => void restore(b.file)}>
                     Restore
                   </button>
                   <button className="text-btn" onClick={() => setConfirm(null)}>
@@ -545,10 +361,7 @@ function Backups() {
                   </button>
                 </span>
               ) : (
-                <button
-                  className="text-link"
-                  onClick={() => setConfirm(b.file)}
-                >
+                <button className="text-link" onClick={() => setConfirm(b.file)}>
                   restore…
                 </button>
               )}
@@ -556,95 +369,55 @@ function Backups() {
           ))}
         </ul>
       )}
-      {confirm && (
-        <p className="small setting-msg">
-          Restoring replaces all current pages. They are backed up first.
-        </p>
-      )}
+      {confirm && <p className="small setting-msg">Restoring replaces all current pages. They are backed up first.</p>}
       {msg && <p className="small setting-msg">{msg}</p>}
       {dir && (
         <p className="muted small path">
-          Stored in <code>{dir}</code>. Backups sit on this same computer: copy
-          that folder elsewhere to survive a lost or broken disk.
+          Stored in <code>{dir}</code>. Backups sit on this same computer: copy that folder elsewhere to survive a lost or broken disk.
         </p>
       )}
     </div>
-  );
+  )
 }
 
-function DataSection({
-  dataDir,
-  quarantineCount,
-}: {
-  dataDir?: string;
-  quarantineCount: number;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [pending, setPending] = useState<{
-    data: unknown;
-    summary: Summary;
-    issueCount: number;
-    existing: number;
-  } | null>(null);
-  const [msg, setMsg] = useState("");
+function DataSection({ dataDir, quarantineCount }: { dataDir?: string; quarantineCount: number }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [pending, setPending] = useState<{ data: unknown; summary: Summary; issueCount: number; existing: number } | null>(null)
+  const [msg, setMsg] = useState('')
 
   const exportData = async () => {
-    await flush();
-    const data = await api("GET", "/api/export");
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
-    });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `duckbook-${todayKey()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+    await flush()
+    const data = await api('GET', '/api/export')
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `duckbook-${todayKey()}.json`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
   const pick = async (file: File) => {
-    setMsg("");
+    setMsg('')
     try {
-      const data = JSON.parse(await file.text());
-      const r = await api<{
-        summary: Summary;
-        issueCount: number;
-        existingPages: number;
-      }>("POST", "/api/import/preview", { data });
-      setPending({
-        data,
-        summary: r.summary,
-        issueCount: r.issueCount,
-        existing: r.existingPages,
-      });
+      const data = JSON.parse(await file.text())
+      const r = await api<{ summary: Summary; issueCount: number; existingPages: number }>('POST', '/api/import/preview', { data })
+      setPending({ data, summary: r.summary, issueCount: r.issueCount, existing: r.existingPages })
     } catch (e) {
-      setMsg(
-        e instanceof ApiError
-          ? e.message
-          : "That file isn’t readable duckbook data.",
-      );
+      setMsg(e instanceof ApiError ? e.message : 'That file isn’t readable duckbook data.')
     }
-  };
+  }
 
   const apply = async () => {
     try {
-      if (!(await flush()))
-        return setMsg(
-          "Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.",
-        );
-      const r = await api<{ summary: Summary }>("POST", "/api/import", {
-        data: pending!.data,
-        source: "file",
-        replace: true,
-      });
-      await reloadAll();
-      setMsg(
-        `Imported: ${describe(r.summary)}. Your previous pages are in a “Before import” backup.`,
-      );
-      setPending(null);
+      if (!(await flush())) return setMsg('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
+      const r = await api<{ summary: Summary }>('POST', '/api/import', { data: pending!.data, source: 'file', replace: true })
+      await reloadAll()
+      setMsg(`Imported: ${describe(r.summary)}. Your previous pages are in a “Before import” backup.`)
+      setPending(null)
     } catch (e) {
-      setMsg((e as Error).message);
+      setMsg((e as Error).message)
     }
-  };
+  }
 
   return (
     <div className="setting">
@@ -667,33 +440,26 @@ function DataSection({
           accept="application/json"
           hidden
           onChange={(e) => {
-            if (e.target.files?.[0]) void pick(e.target.files[0]);
-            e.target.value = "";
+            if (e.target.files?.[0]) void pick(e.target.files[0])
+            e.target.value = ''
           }}
         />
       </div>
       <p className="muted small">
-        Exported files are plain, readable text. Keep them somewhere private.
-        Day photos aren’t inside the export; they stay in the data folder’s{" "}
-        <code>photos</code> folder, which backups rely on too.
-        {quarantineCount > 0 &&
-          ` ${quarantineCount} odd values set aside during imports are included in the export.`}
+        Exported files are plain, readable text. Keep them somewhere private. Day photos aren’t inside the export; they stay in the
+        data folder’s <code>photos</code> folder, which backups rely on too.
+        {quarantineCount > 0 && ` ${quarantineCount} odd values set aside during imports are included in the export.`}
       </p>
       {pending && (
         <div className="confirm-box">
           <p className="small">
             File holds <strong>{describe(pending.summary)}</strong>
-            {pending.issueCount
-              ? `, with ${pending.issueCount} odd values that will be kept aside`
-              : ""}
-            .{" "}
-            {pending.existing
-              ? "Importing replaces all current pages (backed up first)."
-              : ""}
+            {pending.issueCount ? `, with ${pending.issueCount} odd values that will be kept aside` : ''}.{' '}
+            {pending.existing ? 'Importing replaces all current pages (backed up first).' : ''}
           </p>
           <div className="row-btns">
             <button className="text-btn" onClick={() => void apply()}>
-              {pending.existing ? "Replace my pages" : "Import"}
+              {pending.existing ? 'Replace my pages' : 'Import'}
             </button>
             <button className="text-btn" onClick={() => setPending(null)}>
               Cancel
@@ -703,55 +469,37 @@ function DataSection({
       )}
       {msg && <p className="small setting-msg">{msg}</p>}
     </div>
-  );
+  )
 }
 
-function OldBrowserCopy({
-  legacy,
-  onChange,
-}: {
-  legacy: LegacyInfo;
-  onChange: () => void;
-}) {
-  const [msg, setMsg] = useState("");
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const [confirmMove, setConfirmMove] = useState(false);
+function OldBrowserCopy({ legacy, onChange }: { legacy: LegacyInfo; onChange: () => void }) {
+  const [msg, setMsg] = useState('')
+  const [confirmRemove, setConfirmRemove] = useState(false)
+  const [confirmMove, setConfirmMove] = useState(false)
 
   const move = async () => {
     try {
-      if (!(await flush()))
-        return setMsg(
-          "Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.",
-        );
-      const summary = await migrateLegacy(true);
-      await reloadAll();
-      setMsg(
-        `Moved and verified: ${describe(summary)}. Your previous database pages are in a backup.`,
-      );
-      setConfirmMove(false);
-      onChange();
+      if (!(await flush())) return setMsg('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
+      const summary = await migrateLegacy(true)
+      await reloadAll()
+      setMsg(`Moved and verified: ${describe(summary)}. Your previous database pages are in a backup.`)
+      setConfirmMove(false)
+      onChange()
     } catch (e) {
-      setMsg((e as Error).message);
+      setMsg((e as Error).message)
     }
-  };
+  }
 
   return (
     <div className="setting">
       <div className="label">Old browser copy</div>
       {legacy.error ? (
-        <p className="small">
-          Pages from the earlier version are in this browser but can’t be read (
-          {legacy.error}). They are left untouched.
-        </p>
+        <p className="small">Pages from the earlier version are in this browser but can’t be read ({legacy.error}). They are left untouched.</p>
       ) : legacy.migrated ? (
-        <p className="small">
-          Your earlier browser pages ({describe(legacy.summary!)}) are safely in
-          the database. The old copy is still kept in this browser.
-        </p>
+        <p className="small">Your earlier browser pages ({describe(legacy.summary!)}) are safely in the database. The old copy is still kept in this browser.</p>
       ) : (
         <p className="small">
-          This browser holds pages from the earlier version (
-          {describe(legacy.summary!)}) that are not what your database has.
+          This browser holds pages from the earlier version ({describe(legacy.summary!)}) that are not what your database has.
         </p>
       )}
       <div className="row-btns">
@@ -768,10 +516,7 @@ function OldBrowserCopy({
       </div>
       {confirmMove && (
         <div className="confirm-box">
-          <p className="small">
-            This replaces all pages in the database with the browser copy.
-            Current database pages are backed up first.
-          </p>
+          <p className="small">This replaces all pages in the database with the browser copy. Current database pages are backed up first.</p>
           <div className="row-btns">
             <button className="text-btn" onClick={() => void move()}>
               Replace with browser copy
@@ -784,25 +529,19 @@ function OldBrowserCopy({
       )}
       {confirmRemove && (
         <div className="confirm-box">
-          <p className="small">
-            Delete the old copy from this browser? The database and its backups
-            are not affected.
-          </p>
+          <p className="small">Delete the old copy from this browser? The database and its backups are not affected.</p>
           <div className="row-btns">
             <button
               className="text-btn"
               onClick={() => {
-                removeLegacy();
-                setConfirmRemove(false);
-                onChange();
+                removeLegacy()
+                setConfirmRemove(false)
+                onChange()
               }}
             >
               Remove
             </button>
-            <button
-              className="text-btn"
-              onClick={() => setConfirmRemove(false)}
-            >
+            <button className="text-btn" onClick={() => setConfirmRemove(false)}>
               Cancel
             </button>
           </div>
@@ -810,8 +549,7 @@ function OldBrowserCopy({
       )}
       {msg && <p className="small setting-msg">{msg}</p>}
     </div>
-  );
+  )
 }
 
-const clamp = (n: number, lo: number, hi: number) =>
-  Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : lo;
+const clamp = (n: number, lo: number, hi: number) => (Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : lo)
