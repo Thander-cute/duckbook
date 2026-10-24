@@ -3,11 +3,15 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import http from 'node:http'
+import { spawn } from 'node:child_process'
+import { pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 import { start } from '../server/main.ts'
 import { Store } from '../server/db.ts'
 import { API_LEVEL, normalizeState } from '../src/lib/schema.ts'
 import { fixtureLegacy } from './helpers.ts'
+import { readWeb } from '../server/web-import.ts'
 
 function snapshot(root: string): Record<string, string> {
   return Object.fromEntries(fs.readdirSync(root, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => {
@@ -39,6 +43,14 @@ test('desktop gate and read-only browser import: photos, replace consent, runnin
       assert.equal((await call(route, undefined, { 'X-Duckbook-Token': 'wrong' })).status, 403)
     }
     assert.equal((await fetch(base)).status, 200)
+    assert.equal((await call('/api/health', undefined, { Origin: 'http://foreign.invalid' })).status, 403)
+    assert.equal((await call('/api/health', undefined, { 'Sec-Fetch-Site': 'cross-site' })).status, 403)
+    const wrongHost = await new Promise<number>((resolve, reject) => {
+      const request = http.get(`${base}/api/health`, { headers: { Host: `foreign.invalid:${server.port}`, 'X-Duckbook': '1', 'X-Duckbook-Token': 'test-token' } }, (response) => { response.resume(); resolve(response.statusCode!) })
+      request.on('error', reject)
+    })
+    assert.equal(wrongHost, 421)
+    assert.equal((await call('/api/health', undefined, { Origin: base })).status, 200)
     assert.equal((await call('/api/status')).body.desktop.webImport, true)
     let preview = await call('/api/import/web/preview')
     assert.equal(preview.body.photos, 1)
@@ -70,12 +82,49 @@ test('desktop gate and read-only browser import: photos, replace consent, runnin
     assert.equal((await call('/api/import/web', { replace: true })).status, 500)
     assert.deepEqual(server.store.allDocs(), saved)
     server.store.savePhoto = savePhoto
+    const allDocs = server.store.allDocs.bind(server.store)
+    server.store.allDocs = (...args) => {
+      return server.store.db.isTransaction ? [] : allDocs(...args)
+    }
+    assert.equal((await call('/api/import/web', { replace: true })).status, 422)
+    server.store.allDocs = allDocs
+    assert.deepEqual(server.store.allDocs(), saved, 'verification failure rolls back pages and revisions')
+    assert.ok(server.store.listBackups().some((backup) => backup.kind === 'pre-import' && backup.verified))
     result = await call('/api/import/web', { replace: true })
     assert.equal(result.status, 200)
     assert.ok(result.body.backup)
     assert.deepEqual(snapshot(sourceDir), before)
   } finally {
     await server.stop()
+    assert.ok(path.resolve(temp).startsWith(path.resolve(os.tmpdir()) + path.sep))
+    fs.rmSync(temp, { recursive: true, force: true })
+  }
+})
+
+test('browser import reads committed WAL after a crash without changing any source bytes', async () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-web-wal-'))
+  const sourceDir = path.join(temp, 'source')
+  const script = `import { Store } from ${JSON.stringify(pathToFileURL(path.resolve('server/db.ts')).href)};
+    const store = new Store(${JSON.stringify(sourceDir)});
+    store.putDocs([{ key: 'day:2026-10-19', baseRev: 0, value: { grateful: 'synthetic WAL text', tasks: [], notes: '', sentence: '' } }]);
+    console.log('ready'); setInterval(() => {}, 1000);`
+  const child = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: 'pipe' })
+  try {
+    await new Promise<void>((resolve, reject) => {
+      child.stdout.once('data', () => resolve())
+      child.once('error', reject)
+      child.once('exit', () => reject(new Error('Synthetic writer exited too soon.')))
+    })
+    const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()))
+    child.kill('SIGKILL')
+    await exited
+    const before = snapshot(sourceDir)
+    assert.ok(before['duckbook.sqlite-wal'])
+    const source = readWeb(sourceDir)!
+    assert.equal(source.state.days['2026-10-19'].grateful, 'synthetic WAL text')
+    assert.deepEqual(snapshot(sourceDir), before)
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
     assert.ok(path.resolve(temp).startsWith(path.resolve(os.tmpdir()) + path.sep))
     fs.rmSync(temp, { recursive: true, force: true })
   }

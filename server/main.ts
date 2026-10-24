@@ -3,21 +3,15 @@
 
 import http from 'node:http'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Store } from './db.ts'
 import { Auth } from './auth.ts'
 import { createHandler } from './app.ts'
+import { defaultDataDir } from './paths.ts'
+export { defaultDataDir } from './paths.ts'
 
 export const DEFAULT_PORT = 5317
-
-export function defaultDataDir() {
-  if (process.env.DUCKBOOK_DATA_DIR) return path.resolve(process.env.DUCKBOOK_DATA_DIR)
-  if (process.platform === 'win32') return path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'), 'Duckbook')
-  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'Duckbook')
-  return path.join(process.env.XDG_DATA_HOME ?? path.join(os.homedir(), '.local', 'share'), 'duckbook')
-}
 
 function freePort() {
   return new Promise<number>((resolve, reject) => {

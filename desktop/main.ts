@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defaultDataDir } from '../server/main.ts'
+import { defaultDataDir } from '../server/paths.ts'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const port = Number(process.env.DUCKBOOK_DESKTOP_PORT ?? 5327)
@@ -66,7 +66,7 @@ async function boot() {
   runtime.stderr?.on('data', (chunk) => process.stderr.write(chunk))
   runtime.on('exit', () => {
     runtime = null
-    if (!stopping) {
+    if (window && !stopping) {
       dialog.showErrorBox('Duckbook notebook stopped', 'The local notebook server stopped unexpectedly. Saved pages are safe. Restart Duckbook to continue. Unsaved edits may still be visible in the window.')
     }
   })
@@ -89,6 +89,11 @@ async function boot() {
   window = new BrowserWindow({ ...bounds, minWidth: 900, minHeight: 650, title: 'Duckbook', autoHideMenuBar: true, webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false } })
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   window.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault() })
+  window.webContents.on('will-prevent-unload', () => {
+    if (closing) return
+    closing = true
+    void closeWindow()
+  })
   window.on('close', (event) => {
     event.preventDefault()
     if (closing) return

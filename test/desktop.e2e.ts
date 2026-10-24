@@ -11,7 +11,7 @@ const debugPort = 9397
 const origin = `http://127.0.0.1:${port}`
 const dev = process.argv.includes('--dev')
 const exe = path.resolve(dev ? 'node_modules/electron/dist/electron.exe' : 'release/win-unpacked/Duckbook.exe')
-const env: NodeJS.ProcessEnv = { ...process.env, DUCKBOOK_DESKTOP_DATA_DIR: path.join(temp, 'notebook'), DUCKBOOK_WEB_DATA_DIR: path.join(temp, 'absent-web'), DUCKBOOK_WEB_PORT: '5396', DUCKBOOK_DESKTOP_PORT: String(port), PATH: process.env.SystemRoot ?? 'C:\\Windows' }
+const env: NodeJS.ProcessEnv = { ...process.env, DUCKBOOK_DESKTOP_DATA_DIR: path.join(temp, 'notebook'), DUCKBOOK_WEB_DATA_DIR: path.join(temp, 'absent-web'), DUCKBOOK_WEB_PORT: '5396', DUCKBOOK_DESKTOP_PORT: String(port), DUCKBOOK_DATA_DIR: path.join(temp, 'forbidden-web-default'), DUCKBOOK_PORT: '5394', PATH: process.env.SystemRoot ?? 'C:\\Windows' }
 delete env.ELECTRON_RUN_AS_NODE
 let child: ChildProcess | undefined
 let browser: Browser | undefined
@@ -47,12 +47,27 @@ function requestClose() {
   assert.ok(child?.pid)
   execFileSync('powershell', ['-NoProfile', '-Command', `Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class DuckbookClose { [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam); }'; $duckbookWindow = [System.Diagnostics.Process]::GetProcessById(${child.pid}).MainWindowHandle; if ($duckbookWindow -eq 0) { throw 'No test window' }; [DuckbookClose]::PostMessage($duckbookWindow, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null`], { stdio: 'pipe' })
 }
+async function nativeButton(label: string) {
+  assert.ok(child?.pid)
+  await new Promise<void>((resolve, reject) => {
+    const automation = spawn('powershell', ['-NoProfile', '-File', 'test/desktop-window.ps1', '-AppProcessId', String(child!.pid), '-Action', label], { stdio: 'pipe', timeout: 20000 })
+    let error = ''
+    automation.stderr!.on('data', (chunk) => { error += String(chunk) })
+    automation.on('error', reject)
+    automation.on('exit', (code) => code === 0 ? resolve() : reject(new Error(error)))
+  })
+}
 try {
   child = launch()
   browser = await connect()
   await browser.waitForTarget((target) => target.type() === 'page' && target.url().startsWith(origin))
   let page = (await browser.pages())[0]!
+  await page.waitForFunction(() => !!document.querySelector('.day-page') || document.body.innerText.includes('Start with an empty notebook'))
+  const startEmpty = await page.$('xpath/.//button[normalize-space(.)="Start with an empty notebook"]')
+  if (startEmpty) await startEmpty.click()
   await page.waitForSelector('.day-page')
+  assert.equal(fs.existsSync(env.DUCKBOOK_DATA_DIR!), false, 'bundling never invokes the standalone web entry point')
+  assert.equal(fs.existsSync(env.DUCKBOOK_WEB_DATA_DIR!), false, 'startup does not create or open a source notebook')
   await page.goto(`${origin}/#/day/2026-10-19`)
   await page.waitForSelector('.day-page .line textarea')
   assert.equal(await page.evaluate(() => typeof (window as unknown as { require?: unknown }).require), 'undefined')
@@ -64,6 +79,7 @@ try {
     second.once('exit', (code) => { clearTimeout(timeout); assert.equal(code, 0); resolve() })
   })
   assert.equal(await page.evaluate(async () => (await (await fetch('/api/health', { headers: { 'X-Duckbook': '1' } })).json()).pid), health.pid)
+  await page.waitForFunction(() => document.hasFocus())
   console.log('ok - Electron opens notebook with isolated renderer, token gate, single instance, and PATH without Node')
   await page.type('.day-page .line textarea', 'synthetic desktop durable save')
   await page.waitForSelector('[data-save="saved"]')
@@ -99,7 +115,28 @@ try {
   assert.equal(await page.$eval('.day-page .line textarea', (e) => (e as HTMLTextAreaElement).value), 'synthetic desktop durable save and close flush')
   assert.equal(await page.evaluate(() => localStorage.getItem('duckbook:paper')), 'cream')
   console.log('ok - immediate close flushes pending edits; edits and browser preferences survive restart')
-} catch (error) { console.error(logs); throw error } finally {
+  await page.setRequestInterception(true)
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/docs') && request.method() === 'PUT') void request.abort('failed')
+    else void request.continue()
+  })
+  await page.type('.day-page .line textarea', ' unsaved failure fixture')
+  await page.waitForSelector('[data-save="error"]')
+  requestClose()
+  await nativeButton('Keep open')
+  assert.ok((await page.$eval('.day-page .line textarea', (e) => (e as HTMLTextAreaElement).value)).includes('unsaved failure fixture'))
+  assert.equal(child.exitCode, null)
+  requestClose()
+  await nativeButton('Close anyway')
+  if (child.exitCode === null) await new Promise<void>((resolve) => child!.once('exit', () => resolve()))
+  console.log('ok - failed save close shows native dialog; Keep open preserves edits and Close anyway exits')
+} catch (error) {
+  console.error(logs)
+  if (browser?.connected) {
+    for (const page of await browser.pages()) console.error('Window:', page.url(), await page.evaluate(() => document.body.innerText).catch(String))
+  }
+  throw error
+} finally {
   browser?.disconnect()
   if (child?.exitCode === null) await killTree()
   await sleep(300)
@@ -107,6 +144,3 @@ try {
   assert.ok(resolved.startsWith(path.resolve(os.tmpdir()) + path.sep))
   fs.rmSync(resolved, { recursive: true, force: true })
 }
-
-
-
