@@ -1326,7 +1326,6 @@ button {
   padding: 6px 0 6px;
   border-right: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
-  background: color-mix(in srgb, var(--tint) 45%, transparent);
 }
 .cal-wk {
   position: relative;
@@ -1334,9 +1333,7 @@ button {
 .wk-name {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: 12px;
   color: var(--ink-soft);
   padding: 2px 0;
   margin-bottom: auto;
@@ -1346,15 +1343,11 @@ button {
   color: var(--ink);
   background: var(--tint);
 }
-/* This week, marked like today: filled with ink, cut as a bookmark (the notch sits at the
-   element's top because the label is turned upside down). */
+.cal-wk.is-now {
+  background: color-mix(in srgb, var(--tint) 60%, transparent);
+}
 .cal-wk.is-now .wk-name {
-  margin-top: -7px;
-  padding: 12px 4px 8px;
-  border-radius: 0;
-  background: var(--ink);
-  color: var(--paper);
-  clip-path: polygon(0 0, 50% 6px, 100% 0, 100% 100%, 0 100%);
+  color: var(--ink);
 }
 .wk-peek {
   width: 22px;
