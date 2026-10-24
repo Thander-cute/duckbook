@@ -1,6 +1,6 @@
 # Duckbook production: architecture research
 
-**Status:** draft — research and recommendations only; not approved for implementation.
+**Status:** historical research, superseded by [the production plan](2026-10-production-plan.md). Framework recommendations and code-sharing proposals below are obsolete and must not guide implementation. Retained for research provenance only. Owner selected Electron desktop + React Native Android; sharing code is optional. No implementation was approved by this research.
 **Date:** 2026-10-25.
 **Decision link:** needs decision. This proposal does not change `docs/DECISIONS.md`.
 
