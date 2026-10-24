@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { parkedCount, unlock, useSession } from '../lib/store'
 
-/** Blank, softly blurred shell with a 6-digit PIN pad. No notebook content is mounted behind it. */
+/** Blank, softly blurred shell with only six PIN marks. No notebook content is mounted behind it. */
 export function LockScreen() {
   const { status } = useSession()
   const [pin, setPin] = useState('')
@@ -35,16 +35,13 @@ export function LockScreen() {
 
   return (
     <div className="lock-shell" onClick={() => input.current?.focus()}>
-      <div className="lock-card" role="dialog" aria-label="Unlock duckbook">
-        <div className="wordmark">
-          <em>duck</em>book
-        </div>
-        <label className="lock-label" htmlFor="pin">
-          {waiting ? `Wait ${Math.ceil((waitUntil - now) / 1000)}s` : 'Enter your PIN'}
+      <div className="lock-pad" role="dialog" aria-label="Unlock duckbook">
+        <label className="sr-only" htmlFor="pin">
+          Enter your PIN
         </label>
-        <div className={`pin-dots ${error && !pin ? 'is-wrong' : ''}`} aria-hidden>
+        <div className={`pin-dots ${error && !pin ? 'is-wrong' : ''} ${waiting ? 'is-waiting' : ''}`} aria-hidden>
           {Array.from({ length: 6 }, (_, i) => (
-            <span key={i} className={i < pin.length ? 'is-on' : ''} />
+            <span key={i} className={i < pin.length ? 'is-on' : i === pin.length && !busy && !waiting ? 'is-next' : ''} />
           ))}
         </div>
         <input
@@ -65,7 +62,7 @@ export function LockScreen() {
           }}
         />
         <p className="lock-error" role="alert">
-          {error && !waiting ? error : ' '}
+          {waiting ? `Wait ${Math.ceil((waitUntil - now) / 1000)}s` : error || ' '}
         </p>
         {parkedCount() > 0 && (
           <p className="muted small">

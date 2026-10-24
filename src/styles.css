@@ -1822,37 +1822,73 @@ button {
   font-size: 12px;
   word-break: break-all;
 }
-.lock-label {
-  display: block;
-  font-size: 14px;
-  color: var(--ink-soft);
-  margin-bottom: 14px;
+.lock-pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Six short ruled lines; each digit leaves a drop of ink on its line. */
 .pin-dots {
   display: flex;
-  justify-content: center;
-  gap: 12px;
+  gap: 22px;
 }
 .pin-dots span {
-  width: 13px;
-  height: 13px;
+  position: relative;
+  width: 28px;
+  height: 30px;
+  border-bottom: 1.5px solid var(--tint-2);
+  transition: border-color 0.2s, opacity 0.2s;
+}
+.pin-dots span::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin: -6px 0 0 -5.5px;
   border-radius: 999px;
-  border: 1px solid var(--ink-soft);
-  transition: background 0.1s;
+  background: var(--ink);
+  transform: scale(0);
+  transition: transform 0.18s cubic-bezier(0.3, 1.6, 0.6, 1);
 }
 .pin-dots span.is-on {
-  background: var(--ink);
   border-color: var(--ink);
 }
+.pin-dots span.is-on::after {
+  transform: scale(1);
+}
+.pin-dots span.is-next {
+  animation: pin-next 1.2s ease-in-out infinite;
+}
+@keyframes pin-next {
+  50% {
+    border-color: var(--ink-soft);
+  }
+}
 .pin-dots.is-wrong {
-  animation: shake 0.3s;
+  animation: shake 0.32s;
+}
+.pin-dots.is-wrong span {
+  border-color: #c98f86;
+}
+.pin-dots.is-waiting span {
+  opacity: 0.35;
 }
 @keyframes shake {
   25% {
-    transform: translateX(-6px);
+    transform: translateX(-7px);
   }
   75% {
-    transform: translateX(6px);
+    transform: translateX(7px);
   }
 }
 .pin-input {
@@ -1863,10 +1899,14 @@ button {
   pointer-events: none;
 }
 .lock-error {
-  margin: 14px 0 0 !important;
+  margin: 22px 0 0;
   min-height: 1.2em;
-  font-size: 13px;
-  color: #a3473a;
+  font-size: 13.5px;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.lock-pad .muted {
+  margin: 4px 0 0;
 }
 .pomo-btn.ghost-dark {
   background: var(--tint);
