@@ -1315,8 +1315,23 @@ button {
 }
 
 /* The week's own narrow column, as wide as the weekday row is tall. */
+/* No corner cell above the week column: its outline starts at the first week. */
 .cal-3 {
   grid-template-columns: 28px repeat(3, 1fr);
+  border: 0;
+}
+.cal-3 > .cal-wd {
+  border-top: 1px solid var(--rule);
+}
+.cal-3 > .cal-wd:first-child {
+  grid-column-start: 2;
+  border-left: 1px solid var(--rule);
+}
+.cal-3 > .cal-wk {
+  border-left: 1px solid var(--rule);
+}
+.cal-3 > .cal-wd + .cal-wk {
+  border-top: 1px solid var(--rule);
 }
 .cal-wk {
   display: flex;
@@ -1366,10 +1381,6 @@ button {
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-.wk-peek.is-empty {
-  color: var(--muted);
-  opacity: 0.55;
 }
 .wk-peek:hover,
 .wk-peek.is-on {
