@@ -1334,6 +1334,8 @@ button {
   gap: 2px;
   padding: 6px 0 6px;
   border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--paper);
+  background: color-mix(in srgb, var(--tint) 60%, transparent);
 }
 .cal-wk {
   position: relative;
@@ -1352,7 +1354,7 @@ button {
   background: var(--tint);
 }
 .cal-wk.is-now {
-  background: color-mix(in srgb, var(--tint) 60%, transparent);
+  background: none;
 }
 .cal-wk.is-now .wk-name {
   color: var(--ink);
