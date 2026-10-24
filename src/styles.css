@@ -1835,26 +1835,27 @@ button {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-/* Six short ruled lines; each digit leaves a drop of ink on its line. */
+.lock-pad .wordmark {
+  font-size: 30px;
+  margin-bottom: 34px;
+}
+/* Six hollow rings; each digit fills one with ink. */
 .pin-dots {
   display: flex;
-  gap: 22px;
+  gap: 18px;
 }
 .pin-dots span {
   position: relative;
-  width: 28px;
-  height: 30px;
-  border-bottom: 1.5px solid var(--tint-2);
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--tint-2);
+  border-radius: 999px;
   transition: border-color 0.2s, opacity 0.2s;
 }
 .pin-dots span::after {
   content: '';
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 11px;
-  height: 11px;
-  margin: -6px 0 0 -5.5px;
+  inset: -1.5px;
   border-radius: 999px;
   background: var(--ink);
   transform: scale(0);
@@ -1879,6 +1880,10 @@ button {
 }
 .pin-dots.is-wrong span {
   border-color: #c98f86;
+  animation: none;
+}
+.pin-dots.is-wrong span::after {
+  background: #c98f86;
 }
 .pin-dots.is-waiting span {
   opacity: 0.35;

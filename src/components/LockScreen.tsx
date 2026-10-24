@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { parkedCount, unlock, useSession } from '../lib/store'
 
-/** Blank, softly blurred shell with only six PIN marks. No notebook content is mounted behind it. */
+/** Blank, softly blurred shell with the name and six PIN circles. No notebook content is mounted behind it. */
 export function LockScreen() {
   const { status } = useSession()
   const [pin, setPin] = useState('')
@@ -36,6 +36,9 @@ export function LockScreen() {
   return (
     <div className="lock-shell" onClick={() => input.current?.focus()}>
       <div className="lock-pad" role="dialog" aria-label="Unlock duckbook">
+        <div className="wordmark">
+          <em>duck</em>book
+        </div>
         <label className="sr-only" htmlFor="pin">
           Enter your PIN
         </label>
