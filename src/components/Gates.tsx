@@ -11,6 +11,8 @@ export function LoadingScreen() {
   return <div className="lock-shell" aria-busy="true" />
 }
 
+const IN_DESKTOP_APP = navigator.userAgent.includes('Electron')
+
 /** The local server isn't answering. Keep trying quietly; never show an empty notebook instead. */
 export function OfflineScreen() {
   useEffect(() => {
@@ -23,10 +25,19 @@ export function OfflineScreen() {
         <div className="wordmark">
           <em>duck</em>book
         </div>
-        <p>The duckbook server on this computer isn’t running.</p>
-        <p className="muted small">
-          Open <strong>Duckbook</strong> from your desktop shortcut (or <code>Duckbook.cmd</code> in the project folder). This page reconnects by itself.
-        </p>
+        {IN_DESKTOP_APP ? (
+          <>
+            <p>duckbook’s storage stopped responding.</p>
+            <p className="muted small">This window reconnects by itself. If it stays like this, close duckbook and open it again; saved pages are safe.</p>
+          </>
+        ) : (
+          <>
+            <p>The duckbook server on this computer isn’t running.</p>
+            <p className="muted small">
+              Open <strong>Duckbook</strong> from your desktop shortcut (or <code>Duckbook.cmd</code> in the project folder). This page reconnects by itself.
+            </p>
+          </>
+        )}
       </div>
     </div>
   )
