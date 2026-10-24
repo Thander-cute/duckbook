@@ -5,7 +5,7 @@ import { boot, getSession, lock, useSaveStatus, useSession, useSettings } from '
 import { api } from './lib/api'
 import { LEGACY_KEY, readLegacy, type LegacyInfo } from './lib/legacy'
 import { LockScreen } from './components/LockScreen'
-import { Banners, LoadingScreen, MigrationScreen, OfflineScreen, OutdatedScreen } from './components/Gates'
+import { Banners, DesktopWelcome, LoadingScreen, MigrationScreen, OfflineScreen, OutdatedScreen } from './components/Gates'
 import { MonthView } from './views/MonthView'
 import { WeekView } from './views/WeekView'
 import { DayView } from './views/DayView'
@@ -250,6 +250,7 @@ export function App() {
   const [legacy, setLegacy] = useState<LegacyInfo | null | undefined>(undefined)
   // Decided once per session, so the "moved and verified" result stays on screen until dismissed.
   const [migration, setMigration] = useState<'unknown' | 'show' | 'done'>('unknown')
+  const [welcome, setWelcome] = useState<'unknown' | 'show' | 'done'>('unknown')
 
   useEffect(() => void boot(), [])
 
@@ -270,6 +271,11 @@ export function App() {
     setMigration(legacy && !legacy.migrated && status?.docCount === 0 ? 'show' : 'done')
   }, [legacy, migration, status?.docCount])
 
+  useEffect(() => {
+    if (welcome !== 'unknown' || phase !== 'unlocked' || status?.docCount === undefined) return
+    setWelcome(status.desktop?.webImport && status.docCount === 0 ? 'show' : 'done')
+  }, [welcome, phase, status])
+
   useIdleLock(phase === 'unlocked' && !!status?.pinEnabled, status?.autoLockMin ?? 0)
 
   if (phase === 'loading') return <LoadingScreen />
@@ -280,5 +286,7 @@ export function App() {
   if (migration === 'show' && legacy) {
     return <MigrationScreen legacy={legacy} onDone={() => setMigration('done')} onSkip={() => setMigration('done')} />
   }
+  if (welcome === 'unknown') return <LoadingScreen />
+  if (welcome === 'show') return <DesktopWelcome onDone={() => setWelcome('done')} />
   return <Notebook legacy={legacy} onLegacyChange={checkLegacy} />
 }

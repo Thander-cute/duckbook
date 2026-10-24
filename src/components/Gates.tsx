@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { API_LEVEL, boot, reloadAll, useSaveStatus, useSession, useStore, resolveConflict } from '../lib/store'
 import { migrateLegacy, type LegacyInfo } from '../lib/legacy'
 import type { Summary } from '../lib/schema'
+import { api } from '../lib/api'
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 export const describe = (s: Summary) => `${plural(s.days, 'day')}, ${plural(s.weeks, 'week')}, ${plural(s.months, 'month')}`
@@ -57,6 +58,84 @@ export function OutdatedScreen() {
               Open <strong>Duckbook</strong> again (desktop shortcut or <code>Duckbook.cmd</code>): it restarts the server for you. This page continues by itself once
               the new server is up. Nothing was changed.
             </p>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Desktop app, empty notebook, and the browser version has pages on this computer: offer to bring them over. */
+export function DesktopWelcome({ onDone }: { onDone: () => void }) {
+  type Preview = { found: boolean; summary: Summary; photos: number; webServerRunning: boolean }
+  const [p, setP] = useState<Preview | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ summary: Summary; photosCopied: number } | null>(null)
+  const [error, setError] = useState('')
+
+  const check = () =>
+    api<Preview>('GET', '/api/import/web/preview')
+      .then((x) => (x.found ? setP(x) : onDone()))
+      .catch(() => onDone())
+  useEffect(() => void check(), []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const bring = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      setResult(await api<{ summary: Summary; photosCopied: number }>('POST', '/api/import/web', {}))
+      await reloadAll()
+    } catch (e) {
+      setError((e as Error).message)
+      void check()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!p) return <LoadingScreen />
+  return (
+    <div className="lock-shell">
+      <div className="lock-card wide">
+        <div className="wordmark">
+          <em>duck</em>book
+        </div>
+        {result ? (
+          <>
+            <p>
+              Brought over and verified: <strong>{describe(result.summary)}</strong>, {plural(result.photosCopied, 'photo')}.
+            </p>
+            <p className="muted small">This app now keeps its own copy. The browser version still has its pages, untouched.</p>
+            <button className="pomo-btn" onClick={onDone}>
+              Open my notebook
+            </button>
+          </>
+        ) : (
+          <>
+            <p>
+              The browser version on this computer holds <strong>{describe(p.summary)}</strong> and {plural(p.photos, 'photo')}.
+            </p>
+            <p className="muted small">
+              Bring them into this app? The browser version is only read, never changed. You can also do this later in Settings → Data.
+            </p>
+            {p.webServerRunning && (
+              <p className="lock-error" role="alert">
+                The browser version is running right now. Close its server window first, then press the button again.
+              </p>
+            )}
+            {error && !p.webServerRunning && (
+              <p className="lock-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="row-btns center">
+              <button className="pomo-btn" disabled={busy} onClick={() => void (p.webServerRunning ? check() : bring())}>
+                {busy ? 'Bringing over…' : p.webServerRunning ? 'Check again' : 'Bring them over'}
+              </button>
+              <button className="pomo-btn ghost-dark" disabled={busy} onClick={onDone}>
+                Start with an empty notebook
+              </button>
+            </div>
           </>
         )}
       </div>
