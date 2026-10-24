@@ -1835,9 +1835,9 @@ button {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.lock-pad .wordmark {
-  font-size: 30px;
-  margin-bottom: 34px;
+.lock-pad .duck-mark {
+  margin-bottom: 30px;
+  filter: drop-shadow(0 8px 14px rgba(38, 52, 107, 0.12));
 }
 /* Six hollow rings; each digit fills one with ink. */
 .pin-dots {
