@@ -38,6 +38,9 @@ export function LockScreen() {
     <div className="lock-shell" onClick={() => input.current?.focus()}>
       <div className="lock-pad" role="dialog" aria-label="Unlock duckbook">
         <DuckMark />
+        <div className="wordmark">
+          <em>duck</em>book
+        </div>
         <label className="sr-only" htmlFor="pin">
           Enter your PIN
         </label>
