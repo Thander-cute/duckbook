@@ -253,6 +253,22 @@ async function main() {
       await page.waitForFunction(() => location.hash === '#/week/2026-10-19')
     })
 
+    await step('Paper: White or Cream, remembered by this browser and kept on the lock screen', async () => {
+      const paper = () => page.evaluate(() => document.documentElement.dataset.paper)
+      assert.equal(await paper(), 'white')
+      await openSettings(page, 'Notebook')
+      await (await page.waitForSelector('xpath/.//div[@class="seg"]/button[normalize-space(.)="Cream"]'))!.click()
+      assert.equal(await paper(), 'cream')
+      await closeSettings(page)
+      await page.reload()
+      await page.waitForSelector('.week-plan')
+      assert.equal(await paper(), 'cream', 'kept after reload')
+      await openSettings(page, 'Notebook')
+      await (await page.waitForSelector('xpath/.//div[@class="seg"]/button[normalize-space(.)="White"]'))!.click()
+      assert.equal(await paper(), 'white')
+      await closeSettings(page)
+    })
+
     await step('Focus Map: off by default; turning it on (Add-ons) adds the tab', async () => {
       assert.equal(await page.$$eval('.tab-module', (x) => x.length), 0)
       await openSettings(page, 'Add-ons')

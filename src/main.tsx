@@ -8,6 +8,9 @@ import '@fontsource/newsreader/500-italic.css'
 import '@fontsource/dancing-script/400.css'
 import './styles.css'
 import { App } from './App'
+import { applyPaper } from './lib/paper'
+
+applyPaper()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

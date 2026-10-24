@@ -14,6 +14,9 @@
   --qb: #d2dbf0;
   --qc: #dfe5f4;
   --qd: #ecf0f8;
+  --lock-glow-a: rgba(195, 206, 233, 0.55);
+  --lock-glow-b: rgba(186, 199, 231, 0.45);
+  --cell-hover: #f7f9fd;
 
   --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
   --hand: 'Dancing Script', 'Segoe Script', cursive;
@@ -21,6 +24,24 @@
 
   --dot: 24px;
   color-scheme: light;
+}
+
+/* Cream paper on a linen desk, after the planner's cloth cover; the ink stays blue. */
+[data-paper='cream'] {
+  --desk: #e8e5de;
+  --paper: #fdfbf7;
+  --muted: #9196ad;
+  --rule: #d8d5cc;
+  --rule-soft: #ebe8e1;
+  --tint: #efece5;
+  --tint-2: #c9cfe0;
+  --qa: #c7cee6;
+  --qb: #e2dccb;
+  --qc: #dde2ee;
+  --qd: #f0ede5;
+  --lock-glow-a: rgba(214, 206, 186, 0.5);
+  --lock-glow-b: rgba(186, 199, 231, 0.35);
+  --cell-hover: #f8f6f0;
 }
 
 [data-ink='hand'] {
@@ -1058,7 +1079,7 @@ button {
   transition: background 0.12s;
 }
 .cal-cell:focus-within {
-  background: #f7f9fd;
+  background: var(--cell-hover);
 }
 .cal-cell.is-empty {
   background: repeating-linear-gradient(135deg, transparent 0 7px, var(--rule-soft) 7px 8px);
@@ -1103,7 +1124,7 @@ button {
   user-select: none;
 }
 .cal-cell.is-drawing {
-  background: #f3f6fc;
+  background: var(--qd);
 }
 .cal-cell.is-drawing::after {
   content: '';
@@ -1359,7 +1380,7 @@ button {
   font-size: 13.5px;
 }
 .weeks-of-month a:hover {
-  background: #f7f9fd;
+  background: var(--cell-hover);
 }
 .wk-n {
   font-weight: 600;
@@ -1788,8 +1809,8 @@ button {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(60% 50% at 30% 30%, rgba(195, 206, 233, 0.55), transparent 70%),
-    radial-gradient(50% 40% at 70% 70%, rgba(186, 199, 231, 0.45), transparent 70%),
+    radial-gradient(60% 50% at 30% 30%, var(--lock-glow-a), transparent 70%),
+    radial-gradient(50% 40% at 70% 70%, var(--lock-glow-b), transparent 70%),
     var(--desk);
   backdrop-filter: blur(24px);
 }
@@ -2130,7 +2151,7 @@ button {
 .tray.is-over,
 .canvas.is-over {
   box-shadow: inset 0 0 0 1.5px var(--tint-2);
-  background-color: #fafbfe;
+  background-color: var(--cell-hover);
 }
 .pad {
   position: relative;

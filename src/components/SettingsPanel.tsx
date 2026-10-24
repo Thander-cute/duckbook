@@ -6,6 +6,7 @@ import { todayKey } from '../lib/date'
 import type { Summary } from '../lib/schema'
 import { describe } from './Gates'
 import { Menu } from './Menu'
+import { getPaper, setPaper } from '../lib/paper'
 
 interface Backup { file: string; kind: string; createdAt: string; docs: number; bytes: number; verified: boolean }
 
@@ -44,6 +45,7 @@ export function SettingsPage({
   onLegacyChange: () => void
 }) {
   const s = useSettings()
+  const [paper, setPaperState] = useState(getPaper)
   const { status } = useSession()
 
   return (
@@ -70,6 +72,17 @@ export function SettingsPage({
                 ))}
               </div>
               <p className="muted small">How your own writing looks on every page.</p>
+            </div>
+            <div className="setting">
+              <div className="label">Paper</div>
+              <div className="seg">
+                {(['white', 'cream'] as const).map((p) => (
+                  <button key={p} className={paper === p ? 'is-on' : ''} onClick={() => (setPaper(p), setPaperState(p))}>
+                    {p === 'white' ? 'White' : 'Cream'}
+                  </button>
+                ))}
+              </div>
+              <p className="muted small">White with blue ink, or cream paper on a linen desk. Remembered in this browser, lock screen included.</p>
             </div>
             <div className="setting">
               <div className="label">Keys</div>
