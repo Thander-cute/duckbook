@@ -37,6 +37,8 @@ export interface Status {
   dataDir?: string
   migration?: { at: string; sourceHash: string | null; summary: { days: number; weeks: number; months: number } } | null
   lastBackup?: { at: string } | null
+  /** Present only in the desktop app. */
+  desktop?: { webImport: boolean }
 }
 
 export type Phase = 'loading' | 'offline' | 'outdated' | 'locked' | 'unlocked'

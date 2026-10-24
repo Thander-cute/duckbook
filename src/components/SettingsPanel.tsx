@@ -150,6 +150,7 @@ export function SettingsPage({
           <>
             <Backups />
             <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
+            {status?.desktop?.webImport && <FromBrowserVersion />}
             {legacy && <OldBrowserCopy legacy={legacy} onChange={onLegacyChange} />}
           </>
         )}
@@ -467,6 +468,98 @@ function DataSection({ dataDir, quarantineCount }: { dataDir?: string; quarantin
           </div>
         </div>
       )}
+      {msg && <p className="small setting-msg">{msg}</p>}
+    </div>
+  )
+}
+
+interface WebPreview { found: boolean; summary: Summary; photos: number; missingPhotos: number; webServerRunning: boolean; existingPages: number }
+
+/** Desktop app only: bring the pages and photos over from the browser version's database, which is only read. */
+function FromBrowserVersion() {
+  const [preview, setPreview] = useState<WebPreview | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const check = async () => {
+    setMsg('')
+    try {
+      setPreview(await api<WebPreview>('GET', '/api/import/web/preview'))
+    } catch (e) {
+      setMsg((e as Error).message)
+    }
+  }
+  useEffect(() => void check(), [])
+
+  const bring = async () => {
+    setBusy(true)
+    setMsg('')
+    try {
+      if (!(await flush())) return setMsg('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
+      const r = await api<{ summary: Summary; photosCopied: number; backup: string | null }>('POST', '/api/import/web', { replace: true })
+      await reloadAll()
+      setMsg(
+        `Brought over and verified: ${describe(r.summary)}, ${r.photosCopied} ${r.photosCopied === 1 ? 'photo' : 'photos'}.` +
+          (r.backup ? ' Your previous desktop pages are in a “Before import” backup.' : '') +
+          ' The browser version still has its own copy, untouched.',
+      )
+      setConfirm(false)
+      void check()
+    } catch (e) {
+      setMsg(e instanceof ApiError && e.body.webServerRunning ? 'The browser version is still running. Close its server window first, then try again.' : (e as Error).message)
+      void check()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const p = preview
+  return (
+    <div className="setting">
+      <div className="label">From the browser version</div>
+      {!p ? (
+        <p className="muted small">Looking for the browser version’s pages…</p>
+      ) : !p.found ? (
+        <p className="muted small">No pages from the browser version were found on this computer.</p>
+      ) : (
+        <>
+          <p className="small">
+            The browser version on this computer holds <strong>{describe(p.summary)}</strong> and {p.photos} {p.photos === 1 ? 'photo' : 'photos'}
+            {p.missingPhotos ? ` (${p.missingPhotos} missing from its folder)` : ''}. This app keeps its own pages, separate from it.
+          </p>
+          {p.webServerRunning ? (
+            <p className="small setting-msg">
+              The browser version is running right now. Close its server window so nothing changes mid-copy, then{' '}
+              <button className="text-link" onClick={() => void check()}>
+                check again
+              </button>
+              .
+            </p>
+          ) : confirm ? (
+            <div className="confirm-box">
+              <p className="small">
+                {p.existingPages ? 'This replaces every page in this app (backed up first). ' : ''}The browser version is only read, never changed.
+              </p>
+              <div className="row-btns">
+                <button className="text-btn" disabled={busy} onClick={() => void bring()}>
+                  {busy ? 'Bringing over…' : p.existingPages ? 'Replace my pages' : 'Bring them over'}
+                </button>
+                <button className="text-btn" disabled={busy} onClick={() => setConfirm(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="row-btns">
+              <button className="text-btn" onClick={() => setConfirm(true)}>
+                Bring pages and photos over…
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      <p className="muted small">Paper and habit-mark choices are kept per app; set them again here if you changed them in the browser.</p>
       {msg && <p className="small setting-msg">{msg}</p>}
     </div>
   )
