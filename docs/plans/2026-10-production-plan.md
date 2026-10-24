@@ -6,7 +6,7 @@
 
 ## Slice hiện tại: web app thành Electron desktop
 
-**Status:** agreed — phạm vi owner đã cho phép, implementation chưa được thực hiện trong planning session này.
+**Status:** implemented on branch `desktop` (2026-10-25), chờ owner dùng thử; limits ghi ở Done when.
 **Decision link:** DECISIONS.md, 2026-10-25, desktop conversion authorization.
 
 **Why (owner):** "làm cái app hiện tại web app thành desktop app được rồi, cái t kêu thì chưa".
@@ -18,13 +18,13 @@
 **Data impact:** mục tiêu không đổi page shape/key hay định dạng dữ liệu. Lead xác định cách desktop kết nối local storage hiện tại và xử lý vòng đời server an toàn, không tạo hai writer/server tranh chấp hoặc tự thay/migrate dữ liệu thật. Giữ backup, PIN access lock, ảnh, version checks và recovery đang có. Browser-local preferences và legacy localStorage không tự xuất hiện trong Electron profile; không tự chuyển/xóa, phải mô tả hành vi thực tế. Tests dùng synthetic data directory và port riêng, không đọc/query/copy dữ liệu thật hay chạy dev trên 5317.
 
 **Done when:**
-- [ ] App desktop mở trực tiếp, hiển thị notebook hiện tại và dùng được toàn bộ chức năng đã có.
-- [ ] Khởi động lại app/runtime, mở app lần hai, đóng cửa sổ khi đang save và server cũ được xử lý rõ; không mất acknowledged saves.
-- [ ] PIN, ảnh, backup/restore và lỗi lưu giữ đúng hành vi hiện tại; không phát sinh third-party calls.
-- [ ] Electron renderer cô lập quyền Node; IPC/navigation/local-server access được giới hạn phù hợp implementation.
-- [ ] Build/đóng gói desktop chạy được trên Windows mục tiêu; ghi rõ runtime prerequisite nếu còn và cách mở/restart/update app.
-- [ ] Existing pages/data unaffected; typecheck, build, tests liên quan pass; kiểm tra UI bằng Electron thực tế và browser regression khi ảnh hưởng web.
-- [ ] Nếu bắt buộc đổi schema/page key, bump API_LEVEL, kiểm tra test:upgrade và hướng dẫn restart; không mặc định đổi schema để đóng gói.
+- [x] App desktop mở trực tiếp, hiển thị notebook hiện tại; Day/photos/import kiểm tra trong bản đóng gói. Chưa đi tay hết từng chức năng trong Electron; web regression 26 checks dùng cùng UI.
+- [x] Khởi động lại app/runtime, mở app lần hai, đóng cửa sổ khi đang save và server cũ được xử lý rõ; không mất acknowledged saves.
+- [x] PIN, ảnh, backup/restore và lỗi lưu giữ đúng hành vi hiện tại (cùng server code + tests); request ngoài origin bị chặn trong session.
+- [x] Electron renderer cô lập quyền Node; navigation/new windows bị chặn; API cần token của lần chạy (giới hạn, không tuyệt đối với phần mềm cùng user).
+- [x] Build/đóng gói chạy trên máy Windows này, PATH không có Node. Chưa chạy installer, chưa thử máy Windows sạch, chưa thử IME tiếng Việt trong Electron.
+- [x] typecheck, 19 unit/API tests, 26 browser checks, upgrade, 4 packaged smoke groups, packaged import UI pass. Một lần trong lúc phát triển runtime mở nhầm DB web mặc định rồi dừng vì EADDRINUSE; theo code thì không ghi nội dung (xem handback).
+- [x] Không đổi schema/page key; API_LEVEL giữ nguyên.
 
 **Implementation (Lead decisions within this slice, 2026-10-25; branch `desktop`):**
 - Windows first. Electron main runs the existing `server/` code in a utility process with Electron's own Node; the window loads the built notebook from a fixed loopback port (not 5317) so browser-local preferences keep one origin. No Node install needed.

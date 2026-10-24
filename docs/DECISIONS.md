@@ -34,6 +34,7 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 - The PIN is an access lock checked by the server. It is **not** encryption. At-rest encryption, recovery flows, and vaults are deferred.
 - Migration from `localStorage['duckbook:v1']` only runs when the user clicks. It is verified page by page, and the browser copy is kept until the user removes it.
 - Launch with `Duckbook.cmd` (optionally a desktop shortcut). No terminal is needed for daily use.
+- Desktop app (2026-10-25, see `docs/plans/2026-10-production-plan.md`): Electron 43 window over the same `server/` code, run in a utility process with Electron's Node (`node:sqlite` works there), loopback port 5327, per-launch token on every API call. Its notebook is separate (`%APPDATA%\duckbook\notebook`); the browser version's database is read only when the person asks, refused while that server runs, from a temporary snapshot, with photos hash-checked and a verified backup before replace. Unsigned NSIS per-user installer; no auto-update.
 - The earlier IndexedDB/crypto drafts are archived on branch `archive/indexeddb-vault-draft`. They were never used or tested.
 - Focus Map (see `docs/plans/2026-10-focus-notes-settings.md`):
   - Optional module, off by default; turning it off hides it and keeps its data. It sits beside the Eisenhower matrix, not in place of it.

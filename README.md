@@ -25,6 +25,18 @@ Your pages are stored in `%LOCALAPPDATA%\Duckbook\duckbook.sqlite`, with automat
 
 **Pages from the earlier version** (kept in your browser) are offered for moving the first time you open the new duckbook, in the same browser you used before at `http://localhost:5317`. Moving is verified, and the browser copy is kept until you remove it in Settings.
 
+## Desktop app (Windows, local build)
+
+A desktop window with the same notebook, no browser and no Node install needed.
+
+- **Build:** `npm run desktop:build` makes `release\Duckbook Setup 0.1.0.exe` (unsigned, per-user installer; Windows SmartScreen will warn because it isn't signed) and the ready-to-run folder `release\win-unpacked\Duckbook.exe`. `npm run desktop:pack` builds only the folder.
+- **Its own pages:** the desktop app keeps a separate notebook in `%APPDATA%\duckbook\notebook` (Settings → Data shows the exact folder; it has its own `backups\` and `photos\`). It never opens the browser version's database by itself, and the browser version with `Duckbook.cmd` keeps working as before.
+- **Bringing pages over:** on first run with an empty notebook, or later in Settings → Data, choose to look for the browser version's pages. Close the browser version's server window first (`Duckbook.cmd --stop`); the app refuses to copy while it runs. Pages and photos are copied and checked, the desktop pages are backed up before being replaced, and the browser version is only read. Paper and habit-mark choices are per app; set them again.
+- **Closing:** the window saves pending edits before it closes. If something can't be saved (for example the notebook is locked with edits waiting), it asks: Keep open, or Close anyway.
+- **Updating:** close the app, build or install the new version, open it again. Server and pages always update together, so there is no stale server to restart.
+- **Safety:** each launch makes a fresh token and API calls without it are refused; the window can't navigate elsewhere or open other sites, and has no Node access. This limits casual access from other programs and web pages; it is not encryption, and software already running as your Windows user could still read the files. The PIN is an access lock, as in the browser version.
+- **Not yet:** code signing, auto-update, a run of the installer on a clean Windows machine, and sync or encryption (still open decisions).
+
 ## Develop
 
 ```bash
@@ -33,7 +45,11 @@ npm run typecheck
 npm test                 # server, storage, PIN, crash-safety tests
 npm run build
 npm run test:browser     # browser checks on a throwaway server (port 5399, synthetic data)
+npm run desktop:pack     # Windows desktop folder build
+npm run desktop:test     # drives release/win-unpacked with synthetic source and target folders
 ```
+
+Desktop development (`npm run desktop:dev`) refuses to start unless `DUCKBOOK_DESKTOP_DATA_DIR`, `DUCKBOOK_WEB_DATA_DIR` and `DUCKBOOK_WEB_PORT` point at synthetic folders and a spare port; also set `DUCKBOOK_DESKTOP_PORT`.
 
 `npm run dev` runs the Vite UI alone, without a server, so it only shows the "server isn't running" screen. Test UI changes with `npm run build` plus a server on a spare port and a temp data dir:
 
