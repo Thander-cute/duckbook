@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.server.json",
+  "compilerOptions": { "types": ["node", "electron"] },
+  "include": ["desktop", "server", "src/lib/schema.ts"]
+}

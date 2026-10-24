@@ -7,8 +7,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+declare const DESKTOP_CODE: string | undefined
 
 export function codeFingerprint() {
+  if (typeof DESKTOP_CODE !== 'undefined') return DESKTOP_CODE
   const files = [
     ...fs
       .readdirSync(path.join(repo, 'server'))

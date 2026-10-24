@@ -6,11 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",
-    "typecheck": "tsc -p . && tsc -p tsconfig.server.json",
+    "typecheck": "tsc -p . && tsc -p tsconfig.server.json && tsc -p tsconfig.desktop.json",
     "start": "node server/main.ts",
     "test": "node --test \"test/*.test.ts\"",
     "test:browser": "node test/browser.e2e.ts",
-    "test:upgrade": "node test/upgrade.e2e.ts"
+    "test:upgrade": "node test/upgrade.e2e.ts",
+    "desktop:bundle": "node desktop/build.ts",
+    "desktop:dev": "npm run build && npm run desktop:bundle && electron .",
+    "desktop:build": "npm run build && npm run desktop:bundle && electron-builder --win nsis --x64",
+    "desktop:pack": "npm run build && npm run desktop:bundle && electron-builder --win --x64 --dir",
+    "desktop:test": "node test/desktop.e2e.ts"
   },
   "dependencies": {
     "@fontsource/dancing-script": "^5.3.0",
@@ -24,8 +29,12 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "electron": "43.8.3",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
     "puppeteer-core": "^25.15.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
-  }
+  },
+  "main": "desktop-dist/main.js"
 }

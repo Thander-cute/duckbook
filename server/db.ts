@@ -151,10 +151,10 @@ export class Store {
       const q = this.db.prepare('INSERT INTO quarantine (at, source, path, value) VALUES (?, ?, ?, ?)')
       for (const item of opts.quarantine ?? []) q.run(now, opts.source, item.path, JSON.stringify(item.value) ?? 'null')
       this.touch()
+      const expected = JSON.stringify(docs.sort((a, b) => a.key.localeCompare(b.key)))
+      const actual = JSON.stringify(this.allDocs().map((d) => ({ key: d.key, value: d.value })))
+      if (expected !== actual) throw new RestoreError('Pages read back after writing did not match. Nothing was replaced; your previous pages are also in the backup taken just before.')
     })
-    const expected = JSON.stringify(docs.sort((a, b) => a.key.localeCompare(b.key)))
-    const actual = JSON.stringify(this.allDocs().map((d) => ({ key: d.key, value: d.value })))
-    if (expected !== actual) throw new RestoreError('Pages read back after writing did not match. Your previous pages are in the backup taken just before.')
     return { backup: backup?.file ?? null, summary: summarize(docsToState(docs)) }
   }
 

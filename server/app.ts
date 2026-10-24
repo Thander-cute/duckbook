@@ -13,6 +13,7 @@ import { API_LEVEL, SchemaError, docsToState, normalizeState, summarize } from '
 import { codeFingerprint } from './version.ts'
 import { ConflictError, RestoreError, type Change, type Store } from './db.ts'
 import type { Auth } from './auth.ts'
+import { importWeb, readWeb, webIsRunning } from './web-import.ts'
 
 const MAX_BODY = 20 * 1024 * 1024
 const MAX_PHOTO = 15 * 1024 * 1024
@@ -53,9 +54,9 @@ class HttpError extends Error {
   }
 }
 
-export interface AppOptions { store: Store; auth: Auth; port: number; distDir: string; log?: (msg: string) => void }
+export interface AppOptions { store: Store; auth: Auth; port: number; distDir: string; log?: (msg: string) => void; token?: string; webDataDir?: string; webPort?: number }
 
-export function createHandler({ store, auth, port, distDir, log = () => {} }: AppOptions) {
+export function createHandler({ store, auth, port, distDir, token, webDataDir, webPort, log = () => {} }: AppOptions) {
   const code = codeFingerprint()
   const hosts = new Set([`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`])
   const cookieName = `duckbook_sid_${port}`
@@ -126,7 +127,7 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
 
   const statusBody = (req: http.IncomingMessage) => {
     const unlocked = auth.allows(sessionToken(req))
-    const base = { app: 'duckbook', apiLevel: API_LEVEL, pinEnabled: auth.enabled, autoLockMin: auth.autoLockMin, locked: !unlocked, retryAfterMs: auth.retryAfterMs() }
+    const base = { app: 'duckbook', apiLevel: API_LEVEL, pinEnabled: auth.enabled, autoLockMin: auth.autoLockMin, locked: !unlocked, retryAfterMs: auth.retryAfterMs(), ...(token ? { desktop: { webImport: !!webDataDir } } : {}) }
     if (!unlocked) return base
     return { ...base, docCount: store.docCount(), quarantineCount: store.quarantined().length, migration: store.getMeta('migration') ?? null, dataDir: store.dataDir, lastBackup: store.getMeta('last_backup') ?? null }
   }
@@ -162,6 +163,23 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
     }
 
     if (route === 'POST /api/ping') return send(res, 200, { ok: true })
+
+    if (webDataDir && (route === 'GET /api/import/web/preview' || route === 'POST /api/import/web')) {
+      const running = await webIsRunning(webDataDir, webPort ?? 5317)
+      if (route === 'POST /api/import/web') {
+        const body = await readJson(req)
+        if (running) throw new HttpError(409, 'Close the browser notebook server before importing.', { webServerRunning: true })
+        if (store.docCount() && body.replace !== true) throw new HttpError(409, 'There are already pages here.', { needsReplace: true })
+        const source = readWeb(webDataDir)
+        if (!source) throw new HttpError(404, 'No browser notebook was found.')
+        return send(res, 200, importWeb(store, source))
+      }
+      // Never open a source database while its writer is running.
+      const source = running ? null : readWeb(webDataDir)
+      return send(res, 200, { found: fs.existsSync(path.join(webDataDir, 'duckbook.sqlite')), summary: source ? summarize(source.state) : null,
+        issues: source?.issues.slice(0, 20) ?? [], issueCount: source?.issues.length ?? 0, photos: source ? source.photos.size + source.missingPhotos : 0,
+        missingPhotos: source?.missingPhotos ?? 0, webServerRunning: running, existingPages: store.docCount() })
+    }
 
     if (route === 'GET /api/data') return send(res, 200, { docs: store.allDocs() })
 
@@ -285,6 +303,7 @@ export function createHandler({ store, auth, port, distDir, log = () => {} }: Ap
 
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`)
     if (!url.pathname.startsWith('/api/')) return serveStatic(req, res, url.pathname)
+    if (token && req.headers['x-duckbook-token'] !== token) return send(res, 403, { error: 'Desktop app access required.' })
 
     const origin = req.headers.origin
     const site = req.headers['sec-fetch-site']

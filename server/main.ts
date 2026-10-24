@@ -32,7 +32,7 @@ function freePort() {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-export async function start(opts: { port?: number; dataDir?: string; distDir?: string; quiet?: boolean } = {}) {
+export async function start(opts: { port?: number; dataDir?: string; distDir?: string; quiet?: boolean; token?: string; webDataDir?: string; webPort?: number } = {}) {
   let port = opts.port ?? Number(process.env.DUCKBOOK_PORT ?? DEFAULT_PORT)
   if (port === 0) port = await freePort()
   const dataDir = opts.dataDir ?? defaultDataDir()
@@ -41,7 +41,7 @@ export async function start(opts: { port?: number; dataDir?: string; distDir?: s
 
   const store = new Store(dataDir)
   const auth = new Auth(store)
-  const handler = createHandler({ store, auth, port, distDir: opts.distDir ?? path.join(repoRoot, 'dist'), log })
+  const handler = createHandler({ store, auth, port, distDir: opts.distDir ?? path.join(repoRoot, 'dist'), log, token: opts.token, webDataDir: opts.webDataDir, webPort: opts.webPort })
 
   // Both loopback addresses, or neither: a half-bound port would let "localhost" reach another server.
   const servers: http.Server[] = []
@@ -110,7 +110,8 @@ export async function start(opts: { port?: number; dataDir?: string; distDir?: s
   return { port, dataDir, store, auth, stop }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+declare const DESKTOP_CODE: string | undefined
+if (typeof DESKTOP_CODE === 'undefined' && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   start()
     .then(({ dataDir, stop }) => {
       const pidFile = path.join(dataDir, 'server.pid')
