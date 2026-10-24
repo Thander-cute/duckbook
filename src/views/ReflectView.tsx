@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Check, Label, Page, PageTitle, Spread, Write } from '../components/ui'
-import { InkDot } from '../components/InkDot'
+import { HabitMark } from '../components/HabitMark'
 import { WEEKDAYS, WEEKDAYS_MIN, fmtMonth, monthKeyOf, weekDays, weekStart } from '../lib/date'
 import { href } from '../lib/router'
 import { editMonth, editWeek, useMonth, useStore, useWeekWithSeed, type Reflection } from '../lib/store'
@@ -142,7 +142,7 @@ function DoneThisWeek({ monday }: { monday: string }) {
               <span className="ink">{h.name}</span>
               {h.days.map((on, i) => (
                 <span key={i} className="mini-dot" title={WEEKDAYS_MIN[i]}>
-                  {on ? <InkDot seed={h.id + i} /> : <span className="pomo-ring" />}
+                  <HabitMark on={on} seed={h.id + i} />
                 </span>
               ))}
             </div>

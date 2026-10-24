@@ -269,6 +269,17 @@ async function main() {
       await closeSettings(page)
     })
 
+    await step('Habit marks: Ink dot, Hatched or Tick, remembered by this browser', async () => {
+      const mark = () => page.evaluate(() => localStorage.getItem('duckbook:habit-mark'))
+      await openSettings(page, 'Notebook')
+      await (await page.waitForSelector('xpath/.//div[contains(@class,"seg-marks")]/button[normalize-space(.)="Tick"]'))!.click()
+      assert.equal(await mark(), 'tick')
+      await page.waitForSelector('.seg-marks button.is-on .habit-tick')
+      await (await page.waitForSelector('xpath/.//div[contains(@class,"seg-marks")]/button[normalize-space(.)="Ink dot"]'))!.click()
+      assert.equal(await mark(), 'dot')
+      await closeSettings(page)
+    })
+
     await step('Focus Map: off by default; turning it on (Add-ons) adds the tab', async () => {
       assert.equal(await page.$$eval('.tab-module', (x) => x.length), 0)
       await openSettings(page, 'Add-ons')

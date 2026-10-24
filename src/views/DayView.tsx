@@ -2,6 +2,7 @@ import { DayPhotos } from '../components/Photos'
 import { useState } from 'react'
 import { Check, Label, Line, Page, PageTitle, Spread, Write } from '../components/ui'
 import { InkDot } from '../components/InkDot'
+import { HabitMark } from '../components/HabitMark'
 import { WEEKDAYS_MIN, fmtShort, monthKeyOf, weekDays, weekStart, weekdayIndex } from '../lib/date'
 import { href } from '../lib/router'
 import { editDay, editWeek, ideaOfDayTask, markStarted, renameDayTask, setDayTaskDone, uid, useDay, useMonth, useSettings, useStore, useWeekWithSeed, type DayTask } from '../lib/store'
@@ -257,7 +258,7 @@ function WeekCompanion({ date }: { date: string }) {
                   onClick={() => editWeek(date, (w) => void (w.habits[i].days[wd] = !w.habits[i].days[wd]))}
                   aria-pressed={h.days[wd]}
                 >
-                  {h.days[wd] ? <InkDot seed={h.id + wd} /> : <span className="pomo-ring" />}
+                  <HabitMark on={h.days[wd]} seed={h.id + wd} />
                   <span className="ink">{h.name}</span>
                 </button>
               </li>

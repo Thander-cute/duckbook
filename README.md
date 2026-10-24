@@ -57,6 +57,8 @@ Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect �
 
 **Paper** (Settings → Notebook): White with blue ink, or Cream paper on a linen desk. The choice is kept by this browser (not in your notebook data), so the lock screen uses it too.
 
+**Habit marks** (Settings → Notebook): a done habit day shows as an ink dot, a hatched box, or a tick. Kept by this browser, like Paper.
+
 **Focus Map** (optional, Settings → Add-ons) is a board of sticky notes on an impact × difficulty map (left hard, right easy; top high impact, bottom low).
 - **Write and place:** write on the blank note at the top of the pad and press Enter; it drops into the Tray. Drag a note by its top edge onto the map. You can also focus a note and use the arrow keys, or use Place in its bar.
 - **States:** each note has a state (Idea, In progress, Completed) and an optional planned date. Click a note to show its bar: Start, Complete, Reopen, the date, Plan, Place, remove. A note in progress is pale blue, a completed one grey with a ✓; its date and week are written at the foot. Esc or a click on the empty map puts the bar away.

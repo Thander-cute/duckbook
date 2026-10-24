@@ -17,6 +17,7 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 | 2026-10-22 | Day photos: up to 3 per day on the Day page's right side; the Month page marks days with photos and opens them in an overlay viewer. | Owner: "thêm hình vào, cho tối đa 3 tấm thôi… bấm vào coi trực tiếp trong trang tháng" |
 | 2026-10-24 | Duck head logo (owner's drawing) on the PIN screen and tab icon, name under it; Paper setting White / Cream to switch between the blue and a calmer cream-and-linen look. | Owner: "cái này đi, làm logo được nè", "thêm chữ duckbook đi", "cho đổi qua đổi lại đi, cái màu vàng nhìn nóng" |
 | 2026-10-24 | Month: drop the mood tracker, month notes take its column; the Weeks list becomes a narrow week column in the calendar with marks to read the week's goal and reflection. | Owner: "bỏ cái mood ở trang month đi… để note ở chỗ mood cho giống nguyên bản… mỗi tuần 1 dòng trong bảng month… 1 logo để đọc goal, 1 logo xem reflection" |
+| 2026-10-24 | Habit marks setting: Ink dot, Hatched box or Tick (browser-local, like Paper; no data change). Week quadrant hints open out of the A–D letter on hover instead of overlapping it. | Owner: "cho nhiều lựa chọn đi, cái chấm tròn đen đó, rồi tô mà kiểu gạch gạch hết ô á, với đánh dấu tick", "chỗ A B C D… nó overlay, kiếm chỗ khác display tốt hơn" |
 
 ### How these were implemented (agent decisions within the approved scope)
 
