@@ -290,11 +290,6 @@ function WeekMark({ monday }: { monday: string }) {
   const toggle = (kind: 'goal' | 'reflect', at: HTMLElement) => setPeek(peek?.kind === kind ? null : { kind, at })
   return (
     <div className={`cal-wk ${monday === weekStart(todayKey()) ? 'is-now' : ''}`} onKeyDown={(e) => e.key === 'Escape' && peek && (e.stopPropagation(), setPeek(null))}>
-      {monday === weekStart(todayKey()) && (
-        <svg className="wk-ribbon" viewBox="0 0 16 30" aria-label="This week">
-          <path d="M2.2 0 C2 9 2.6 19 2 29 L8.2 21.5 L14.2 29.2 C13.6 19 14.2 9 13.8 0 Z" />
-        </svg>
-      )}
       <a className="wk-name" href={href('week', monday)} title={`Open week ${n} · ${fmtShort(monday)} – ${fmtShort(addDays(monday, 6))}`}>
         W{n}
       </a>
