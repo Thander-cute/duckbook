@@ -1,5 +1,7 @@
 # Duckbook: biến *The Present Day Planner* thành web app
 
+> Phân tích gốc (2026-10-19). Những gì đã quyết định sau đó nằm ở [docs/DECISIONS.md](docs/DECISIONS.md); cấu trúc dữ liệu thật nằm ở `src/lib/schema.ts`.
+
 ## 1. Cuốn sách làm đúng điều gì
 
 *The Present Day Planner* (Chi Nguyễn, The Present Writer) không chỉ là một cuốn sổ có bảng biểu. Nó là **một nhịp sống được thiết kế sẵn**:
@@ -36,7 +38,7 @@ Triết lý cốt lõi (theo trang giới thiệu sách):
 **Cố ý không làm** (giữ đúng tinh thần sách):
 - Không streak, không điểm số, không badge đỏ "quá hạn", không thông báo thúc ép.
 - Không tag, project, priority 1–4: ma trận Eisenhower là đủ.
-- Không đăng nhập ở MVP. Dữ liệu nằm trong trình duyệt, xuất/nhập được bằng JSON.
+- Không đăng nhập. Dữ liệu nằm trên máy, xuất/nhập được bằng JSON.
 
 ## 3. Nguyên tắc UX
 
@@ -52,8 +54,8 @@ Triết lý cốt lõi (theo trang giới thiệu sách):
 ```
 Top bar: duckbook · [1 Month] [2·3 Week] [4 Day] [5 Reflect] · ‹ kỳ hiện tại › Today · ⚙
 │
-├─ Month   (trái) Chọn tháng · "This month will be" · mood tracker · Mon–Wed · Notes
-│          (phải) Goals of the month (3) · Thu–Sun · Các tuần trong tháng → goal tuần
+├─ Month   (trái) Chọn tháng · "This month will be" · Notes · Mon–Wed (số tuần ở lề: mở tuần, xem goal/reflection)
+│          (phải) Goals of the month (3) · Thu–Sun
 ├─ Week    (trái) ② WEEKLY notes: Biggest goal · Tasks of the week (chưa phân loại) · ghi chú dot-grid
 │          (phải) ③ WEEKLY planning: ma trận A/C/B/D (kéo thả) · Habit tracker · Self-care
 ├─ Day     (trái) ④ DAILY planning: thứ · lời nhắn · Grateful for · Tasks + pomodoro · Notes · One sentence
@@ -69,17 +71,6 @@ Top bar: duckbook · [1 Month] [2·3 Week] [4 Day] [5 Reflect] · ‹ kỳ hiệ
 - **Chi tiết:** số bước nằm trong vòng tròn mảnh, dot-grid 18px, đường kẻ một nét, nhãn nhỏ in hoa giãn chữ, chữ cái A/B/C/D nằm trong vòng tròn navy.
 - Đổ bóng rất nhẹ cho trang giấy, có gáy sách ở giữa spread.
 
-## 6. Mô hình dữ liệu (localStorage)
+## 6. Ý tưởng ban đầu chưa bàn tới
 
-```ts
-months[YYYY-MM] = { theme, goals[3]{text,done}, cells{date: text}, moods{date: 1..5}, notes }
-weeks[mondayDate] = { goal, notes, tasks[{id,text,q:A|B|C|D|null,done}], habits[{id,name,days[7]}],
-                      selfCare, reflection{checkin,success,lesson,future,more,reviewed} }
-days[date] = { grateful, tasks[{id,text,estimate,pomos,done,weekTaskId?}], notes, sentence }
-settings = { ink: 'serif'|'hand', focusMin: 25, breakMin: 5 }
-```
-
-## 7. Lộ trình
-
-- **MVP (bản này):** 4 spread, pomodoro, liên kết week↔day, lưu local, export/import, desktop ≥1200px.
-- **Tiếp theo:** giao diện tiếng Việt, sync tài khoản, xem trên mobile (một trang mỗi màn), in/xuất PDF một tuần, chế độ tối "mực trắng".
+Giao diện tiếng Việt, in/xuất PDF một tuần, chế độ tối "mực trắng". (Mobile và sync đã nằm trong mục Open của DECISIONS.)

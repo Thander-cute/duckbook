@@ -68,7 +68,7 @@ Photos, Year view, mobile, AI, encryption, recurring items, unplanning or deleti
 
 ## Follow-up: calmer notes (owner: "êm êm, làm đi", 2026-10-22)
 - The owner found the first notes ugly: they looked like form cards (an IDEA label and a grip on every note), the action row grew inside the selected note and pushed into its neighbours, and "create" was a bare input line.
-- Mockup in docs/mockups/focus-notes.html, approved with yellow notes and a floating bar.
+- A mockup (removed after building; see git history) was approved with yellow notes and a floating bar.
 - Notes are now paper and words only:
   - square-ish yellow notes; in progress pale blue, completed grey with a ✓ stamp;
   - a quiet word, the date, and the week at the foot;

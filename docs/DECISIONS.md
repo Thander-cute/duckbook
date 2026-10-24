@@ -26,30 +26,22 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 - Migration from `localStorage['duckbook:v1']` only runs when the user clicks. It is verified page by page, and the browser copy is kept until the user removes it.
 - Launch with `Duckbook.cmd` (optionally a desktop shortcut). No terminal is needed for daily use.
 - The earlier IndexedDB/crypto drafts are archived on branch `archive/indexeddb-vault-draft`. They were never used or tested.
-- Focus Map (see `docs/plans/2026-10-focus-map.md`):
-  - Optional module, off by default; turning it off hides it and keeps its data.
-  - Ideas are stored in a `focus` page with map coordinates.
-  - Superseded on 2026-10-23: one linked task per idea, ideas may carry an optional planned date (see below).
-  - It sits beside the Eisenhower matrix, not in place of it.
-- Focus notes and linked work (see `docs/plans/2026-10-focus-notes-settings.md`):
-  - The idea holds title, state, and planned date. Planning creates or moves one week task linked by `ideaId`. Every edit goes through `editWork()` and lands in one save.
-  - Older ideas have no stored state: it is derived from their planned copies when read, never invented by validation.
-  - Earlier one-task-per-week copies are kept and stay in sync.
-  - `API_LEVEL` is 3.
-  - Every write carries `X-Duckbook-Api`; the server refuses another version's writes with a "reload this tab" message.
+- Focus Map (see `docs/plans/2026-10-focus-notes-settings.md`):
+  - Optional module, off by default; turning it off hides it and keeps its data. It sits beside the Eisenhower matrix, not in place of it.
+  - Ideas live in a `focus` page with map coordinates. The idea holds title, state, and planned date. Planning creates or moves one week task linked by `ideaId`. Every edit goes through `editWork()` and lands in one save.
+  - Older ideas have no stored state: it is derived from their planned copies when read, never invented by validation. Earlier one-task-per-week copies are kept and stay in sync.
 - Month spans (see `docs/plans/2026-10-month-spans.md`):
   - Ranges live in their own `spans` page, one entry per range, so a range across months is never split.
-  - `API_LEVEL` is 4.
 - Date picking and short choices use the notebook's own calendar (`DatePicker.tsx`) and menu (`Menu.tsx`) instead of the browser's controls (owner found them ugly). A picked date applies at once, so half-typed dates can't occur.
 - Paper choice lives in this browser's `localStorage['duckbook:paper']`, not in the notebook data: the lock screen needs it before unlocking, and the page shapes and `API_LEVEL` stay as they are.
 - Day photos (see `docs/plans/2026-10-day-photos.md`):
   - Photos are JPEG files named by their hash in `photos/`, outside SQLite, so backups stay small and share them.
   - Files are kept while the pages or any kept backup refer to them.
   - The export has references only.
-  - `API_LEVEL` is 5.
 - Update safety (found in Supervisor review of `ad3eafe`):
   - A server left running from before an update would reject Focus Map saves, failing the whole save batch, and would silently drop `settings.modules` and `ideaId`. This was reproduced on a synthetic instance.
-  - Guard: `API_LEVEL` handshake. The page shows an "updated" screen and edits nothing until the server matches.
+  - Guard: `API_LEVEL` handshake (now 5: 3 Focus notes, 4 spans, 5 photos). The page shows an "updated" screen and edits nothing until the server matches.
+  - Every write carries `X-Duckbook-Api`; the server refuses another version's writes with a "reload this tab" message.
   - The launcher compares a code fingerprint and offers to restart a stale server after building.
 
 ## Open (under discussion, not approved)
@@ -58,7 +50,7 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 - At-rest encryption of the database and backups; off-machine backup location.
 - Optional AI (task breakdown, weekly recall/chat). No data is sent and no AI is enabled until this is decided.
 - Year view: scope undefined.
-- Memory photos and captions on the Day page, surfaced in Reflect and Month (the attachments folder belongs beside the database).
+- Photo captions, and showing day photos in Reflect (photos themselves were decided 2026-10-22).
 - Mobile layout and sync.
 - Meaning of the two orange "Graphics" icons the owner shared: unclear, not adopted as a theme.
 

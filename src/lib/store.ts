@@ -431,7 +431,6 @@ const EMPTY_WEEK = emptyWeek()
 const EMPTY_DAY = emptyDay()
 
 export const useMonth = (monthKey: string) => useStore((s) => s.months[monthKey] ?? EMPTY_MONTH)
-export const useWeek = (mondayKey: string) => useStore((s) => s.weeks[mondayKey] ?? EMPTY_WEEK)
 export const useDay = (dayKey: string) => useStore((s) => s.days[dayKey] ?? EMPTY_DAY)
 export const useSettings = () => useStore((s) => s.settings)
 export const useFocus = () => useStore((s) => s.focus)
