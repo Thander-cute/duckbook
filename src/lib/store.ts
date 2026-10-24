@@ -280,7 +280,7 @@ window.addEventListener('beforeunload', (e) => {
 })
 
 // The desktop app calls this before closing its window: true when nothing is left unsaved.
-Object.assign(window, { duckbookFlush: async () => (await flush()) && parked.length === 0 })
+Object.assign(window, { duckbookFlush: async () => (isUnlocked() ? await flush() : true) && parked.length === 0 })
 
 /** Pages edited before a lock that still need saving after unlock. */
 export const parkedCount = () => parked.length

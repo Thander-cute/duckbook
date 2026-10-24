@@ -81,7 +81,7 @@ export function OutdatedScreen() {
  * The browser version's pages are only looked at after the person asks for it.
  */
 export function DesktopWelcome({ onDone }: { onDone: () => void }) {
-  type Preview = { found: boolean; summary: Summary; photos: number; webServerRunning: boolean }
+  type Preview = { found: boolean; summary: Summary | null; photos: number; webServerRunning: boolean }
   const [p, setP] = useState<Preview | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ summary: Summary; photosCopied: number } | null>(null)
@@ -159,12 +159,16 @@ export function DesktopWelcome({ onDone }: { onDone: () => void }) {
           </>
         ) : (
           <>
-            <p>
-              The browser version on this computer holds <strong>{describe(p.summary)}</strong> and {plural(p.photos, 'photo')}.
-            </p>
+            {p.summary ? (
+              <p>
+                The browser version on this computer holds <strong>{describe(p.summary)}</strong> and {plural(p.photos, 'photo')}.
+              </p>
+            ) : (
+              <p>The browser version’s pages are on this computer.</p>
+            )}
             {p.webServerRunning ? (
               <p className="lock-error" role="alert">
-                The browser version is running right now. Close its server window first, then check again.
+                The browser version is running right now, so its pages aren’t read while they might change. Close its server window first, then check again.
               </p>
             ) : (
               <p className="muted small">They’re copied into this app and checked. The browser version keeps its own copy.</p>

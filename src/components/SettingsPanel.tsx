@@ -473,7 +473,7 @@ function DataSection({ dataDir, quarantineCount }: { dataDir?: string; quarantin
   )
 }
 
-interface WebPreview { found: boolean; summary: Summary; photos: number; missingPhotos: number; webServerRunning: boolean; existingPages: number }
+interface WebPreview { found: boolean; summary: Summary | null; photos: number; missingPhotos: number; webServerRunning: boolean; existingPages: number }
 
 /** Desktop app only: bring the pages and photos over from the browser version's database, which is only read, and only once asked. */
 function FromBrowserVersion() {
@@ -529,10 +529,14 @@ function FromBrowserVersion() {
         <p className="muted small">No pages from the browser version were found on this computer.</p>
       ) : (
         <>
-          <p className="small">
-            The browser version on this computer holds <strong>{describe(p.summary)}</strong> and {p.photos} {p.photos === 1 ? 'photo' : 'photos'}
-            {p.missingPhotos ? ` (${p.missingPhotos} missing from its folder)` : ''}. This app keeps its own pages, separate from it.
-          </p>
+          {p.summary ? (
+            <p className="small">
+              The browser version on this computer holds <strong>{describe(p.summary)}</strong> and {p.photos} {p.photos === 1 ? 'photo' : 'photos'}
+              {p.missingPhotos ? ` (${p.missingPhotos} missing from its folder, so it can’t be brought over yet)` : ''}. This app keeps its own pages, separate from it.
+            </p>
+          ) : (
+            <p className="small">The browser version’s pages are on this computer. This app keeps its own pages, separate from it.</p>
+          )}
           {p.webServerRunning ? (
             <p className="small setting-msg">
               The browser version is running right now. Close its server window so nothing changes mid-copy, then{' '}
