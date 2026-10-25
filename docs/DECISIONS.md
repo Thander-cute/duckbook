@@ -31,6 +31,8 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 | 2026-10-25 | Code sharing and reuse are optional, not architecture objectives. Optimize each client for its platform and product UX; interoperability must not require a shared UI or codebase. | Owner: "không quá quan trọng việc dùng chung" |
 | 2026-10-25 | Implement only an Electron desktop app from the current web app, preserving its existing notebook UI, features and local-data guarantees. This supersedes the earlier plan-only restriction for this bounded desktop conversion. Android, sync, new encryption/recovery features and Google Calendar remain deferred; the broader production roadmap is not approved. Delivery belongs to the existing Lead; this planning session only finalizes documents. | Owner: "làm cái app hiện tại web app thành desktop app được rồi, cái t kêu thì chưa"; supervisor coordination confirms desktop implementation authorization |
 
+| 2026-10-25 | Features on the local web first, then Android in React Native (this supersedes the Android deferral above). Keep the notebook UI. Storage stays local SQLite plus photo files with one data meaning and a complete portable archive across web, desktop and mobile; no user-managed folder vault. Google Calendar may be implemented. "Web" means the current localhost app; a hosted site, accounts, sync and its provider, and encryption/recovery are still not decided. See `docs/plans/2026-10-archive-calendar-mobile.md`. | Owner via Supervisor: UI finished; "mobile may now be built with React Native"; storage direction discussed and accepted |
+
 ### How these were implemented (agent decisions within the approved scope)
 
 - Node server on loopback (`server/`, built-in `node:sqlite`, no native dependencies). It serves the built app at `http://localhost:5317`, the exact origin of the earlier localStorage data.
@@ -65,8 +67,8 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
 - Optional AI (task breakdown, weekly recall/chat). No data is sent and no AI is enabled until this is decided.
 - Year view: scope undefined.
 - Photo captions, and showing day photos in Reflect (photos themselves were decided 2026-10-22).
-- Mobile layout and sync.
-- Production implementation slices, first release platforms/audience, account model, sync storage provider, encryption/recovery design, and Google Calendar scope. See `docs/plans/2026-10-production-plan.md`; these recommendations are not yet approved.
+- Sync (provider, account, privacy). The Android app itself was authorized 2026-10-25.
+- Production implementation slices, first release platforms/audience, account model, sync storage provider, encryption/recovery design, and writing to Google Calendar (read-only selected calendars is the Lead's bounded first scope). See `docs/plans/2026-10-production-plan.md`; these recommendations are not yet approved.
 - Meaning of the two orange "Graphics" icons the owner shared: unclear, not adopted as a theme.
 
 ## Background
