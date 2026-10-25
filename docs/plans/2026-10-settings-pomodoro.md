@@ -1,6 +1,6 @@
 # Slice: clearer Settings and a reworked Day pomodoro
 
-**Status:** agreed (2026-10-25)
+**Status:** done (2026-10-25)
 **Decision link:** 2026-10-25 pomodoro and Settings row in `docs/DECISIONS.md`
 
 ## Why
@@ -38,7 +38,11 @@ Long breaks, free timers and system notifications are deferred.
 
 ## Done when
 - [x] Owner agreed the Settings layout and the pomodoro setup
-- [ ] Minutes can be typed or stepped to any allowed value; a running block survives reload
-- [ ] Existing pages and data unaffected
-- [ ] `npm run typecheck`, `npm test`, `npm run build`, `npm run test:browser` pass
-- [ ] Checked in a browser
+- [x] Minutes can be typed or stepped to any allowed value; a running block survives reload (`test:browser` Pomodoro step)
+- [x] Existing pages and data unaffected (no schema or `API_LEVEL` change)
+- [x] `npm run typecheck`, `npm test`, `npm run build`, `npm run test:browser` pass
+- [x] Checked in a browser (screenshots of each timer mode and Settings section on a synthetic notebook)
+
+## Notes
+- Settings keeps its `#/settings` route, Esc and return-to-page behaviour. The page you came from stays rendered (inert) behind the dialog.
+- New browser-local keys: `duckbook:timer` (running block, no task text), `duckbook:timer-view` (default mode), `duckbook:timer-spot` (where the small card sits).

@@ -60,15 +60,15 @@ async function typeInto(page: Page, sel: string, text: string) {
   await page.click(sel, { count: 3 })
   await page.keyboard.type(text)
 }
-async function openSettings(page: Page, section: 'Notebook' | 'Focus timer' | 'Privacy' | 'Data' | 'Add-ons') {
+async function openSettings(page: Page, section: 'Look & feel' | 'Focus timer' | 'Shortcuts' | 'Privacy' | 'Data' | 'Add-ons') {
   await page.click('button[aria-label="Settings"]')
   await page.waitForSelector('.settings')
-  const tab = await page.waitForSelector(`xpath/.//button[contains(@class,"paper-tab") and normalize-space(.)="${section}"]`)
+  const tab = await page.waitForSelector(`xpath/.//button[contains(@class,"sd-tab") and normalize-space(.)="${section}"]`)
   await tab!.click()
-  await page.waitForFunction((s) => document.querySelector('.paper-tab.is-on')?.textContent === s, {}, section)
+  await page.waitForFunction((s) => document.querySelector('.sd-tab.is-on')?.textContent === s, {}, section)
 }
 async function closeSettings(page: Page) {
-  await page.click('button[aria-label="Back to notebook"]')
+  await page.click('button[aria-label="Close settings"]')
   await page.waitForFunction(() => !document.querySelector('.settings'))
 }
 /** Open the date chip's calendar, page to the month, and click the day. */
@@ -185,8 +185,8 @@ async function main() {
       await typeInto(page, '.page-foot textarea', 'unsaved precious words')
       await page.waitForSelector('.save-status.is-conflict', { timeout: 5000 })
       await openSettings(page, 'Data')
-      await page.waitForSelector('.backup-list li:first-child .text-link')
-      await page.click('.backup-list li:first-child .text-link')
+      await page.waitForSelector('.backup-list li:first-child .restore-open')
+      await page.click('.backup-list li:first-child .restore-open')
       const [restore] = await page.$$('xpath/.//li//button[normalize-space(.)="Restore"]')
       await restore.click()
       await page.waitForFunction(() => document.querySelector('.settings')!.textContent!.includes('aren’t saved yet'))
@@ -220,8 +220,8 @@ async function main() {
       await typeInto(page, '.day-page .line textarea', 'changed after backup')
       await waitSaved(page)
       await openSettings(page, 'Data')
-      await page.waitForSelector('.backup-list li:first-child .text-link')
-      await page.click('.backup-list li:first-child .text-link')
+      await page.waitForSelector('.backup-list li:first-child .restore-open')
+      await page.click('.backup-list li:first-child .restore-open')
       const [restore] = await page.$$('xpath/.//li//button[normalize-space(.)="Restore"]')
       await restore.click()
       await page.waitForFunction(() => document.body.innerText.includes('Restored and verified'))
@@ -310,11 +310,12 @@ async function main() {
       assert.equal(await page.evaluate(() => localStorage.getItem('duckbook:timer')), null)
     })
 
-    await step('Settings is a page with paper tabs and returns to where you were', async () => {
+    await step('Settings opens over the page you were on and Esc returns to it', async () => {
       await page.goto(`${BASE}/#/week/2026-10-19`)
       await page.waitForSelector('.week-plan')
       await openSettings(page, 'Focus timer')
-      await page.waitForSelector('.pomo-settings')
+      await page.waitForSelector('input[aria-label="minutes of focus"]')
+      assert.ok(await page.$('.week-plan'), 'the week stays behind the dialog')
       await shot(page, '08-settings')
       await page.keyboard.press('Escape')
       await page.waitForFunction(() => location.hash === '#/week/2026-10-19')
@@ -323,14 +324,14 @@ async function main() {
     await step('Paper: White or Cream, remembered by this browser and kept on the lock screen', async () => {
       const paper = () => page.evaluate(() => document.documentElement.dataset.paper)
       assert.equal(await paper(), 'white')
-      await openSettings(page, 'Notebook')
+      await openSettings(page, 'Look & feel')
       await (await page.waitForSelector('xpath/.//div[@class="seg"]/button[normalize-space(.)="Cream"]'))!.click()
       assert.equal(await paper(), 'cream')
       await closeSettings(page)
       await page.reload()
       await page.waitForSelector('.week-plan')
       assert.equal(await paper(), 'cream', 'kept after reload')
-      await openSettings(page, 'Notebook')
+      await openSettings(page, 'Look & feel')
       await (await page.waitForSelector('xpath/.//div[@class="seg"]/button[normalize-space(.)="White"]'))!.click()
       assert.equal(await paper(), 'white')
       await closeSettings(page)
@@ -338,7 +339,7 @@ async function main() {
 
     await step('Habit marks: Ink dot, Hatched or Tick, remembered by this browser', async () => {
       const mark = () => page.evaluate(() => localStorage.getItem('duckbook:habit-mark'))
-      await openSettings(page, 'Notebook')
+      await openSettings(page, 'Look & feel')
       await (await page.waitForSelector('xpath/.//div[contains(@class,"seg-marks")]/button[normalize-space(.)="Tick"]'))!.click()
       assert.equal(await mark(), 'tick')
       await page.waitForSelector('.seg-marks button.is-on .habit-tick')

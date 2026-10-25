@@ -57,12 +57,18 @@ function openSettings(from: { view: View; date: string }, section?: SettingsSect
   go('settings', from.date)
 }
 
-function leaveSettings(date: string) {
+/** The page Settings was opened from; it stays visible behind the dialog. */
+function settingsReturn(date: string): { view: View; date: string } {
   try {
     const r = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? 'null') as { view: View; date: string } | null
-    if (r && r.view !== 'settings') return go(r.view, r.date)
+    if (r && r.view !== 'settings') return r
   } catch {}
-  go('day', date)
+  return { view: 'day', date }
+}
+
+function leaveSettings(date: string) {
+  const r = settingsReturn(date)
+  go(r.view, r.date)
 }
 
 function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLegacyChange: () => void }) {
@@ -71,6 +77,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
   const { status } = useSession()
   const [section, setSection] = useState<SettingsSection>(() => (sessionStorage.getItem(SECTION_KEY) as SettingsSection) || 'notebook')
   const inSettings = view === 'settings'
+  const shown = inSettings ? settingsReturn(date) : { view, date }
   useEffect(() => {
     if (inSettings) setSection((sessionStorage.getItem(SECTION_KEY) as SettingsSection) || 'notebook')
   }, [inSettings])
@@ -120,8 +127,8 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
             <button
               key={t.view}
               role="tab"
-              aria-selected={view === t.view}
-              className={`tab ${view === t.view ? 'is-active' : ''} ${t.view === 'focus' ? 'tab-module' : ''}`}
+              aria-selected={shown.view === t.view}
+              className={`tab ${shown.view === t.view ? 'is-active' : ''} ${t.view === 'focus' ? 'tab-module' : ''}`}
               onClick={() => go(t.view, date)}
               title={`${t.label} (${t.key})`}
             >
@@ -162,13 +169,10 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
             title="Settings"
           >
             <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden>
-              <circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
-              <path
-                d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              />
+              {/* A cog: a ring with eight square teeth, so it doesn't read as a sun. */}
+              <circle cx="10" cy="10" r="5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <circle cx="10" cy="10" r="1.9" fill="none" stroke="currentColor" strokeWidth="1.3" />
+              <path d="M10 2.6v2.6M10 14.8v2.6M2.6 10h2.6M14.8 10h2.6M4.8 4.8l1.8 1.8M13.4 13.4l1.8 1.8M4.8 15.2l1.8-1.8M13.4 6.6l1.8-1.8" stroke="currentColor" strokeWidth="2.4" />
             </svg>
           </button>
         </div>
@@ -176,25 +180,26 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
 
       <Banners legacy={legacy} onOpenSettings={() => openSettings({ view, date }, 'data')} />
 
-      <main className={`desk view-${view}`} key={`${view}`}>
-        {view === 'month' && <MonthView date={date} />}
-        {view === 'week' && <WeekView date={date} />}
-        {view === 'day' && <DayView date={date} />}
-        {view === 'reflect' && <ReflectView date={date} />}
-        {view === 'focus' && focusOn && <FocusView date={date} />}
-        {inSettings && (
-          <SettingsPage
-            section={section}
-            onSection={(s) => {
-              sessionStorage.setItem(SECTION_KEY, s)
-              setSection(s)
-            }}
-            onBack={() => leaveSettings(date)}
-            legacy={legacy}
-            onLegacyChange={onLegacyChange}
-          />
-        )}
+      <main className={`desk view-${shown.view}`} key={`${shown.view}`} inert={inSettings}>
+        {shown.view === 'month' && <MonthView date={shown.date} />}
+        {shown.view === 'week' && <WeekView date={shown.date} />}
+        {shown.view === 'day' && <DayView date={shown.date} />}
+        {shown.view === 'reflect' && <ReflectView date={shown.date} />}
+        {shown.view === 'focus' && focusOn && <FocusView date={shown.date} />}
       </main>
+
+      {inSettings && (
+        <SettingsPage
+          section={section}
+          onSection={(s) => {
+            sessionStorage.setItem(SECTION_KEY, s)
+            setSection(s)
+          }}
+          onBack={() => leaveSettings(date)}
+          legacy={legacy}
+          onLegacyChange={onLegacyChange}
+        />
+      )}
 
       <FocusTimer />
       {!inSettings && (view !== 'focus' || focusOn) && <Tour page={view} />}

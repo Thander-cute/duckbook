@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../lib/api'
 import { flush, lock, reloadAll, reloadStatus, update, useSession, useSettings } from '../lib/store'
 import { migrateLegacy, removeLegacy, type LegacyInfo } from '../lib/legacy'
@@ -25,23 +25,45 @@ const KIND: Record<string, string> = {
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-export type SettingsSection = 'notebook' | 'timer' | 'privacy' | 'data' | 'addons'
+export type SettingsSection = 'notebook' | 'timer' | 'keys' | 'privacy' | 'data' | 'addons'
 
 const TIMER_VIEWS: { key: TimerView; label: string }[] = [
   { key: 'overlay', label: 'Over the page' },
-  { key: 'mini', label: 'Small, in a corner' },
+  { key: 'mini', label: 'Small' },
   { key: 'full', label: 'Full screen' },
 ]
 
-const SECTIONS: { key: SettingsSection; label: string }[] = [
-  { key: 'notebook', label: 'Notebook' },
-  { key: 'timer', label: 'Focus timer' },
-  { key: 'privacy', label: 'Privacy' },
-  { key: 'data', label: 'Data' },
-  { key: 'addons', label: 'Add-ons' },
-]
+// Thin ink icons for the index, one per section.
+const ICONS: Record<SettingsSection, string> = {
+  notebook: 'M4 3.5h8.5a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4zM4 3.5v13M7 7h4',
+  timer: 'M10 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM10 8v3l2 1.5M8.5 3h3',
+  keys: 'M3 6.5h14v8H3zM6 9.5h.01M9 9.5h.01M12 9.5h.01M14.5 9.5h.01M7 12h6',
+  privacy: 'M5.5 9h9v7.5h-9zM7.5 9V6.8a2.5 2.5 0 0 1 5 0V9',
+  data: 'M10 3.5c3.3 0 6 1 6 2.2v8.6c0 1.2-2.7 2.2-6 2.2s-6-1-6-2.2V5.7c0-1.2 2.7-2.2 6-2.2zM4 5.7c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2M4 10c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2',
+  addons: 'M10 3.5l1.6 4.4 4.4 1.6-4.4 1.6L10 15.5l-1.6-4.4L4 9.5l4.4-1.6z',
+}
 
-/** Settings as a page of the notebook, with paper tabs on its edge. */
+const GROUPS: { title: string; items: { key: SettingsSection; label: string }[] }[] = [
+  { title: 'Notebook', items: [{ key: 'notebook', label: 'Look & feel' }, { key: 'timer', label: 'Focus timer' }, { key: 'keys', label: 'Shortcuts' }] },
+  { title: 'This computer', items: [{ key: 'privacy', label: 'Privacy' }, { key: 'data', label: 'Data' }] },
+  { title: 'Extras', items: [{ key: 'addons', label: 'Add-ons' }] },
+]
+const LABEL = Object.fromEntries(GROUPS.flatMap((g) => g.items.map((x) => [x.key, x.label]))) as Record<SettingsSection, string>
+
+/** One setting: what it is on the left, the control on the right. */
+function Row({ title, help, children }: { title: string; help?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="sd-row">
+      <div className="sd-row-text">
+        <div className="sd-row-title">{title}</div>
+        {help && <p className="sd-row-help">{help}</p>}
+      </div>
+      <div className="sd-row-control">{children}</div>
+    </div>
+  )
+}
+
+/** Settings as a dialog over the page you came from; ✕ or Esc returns to it. */
 export function SettingsPage({
   section,
   onSection,
@@ -61,145 +83,146 @@ export function SettingsPage({
   const habitMark = useHabitMark()
   const timerView = useDefaultView()
   const { status } = useSession()
+  const current = LABEL[section] ? section : 'notebook'
 
   return (
-    <div className="settings-book">
-      <section className="sheet settings" aria-label="Settings">
-        <header className="settings-head">
-          <h2 className="page-title-h">
-            <span className="caps-word">SETTINGS</span> <em>{SECTIONS.find((x) => x.key === section)!.label.toLowerCase()}</em>
-          </h2>
-          <button className="text-link back-link" onClick={onBack} aria-label="Back to notebook">
-            ← Back to notebook
-          </button>
-        </header>
-
-        {section === 'notebook' && (
-          <>
-            <div className="setting">
-              <div className="label">Ink</div>
-              <div className="seg">
-                {(['serif', 'hand'] as const).map((ink) => (
-                  <button key={ink} className={s.ink === ink ? 'is-on' : ''} onClick={() => update((st) => void (st.settings.ink = ink))} data-ink-sample={ink}>
-                    {ink === 'serif' ? 'Serif' : 'Handwritten'}
-                  </button>
-                ))}
-              </div>
-              <p className="muted small">How your own writing looks on every page.</p>
-            </div>
-            <div className="setting">
-              <div className="label">Paper</div>
-              <div className="seg">
-                {(['white', 'cream'] as const).map((p) => (
-                  <button key={p} className={paper === p ? 'is-on' : ''} onClick={() => (setPaper(p), setPaperState(p))}>
-                    {p === 'white' ? 'White' : 'Cream'}
-                  </button>
-                ))}
-              </div>
-              <p className="muted small">White with blue ink, or cream paper on a linen desk. Remembered in this browser, lock screen included.</p>
-            </div>
-            <div className="setting">
-              <div className="label">Habit marks</div>
-              <div className="seg seg-marks">
-                {(['dot', 'hatch', 'tick'] as const).map((m) => (
-                  <button key={m} className={habitMark === m ? 'is-on' : ''} onClick={() => setHabitMark(m)}>
-                    <HabitMark on seed={`sample-${m}`} />
-                    {m === 'dot' ? 'Ink dot' : m === 'hatch' ? 'Hatched' : 'Tick'}
-                  </button>
-                ))}
-              </div>
-              <p className="muted small">How a done day looks in the habit tracker. Remembered in this browser.</p>
-            </div>
-            <div className="setting">
-              <div className="label">Tour</div>
-              <button className="text-btn" onClick={() => (resetTour(), setTourMsg('Each page shows its tour again on your next visit.'))}>
-                Show the tour again
-              </button>
-              <p className="muted small">{tourMsg || 'A few tips the first time you open each page.'}</p>
-            </div>
-            <div className="setting">
-              <div className="label">Keys</div>
-              <dl className="keys">
-                <dt>← →</dt>
-                <dd>Previous / next</dd>
-                <dt>T</dt>
-                <dd>Today</dd>
-                <dt>M W D R</dt>
-                <dd>Month, Week, Day, Reflect</dd>
-                {s.modules.focusMap && (
-                  <>
-                    <dt>F</dt>
-                    <dd>Focus Map</dd>
-                  </>
-                )}
-                {status?.pinEnabled && (
-                  <>
-                    <dt>L</dt>
-                    <dd>Lock now</dd>
-                  </>
-                )}
-                <dt>Esc</dt>
-                <dd>Leave settings</dd>
-              </dl>
-            </div>
-          </>
-        )}
-
-        {section === 'timer' && (
-          <div className="setting">
-            <div className="label">Pomodoro</div>
-            <div className="pomo-settings">
-              <Stepper label="minutes of focus" unit="min focus" value={s.focusMin} min={5} max={90} step={5} onChange={(v) => update((st) => void (st.settings.focusMin = v))} />
-              <Stepper label="minutes of break" unit="min break" value={s.breakMin} min={1} max={30} onChange={(v) => update((st) => void (st.settings.breakMin = v))} />
-            </div>
-            <p className="muted small">Each focus block fills one circle on the Day page. Changes apply to the next block.</p>
-            <div className="label">Open the timer as</div>
-            <div className="seg">
-              {TIMER_VIEWS.map((v) => (
-                <button key={v.key} className={timerView === v.key ? 'is-on' : ''} onClick={() => setDefaultView(v.key)}>
-                  {v.label}
+    <div className="settings-dialog">
+      <div className="sd-backdrop" onClick={onBack} />
+      <section className="sheet settings" role="dialog" aria-modal="true" aria-label="Settings">
+        <nav className="sd-nav" aria-label="Settings sections">
+          <div className="sd-title">Settings</div>
+          {GROUPS.map((g) => (
+            <div key={g.title} className="sd-group">
+              <div className="sd-group-title">{g.title}</div>
+              {g.items.map((x) => (
+                <button key={x.key} className={`sd-tab ${current === x.key ? 'is-on' : ''}`} aria-current={current === x.key ? 'page' : undefined} onClick={() => onSection(x.key)}>
+                  <svg viewBox="0 0 20 20" aria-hidden>
+                    <path d={ICONS[x.key]} />
+                  </svg>
+                  {x.label}
                 </button>
               ))}
             </div>
-            <p className="muted small">You can switch while it runs. Remembered in this browser.</p>
-          </div>
-        )}
+          ))}
+        </nav>
 
-        {section === 'privacy' && <PrivacyLock pinEnabled={!!status?.pinEnabled} autoLockMin={status?.autoLockMin ?? 15} />}
+        <div className="sd-body">
+          <header className="sd-head">
+            <h2>{LABEL[current]}</h2>
+            <button className="icon-btn sd-close" onClick={onBack} aria-label="Close settings" title="Close (Esc)">
+              <svg viewBox="0 0 16 16" aria-hidden>
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
+            </button>
+          </header>
 
-        {section === 'data' && (
-          <>
-            <Backups />
-            <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
-            {status?.desktop?.webImport && <FromBrowserVersion />}
-            {legacy && <OldBrowserCopy legacy={legacy} onChange={onLegacyChange} />}
-          </>
-        )}
+          {current === 'notebook' && (
+            <>
+              <Row title="Ink" help="How your own writing looks on every page.">
+                <div className="seg">
+                  {(['serif', 'hand'] as const).map((ink) => (
+                    <button key={ink} className={s.ink === ink ? 'is-on' : ''} onClick={() => update((st) => void (st.settings.ink = ink))} data-ink-sample={ink}>
+                      {ink === 'serif' ? 'Serif' : 'Handwritten'}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row title="Paper" help="Blue ink on white, or cream paper on a linen desk. Kept in this browser, lock screen included.">
+                <div className="seg">
+                  {(['white', 'cream'] as const).map((p) => (
+                    <button key={p} className={paper === p ? 'is-on' : ''} onClick={() => (setPaper(p), setPaperState(p))}>
+                      <span className={`swatch swatch-${p}`} aria-hidden />
+                      {p === 'white' ? 'White' : 'Cream'}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row title="Habit marks" help="How a done day looks in the habit tracker.">
+                <div className="seg seg-marks">
+                  {(['dot', 'hatch', 'tick'] as const).map((m) => (
+                    <button key={m} className={habitMark === m ? 'is-on' : ''} onClick={() => setHabitMark(m)}>
+                      <HabitMark on seed={`sample-${m}`} />
+                      {m === 'dot' ? 'Ink dot' : m === 'hatch' ? 'Hatched' : 'Tick'}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+              <Row title="Tour" help={tourMsg || 'A few tips the first time you open each page.'}>
+                <button className="text-btn" onClick={() => (resetTour(), setTourMsg('Each page shows its tour again on your next visit.'))}>
+                  Show the tour again
+                </button>
+              </Row>
+            </>
+          )}
 
-        {section === 'addons' && (
-          <div className="setting">
-            <div className="label">Add-ons</div>
-            <label className="module-toggle">
-              <input type="checkbox" checked={s.modules.focusMap} onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))} />
-              <span>
-                <strong>Focus Map</strong>
-                <span className="muted small">
-                  {' '}
-                  · sticky notes on an impact × difficulty map; plan the good ones into a week. Turning it off hides it; your ideas and their links are kept.
-                </span>
-              </span>
-            </label>
-          </div>
-        )}
+          {current === 'timer' && (
+            <>
+              <Row title="Focus" help="One block fills one circle on the Day page. Changes apply to the next block.">
+                <Stepper label="minutes of focus" unit="min" value={s.focusMin} min={5} max={90} step={5} onChange={(v) => update((st) => void (st.settings.focusMin = v))} />
+              </Row>
+              <Row title="Break">
+                <Stepper label="minutes of break" unit="min" value={s.breakMin} min={1} max={30} onChange={(v) => update((st) => void (st.settings.breakMin = v))} />
+              </Row>
+              <Row title="Open the timer" help="Over the page, small in a corner, or full screen. You can switch while it runs.">
+                <div className="seg">
+                  {TIMER_VIEWS.map((v) => (
+                    <button key={v.key} className={timerView === v.key ? 'is-on' : ''} onClick={() => setDefaultView(v.key)}>
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </Row>
+            </>
+          )}
+
+          {current === 'keys' && (
+            <dl className="keys">
+              <dt>← →</dt>
+              <dd>Previous / next</dd>
+              <dt>T</dt>
+              <dd>Today</dd>
+              <dt>M W D R</dt>
+              <dd>Month, Week, Day, Reflect</dd>
+              {s.modules.focusMap && (
+                <>
+                  <dt>F</dt>
+                  <dd>Focus Map</dd>
+                </>
+              )}
+              {status?.pinEnabled && (
+                <>
+                  <dt>L</dt>
+                  <dd>Lock now</dd>
+                </>
+              )}
+              <dt>Space</dt>
+              <dd>Pause or resume the timer</dd>
+              <dt>Esc</dt>
+              <dd>Close settings, or make the timer small</dd>
+            </dl>
+          )}
+
+          {current === 'privacy' && <PrivacyLock pinEnabled={!!status?.pinEnabled} autoLockMin={status?.autoLockMin ?? 15} />}
+
+          {current === 'data' && (
+            <>
+              <Backups />
+              <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
+              {status?.desktop?.webImport && <FromBrowserVersion />}
+              {legacy && <OldBrowserCopy legacy={legacy} onChange={onLegacyChange} />}
+            </>
+          )}
+
+          {current === 'addons' && (
+            <Row title="Focus Map" help="Sticky notes on an impact × difficulty map; plan the good ones into a week. Turning it off hides it and keeps your ideas.">
+              <label className="module-toggle switch">
+                <input type="checkbox" role="switch" checked={s.modules.focusMap} onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))} aria-label="Focus Map" />
+                <span className="switch-track" aria-hidden />
+              </label>
+            </Row>
+          )}
+        </div>
       </section>
-
-      <nav className="paper-tabs" aria-label="Settings sections">
-        {SECTIONS.map((x) => (
-          <button key={x.key} className={`paper-tab ${section === x.key ? 'is-on' : ''}`} aria-current={section === x.key ? 'page' : undefined} onClick={() => onSection(x.key)}>
-            {x.label}
-          </button>
-        ))}
-      </nav>
     </div>
   )
 }
@@ -383,8 +406,8 @@ function Backups() {
                   </button>
                 </span>
               ) : (
-                <button className="text-link" onClick={() => setConfirm(b.file)}>
-                  restore…
+                <button className="text-btn restore-open" onClick={() => setConfirm(b.file)}>
+                  Restore…
                 </button>
               )}
             </li>
@@ -394,9 +417,14 @@ function Backups() {
       {confirm && <p className="small setting-msg">Restoring replaces all current pages. They are backed up first.</p>}
       {msg && <p className="small setting-msg">{msg}</p>}
       {dir && (
-        <p className="muted small path">
-          Stored in <code>{dir}</code>. Backups sit on this same computer: copy that folder elsewhere to survive a lost or broken disk.
-        </p>
+        <details className="path">
+          <summary>Show folder</summary>
+          <p className="muted small">
+            <code>{dir}</code>
+            <br />
+            Backups sit on this same computer: copy that folder elsewhere to survive a lost or broken disk.
+          </p>
+        </details>
       )}
     </div>
   )
@@ -445,9 +473,12 @@ function DataSection({ dataDir, quarantineCount }: { dataDir?: string; quarantin
     <div className="setting">
       <div className="label">Your pages</div>
       {dataDir && (
-        <p className="muted small path">
-          Database: <code>{dataDir}</code>
-        </p>
+        <details className="path">
+          <summary>Show folder</summary>
+          <p className="muted small">
+            <code>{dataDir}</code>
+          </p>
+        </details>
       )}
       <div className="row-btns">
         <button className="text-btn" onClick={() => void exportData()}>
