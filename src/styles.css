@@ -691,6 +691,38 @@ button {
   stroke-width: 1.25;
   stroke-linecap: round;
 }
+/* A mark made now is drawn in, like the goal ticks: the check in one stroke, the hatching line by line. */
+.habit-hatch.is-drawn,
+.habit-tick.is-drawn {
+  animation: none;
+}
+.habit-hatch.is-drawn path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: pen-draw 0.16s ease-out forwards;
+}
+.tick-pen {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: pen-draw 0.3s ease forwards;
+}
+@keyframes pen-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .habit-hatch.is-drawn path,
+  .tick-pen {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
 .habit-print {
   fill: none;
   stroke: var(--tint-2);

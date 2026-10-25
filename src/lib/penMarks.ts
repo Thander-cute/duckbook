@@ -32,8 +32,7 @@ function outline(pts: Pt[], width: (t: number) => number) {
   return `M${L.map(f).join(' L')} L${R.reverse().map(f).join(' L')} Z`
 }
 
-/** A quick check: a short dip, then a long flick that runs a little past the ring. */
-export function tickPath(seed: string) {
+function tickPoints(seed: string) {
   const r = rng(seed)
   const j = (s: number) => (r() - 0.5) * s
   const a: Pt = [4.4 + j(1), 9.4 + j(1.2)]
@@ -41,14 +40,23 @@ export function tickPath(seed: string) {
   const c: Pt = [19 + j(1.2), 1.8 + j(1.4)]
   const down = qbez(a, [6 + j(0.6), 12.8], b, 10)
   const up = qbez(b, [11.2 + j(1), 7.4 + j(1)], c, 20)
-  const pts = [...down, ...up.slice(1)]
-  const k = down.length / pts.length
+  return { pts: [...down, ...up.slice(1)], k: down.length / (down.length + up.length - 1) }
+}
+
+/** A quick check: a short dip, then a long flick that runs a little past the ring. */
+export function tickPath(seed: string) {
+  const { pts, k } = tickPoints(seed)
   // Light touch-down, heaviest at the bottom turn, lifting off to a fine tail.
   return outline(pts, (t) => (t < k ? 0.9 + (t / k) * 1.5 : 2.4 - ((t - k) / (1 - k)) ** 0.8 * 2))
 }
 
-/** The circle shaded with separate pen lines, one stroke each, even in weight but never quite straight or equal. Drawn as a stroke. */
-export function hatchPath(seed: string) {
+/** The tick's centre line, for drawing it in stroke by stroke. */
+export function tickLine(seed: string) {
+  return 'M' + tickPoints(seed).pts.map((p) => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' L')
+}
+
+/** The circle shaded with separate pen lines, one stroke each, even in weight but never quite straight or equal. Drawn as strokes. */
+export function hatchLines(seed: string) {
   const r = rng(seed)
   const n = 6
   const base = -0.85 + (r() - 0.5) * 0.2
@@ -68,5 +76,5 @@ export function hatchPath(seed: string) {
     const c2 = at(from + ((to - from) * 2) / 3, (r() - 0.5) * 0.9)
     lines.push(`M${f(at(from, 0))} C${f(c1)} ${f(c2)} ${f(at(to, (r() - 0.5) * 0.4))}`)
   }
-  return lines.join(' ')
+  return lines
 }
