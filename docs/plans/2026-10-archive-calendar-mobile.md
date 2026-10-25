@@ -36,3 +36,13 @@ The owner says the UI is finished and asks for features on the existing local we
 - Out: sync, accounts, cloud builds, signing purchases, store publishing. Android auto-backup of plaintext off.
 - Data impact: own database in the app sandbox, same page keys and value shapes as `src/lib/schema.ts`.
 - Done when (Day/Week prototype): debug APK builds locally, runs on an emulator, survives force-stop after a save, imports and exports a fixture archive. Not full parity until the later slices land.
+
+## Review findings carried forward (read-only review, 2026-10-25)
+
+Routed into the slices: quarantine travels with archives; readback compares normalized pages after commit (also fixes a false "did not match" in backup restore); photo GC keeps quarantined photo refs and doesn't race imports; Monday week keys; 32 MB notebook / no ZIP64 cap in v1; Calendar token and cache in a separate database file so backups never copy them.
+
+**For the owner to decide later (not blocking):**
+- Android keeps the only copy in app-private storage with OS backup off; uninstall or "Clear storage" deletes it. How prominent an export reminder should be is the owner's call. Phone-to-phone transfer is excluded by default.
+- Archives are snapshots: importing replaces everything (previous pages stay in the pre-import backup); there is no merge.
+
+**Before any sync (prerequisites, not a design):** stable unique ids for every list item (Month goals are positional today; legacy items get path-derived ids; `uid()` is 48 bits); device-independent versions and tombstones (revisions are a per-database counter); a decision on merge granularity (a day page is one unit); explicit shared vs per-device settings; photo GC aware of remote references; encryption decided before anything leaves the machine.
