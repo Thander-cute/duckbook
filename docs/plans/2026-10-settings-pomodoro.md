@@ -26,14 +26,14 @@ Pomodoro on Day
 ## Scope (proposal)
 - In, Settings: a dialog over the current page, after the Claude settings dialog but in notebook style. It has a left index with icons and group names, the chosen section on the right, ✕ or Esc to close, and you stay where you were. Each setting is a row: name and one line of help on the left, the control on the right (switch, segmented choice with preview, − n + stepper, button). The paper bookmark tabs go away. There is no search: there are too few settings to need it. The gear icon is redrawn.
 - In, pomodoro fixes: the countdown on screen ticks, the minute field works, a running block survives reload (localStorage, like Paper), starting another task asks first, and the bar no longer covers the page.
-- In, pomodoro setup: the timer opens over the notebook in one of three modes, switchable while it runs. Overlay is a paper card in the middle over a dimmed notebook. Mini is a small card in a corner, and you keep using the notebook. Full screen shows only the task and the clock, in OS fullscreen. The default mode is set in Settings → Focus timer, kept in localStorage. Task rows show only their planned circles (filled when done) plus + to add, with no 1–10 header. The running block is stored without its task text; the name is read from the notebook when unlocked.
+- In, pomodoro setup: the timer opens over the notebook in one of three modes, switchable while it runs. Overlay is a paper card in the middle over a dimmed notebook. Mini is a small card in a corner, and you keep using the notebook. Full screen shows only the task and the clock, in OS fullscreen. The default mode is set in Settings → Focus timer, kept in localStorage. Task rows keep the original table: the − n + estimate and ten numbered circles to fill by hand (compact rows were tried and reverted at the owner's request). The running block is stored without its task text; the name is read from the notebook when unlocked.
 - Out: backup, restore, import and PIN behaviour and their messages stay as they are, restyled only.
 
 ## Data impact
 Settings: none. Pomodoro: none if the running block lives in localStorage. A schema change (for example long breaks or per-task history) would need `API_LEVEL` and an upgrade check.
 
 ## Order
-1. Pomodoro fixes. 2. Timer modes and compact task rows. 3. Settings dialog.
+1. Pomodoro fixes. 2. Timer modes. 3. Settings dialog.
 Long breaks, free timers and system notifications are deferred.
 
 ## Done when

@@ -50,9 +50,14 @@ export function DayView({ date }: { date: string }) {
         <div className="tasks">
           <div className="tasks-head">
             <Label>Tasks of the day</Label>
-            <span className="est-head" title="Pomodoros: planned circles, filled when done">
+            <span className="est-head" title="Estimated pomodoros">
               <TomatoIcon />
             </span>
+            {Array.from({ length: 10 }, (_, i) => (
+              <span key={i} className="circle-num">
+                {i + 1}
+              </span>
+            ))}
           </div>
 
           {day.tasks.map((t) => (
@@ -103,7 +108,6 @@ export function DayView({ date }: { date: string }) {
 function TaskRow({ date, task: t }: { date: string; task: DayTask }) {
   const timer = useTimer()
   const active = timer.phase !== 'idle' && timer.taskId === t.id
-  const planned = Math.max(t.estimate, t.pomos)
   const idea = useStore((s) => ideaOfDayTask(s, t))
   const set = (fn: (x: DayTask) => void) =>
     editDay(date, (d) => {
@@ -148,30 +152,25 @@ function TaskRow({ date, task: t }: { date: string; task: DayTask }) {
           ×
         </button>
       </div>
-      <div className="rounds" aria-label={`${t.pomos} of ${planned} pomodoros`}>
-        {Array.from({ length: planned }, (_, i) => (
-          <button
-            key={i}
-            className={`round ${i < t.pomos ? 'is-done' : ''}`}
-            onClick={() => set((x) => void (x.pomos = x.pomos > i ? i : i + 1))}
-            aria-label={`Pomodoro ${i + 1}${i < t.pomos ? ', done' : ''}`}
-          >
-            {i < t.pomos ? <InkDot seed={t.id + i} /> : <span className="pomo-ring" />}
-          </button>
-        ))}
-        <span className="round-adjust">
-          {t.estimate > Math.max(1, t.pomos) && (
-            <button onClick={() => set((x) => void (x.estimate = Math.max(1, x.estimate - 1)))} aria-label="One fewer pomodoro" title="One fewer">
-              −
-            </button>
-          )}
-          {planned < 10 && (
-            <button onClick={() => set((x) => void (x.estimate = Math.min(10, Math.max(x.estimate, x.pomos) + 1)))} aria-label="One more pomodoro" title="One more">
-              +
-            </button>
-          )}
-        </span>
+      <div className="est" title="Estimated pomodoros">
+        <button onClick={() => set((x) => void (x.estimate = Math.max(1, x.estimate - 1)))} aria-label="Fewer">
+          −
+        </button>
+        <span>{t.estimate}</span>
+        <button onClick={() => set((x) => void (x.estimate = Math.min(10, x.estimate + 1)))} aria-label="More">
+          +
+        </button>
       </div>
+      {Array.from({ length: 10 }, (_, i) => (
+        <button
+          key={i}
+          className={`pomo ${i < t.estimate ? 'is-planned' : ''}`}
+          onClick={() => set((x) => void (x.pomos = x.pomos > i ? i : i + 1))}
+          aria-label={`Pomodoro ${i + 1}${i < t.pomos ? ', done' : ''}`}
+        >
+          {i < t.pomos ? <InkDot seed={t.id + i} /> : <span className="pomo-ring" />}
+        </button>
+      ))}
     </div>
   )
 }

@@ -168,11 +168,16 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
             aria-label="Settings"
             title="Settings"
           >
-            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden>
-              {/* A cog: a ring with eight square teeth, so it doesn't read as a sun. */}
-              <circle cx="10" cy="10" r="5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              <circle cx="10" cy="10" r="1.9" fill="none" stroke="currentColor" strokeWidth="1.3" />
-              <path d="M10 2.6v2.6M10 14.8v2.6M2.6 10h2.6M14.8 10h2.6M4.8 4.8l1.8 1.8M13.4 13.4l1.8 1.8M4.8 15.2l1.8-1.8M13.4 6.6l1.8-1.8" stroke="currentColor" strokeWidth="2.4" />
+            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden>
+              {/* A thin cog with rounded teeth, drawn in the same ink line as the other icons. */}
+              <path
+                d="M8.2 4.17L8.6 1.82h2.8l.4 2.35 1.63.79 2.09-1.16 1.75 2.2-1.59 1.78.4 1.76 2.21.91-.63 2.74-2.38-.14-1.13 1.42.66 2.29-2.53 1.22-1.38-1.95H9.1l-1.38 1.95-2.53-1.22.66-2.29-1.13-1.42-2.38.14-.63-2.74 2.21-.91.4-1.76-1.59-1.78 1.75-2.2 2.09 1.16z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.15"
+                strokeLinejoin="round"
+              />
+              <circle cx="10" cy="10" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.15" />
             </svg>
           </button>
         </div>

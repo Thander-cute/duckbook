@@ -540,7 +540,7 @@ button {
 .tasks-head,
 .task-row {
   display: grid;
-  grid-template-columns: 22px 1fr 136px;
+  grid-template-columns: 22px 1fr 42px repeat(10, 25px);
   align-items: center;
 }
 .tasks-head .label {
@@ -549,8 +549,12 @@ button {
 }
 .est-head {
   display: flex;
-  justify-content: flex-start;
-  padding-left: 4px;
+  justify-content: center;
+  color: var(--ink-soft);
+}
+.circle-num {
+  text-align: center;
+  font-size: 11.5px;
   color: var(--ink-soft);
 }
 
@@ -615,50 +619,35 @@ button {
   background: linear-gradient(90deg, rgba(186, 199, 231, 0.18), transparent 60%);
 }
 
-.rounds {
+.est {
+  align-self: stretch;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  background: var(--tint-2);
+  font-family: var(--ink-font);
+  font-size: 16px;
+  position: relative;
 }
-.round {
-  display: grid;
-  place-items: center;
-  width: 23px;
-  height: 30px;
-}
-.round .ink-dot {
-  width: 18px;
-  height: 18px;
-}
-.round .pomo-ring {
-  width: 15px;
-  height: 15px;
-  border-color: var(--tint-2);
-}
-.round:hover .pomo-ring {
-  border-color: var(--ink-soft);
-  transform: scale(1.08);
-}
-.round-adjust {
-  display: flex;
-  margin-left: 2px;
+.est button {
+  position: absolute;
+  width: 14px;
+  height: 100%;
+  font-size: 13px;
+  color: var(--ink-soft);
   opacity: 0;
-  transition: opacity 0.12s;
 }
-.task-row:hover .round-adjust,
-.round-adjust:focus-within {
+.est button:first-child {
+  left: 1px;
+}
+.est button:last-child {
+  right: 1px;
+}
+.est:hover button {
   opacity: 1;
 }
-.round-adjust button {
-  width: 20px;
-  height: 22px;
-  border-radius: 999px;
-  font-size: 14px;
-  color: var(--muted);
-}
-.round-adjust button:hover {
+.est button:hover {
   color: var(--ink);
-  background: var(--tint);
 }
 
 .pomo {
