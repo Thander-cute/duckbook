@@ -18,6 +18,9 @@ data/
 backups/
 *.backup.json
 duckbook-*.json
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 # Logs and OS/editor noise
 *.log
