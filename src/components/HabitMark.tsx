@@ -1,11 +1,12 @@
 import { useId, useRef } from 'react'
 import { InkDot } from './InkDot'
-import { useHabitMark } from '../lib/habitMark'
+import { useHabitMark, type HabitMarkStyle } from '../lib/habitMark'
 import { hatchLines, tickLine, tickPath } from '../lib/penMarks'
 
 /** A habit's day: the printed circle, empty or written on in the style chosen in Settings (ink dot, shaded, ticked). */
-export function HabitMark({ on, seed }: { on: boolean; seed: string }) {
-  const style = useHabitMark()
+export function HabitMark({ on, seed, as }: { on: boolean; seed: string; as?: HabitMarkStyle }) {
+  const chosen = useHabitMark()
+  const style = as ?? chosen
   const id = useId()
   // Marks already there when the page opens just sit there; a mark made now is drawn in.
   const wasOn = useRef(on)

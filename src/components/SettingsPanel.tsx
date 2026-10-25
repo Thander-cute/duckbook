@@ -141,7 +141,7 @@ export function SettingsPage({
                 <div className="seg seg-marks">
                   {(['dot', 'hatch', 'tick'] as const).map((m) => (
                     <button key={m} className={habitMark === m ? 'is-on' : ''} onClick={() => setHabitMark(m)}>
-                      <HabitMark on seed={`sample-${m}`} />
+                      <HabitMark on seed={`sample-${m}`} as={m} />
                       {m === 'dot' ? 'Ink dot' : m === 'hatch' ? 'Hatched' : 'Tick'}
                     </button>
                   ))}
