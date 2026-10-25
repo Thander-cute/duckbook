@@ -4,7 +4,7 @@ import { fmtLong, fmtShort } from '../lib/date'
 import { addPhotos, removePhoto, usePhoto } from '../lib/photos'
 import { href } from '../lib/router'
 import { MAX_DAY_PHOTOS, useDay, type DayPhoto } from '../lib/store'
-import { Label } from './ui'
+import { ConfirmRemove, Label } from './ui'
 
 export interface Shown {
   day: string
@@ -66,7 +66,7 @@ export function DayPhotos({ date }: { date: string }) {
         void add([...e.dataTransfer.files])
       }}
     >
-      <Label hint={`keep up to ${MAX_DAY_PHOTOS} from today`}>Photos</Label>
+      <Label info={`Keep up to ${MAX_DAY_PHOTOS} photos from today`}>Photos</Label>
       <div className="photo-row">
         {photos.map((p, i) => (
           <figure key={p.full} className="polaroid" style={{ rotate: `${tilt(p.full)}deg` }}>
@@ -74,20 +74,15 @@ export function DayPhotos({ date }: { date: string }) {
               <Thumb photo={p} alt={`Photo ${i + 1} from ${fmtShort(date)}`} />
             </button>
             {confirm === p.full ? (
-              <span className="polaroid-confirm">
-                <button
-                  className="text-btn"
-                  onClick={() => {
-                    removePhoto(date, p.full)
-                    setConfirm(null)
-                  }}
-                >
-                  Remove
-                </button>
-                <button className="text-btn" onClick={() => setConfirm(null)}>
-                  Keep
-                </button>
-              </span>
+              <ConfirmRemove
+                what={`photo ${i + 1}`}
+                className="polaroid-confirm"
+                onRemove={() => {
+                  removePhoto(date, p.full)
+                  setConfirm(null)
+                }}
+                onKeep={() => setConfirm(null)}
+              />
             ) : (
               <button className="polaroid-x" aria-label={`Remove photo ${i + 1}`} title="Remove this photo" onClick={() => setConfirm(p.full)}>
                 ✕
@@ -109,7 +104,6 @@ export function DayPhotos({ date }: { date: string }) {
                 +
               </span>
               <span>Add a photo</span>
-              <span className="add-hint">or drop / paste one here</span>
             </span>
           </button>
         )}

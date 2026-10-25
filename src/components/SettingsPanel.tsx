@@ -8,6 +8,7 @@ import { describe } from './Gates'
 import { Menu } from './Menu'
 import { getPaper, setPaper } from '../lib/paper'
 import { setHabitMark, useHabitMark } from '../lib/habitMark'
+import { resetTour } from '../lib/tour'
 import { HabitMark } from './HabitMark'
 
 interface Backup { file: string; kind: string; createdAt: string; docs: number; bytes: number; verified: boolean }
@@ -47,6 +48,7 @@ export function SettingsPage({
   onLegacyChange: () => void
 }) {
   const s = useSettings()
+  const [tourMsg, setTourMsg] = useState('')
   const [paper, setPaperState] = useState(getPaper)
   const habitMark = useHabitMark()
   const { status } = useSession()
@@ -98,6 +100,13 @@ export function SettingsPage({
                 ))}
               </div>
               <p className="muted small">How a done day looks in the habit tracker. Remembered in this browser.</p>
+            </div>
+            <div className="setting">
+              <div className="label">Tour</div>
+              <button className="text-btn" onClick={() => (resetTour(), setTourMsg('Each page shows its tour again on your next visit.'))}>
+                Show the tour again
+              </button>
+              <p className="muted small">{tourMsg || 'A few tips the first time you open each page.'}</p>
             </div>
             <div className="setting">
               <div className="label">Keys</div>

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Check, Label, Page, PageTitle, Spread, Write } from '../components/ui'
+import { Check, Info, Label, Page, PageTitle, Spread, Write } from '../components/ui'
 import { HabitMark } from '../components/HabitMark'
 import { WEEKDAYS, WEEKDAYS_MIN, fmtMonth, monthKeyOf, weekDays, weekStart } from '../lib/date'
 import { href } from '../lib/router'
@@ -69,12 +69,13 @@ export function ReflectView({ date }: { date: string }) {
         <Label>Space for more reflection</Label>
         <Write className="dotgrid notes" value={r.more} onChange={(v) => set('more', v)} rows={4} ariaLabel="More reflection" />
 
-        <label className="review-check">
-          <Check checked={r.reviewed} onChange={(v) => set('reviewed', v)} label="Reviewed the monthly pages" />
-          <span>
-            Review the monthly pages: do this week’s actions still fit your theme and goals? <span className="muted">(they’re on the right →)</span>
-          </span>
-        </label>
+        <div className="review-check">
+          <label>
+            <Check checked={r.reviewed} onChange={(v) => set('reviewed', v)} label="Reviewed the monthly pages" />
+            <span>Reviewed the monthly pages</span>
+          </label>
+          <Info text="Do this week’s actions still fit your theme and goals? They’re on the right." />
+        </div>
       </Page>
 
       <Page side="right" className="lookback">
@@ -162,7 +163,7 @@ function MonthMirror({ monday }: { monday: string }) {
       <Label hint={fmtMonth(mk)}>
         <a href={href('month', `${mk}-01`)}>This month will be</a>
       </Label>
-      <p className="theme-echo ink">{month.theme || <span className="muted">No theme yet. Set one on the Month page.</span>}</p>
+      <p className="theme-echo ink">{month.theme || <span className="muted">No theme yet · <a href={href('month', `${mk}-01`)}>Month →</a></span>}</p>
       <ol className="goals-echo">
         {month.goals.map((g, i) =>
           g.text ? (

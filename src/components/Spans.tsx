@@ -3,7 +3,7 @@ import { addDays, fmtShort } from '../lib/date'
 import { editSpans, validDayKey, type Span } from '../lib/store'
 import { DateChip } from './DatePicker'
 import { inPopover } from './Popover'
-import { Write } from './ui'
+import { ConfirmRemove, Write } from './ui'
 
 /** Height of one line of span notes at the foot of a calendar cell. */
 export const LANE = 19
@@ -97,14 +97,7 @@ export function SpanEditor({ span, alignRight, onClose }: { span: Span; alignRig
         <DateChip value={span.end} onChange={(d) => d && setSpanRange(span.id, span.start, d)} label="To" clearable={false} range={[span.start, span.end]} className="span-date" />
         <span className="span-days muted small">{days(span.start, span.end)}</span>
         {confirm ? (
-          <span className="remove-confirm">
-            <button className="text-btn" onClick={() => editSpans((f) => void (f.spans = f.spans.filter((x) => x.id !== span.id)))}>
-              Remove
-            </button>
-            <button className="text-btn" onClick={() => setConfirm(false)}>
-              Keep
-            </button>
-          </span>
+          <ConfirmRemove what="this line" className="span-confirm" onRemove={() => editSpans((f) => void (f.spans = f.spans.filter((x) => x.id !== span.id)))} onKeep={() => setConfirm(false)} />
         ) : (
           <button className="span-x" aria-label="Remove this line" title="Remove this line" onClick={() => setConfirm(true)}>
             ✕

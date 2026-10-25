@@ -81,12 +81,42 @@ export function PageTitle({ step, caps, italic, children }: { step?: string; cap
   )
 }
 
-export function Label({ children, hint }: { children: ReactNode; hint?: string }) {
+export function Label({ children, hint, info }: { children: ReactNode; hint?: string; info?: string }) {
   return (
     <div className="label">
-      <span>{children}</span>
+      <span>
+        {children}
+        {info && <Info text={info} />}
+      </span>
       {hint && <span className="label-hint">{hint}</span>}
     </div>
+  )
+}
+
+/** A small (i): the how-to shows on hover or focus instead of always. */
+export function Info({ text }: { text: string }) {
+  return (
+    <span className="info" tabIndex={0} role="note" aria-label={text} data-tip={text}>
+      i
+    </span>
+  )
+}
+
+/** The second step of removing something: a bin to confirm, an arrow to keep it. */
+export function ConfirmRemove({ what, onRemove, onKeep, className = '' }: { what: string; onRemove: () => void; onKeep: () => void; className?: string }) {
+  return (
+    <span className={`confirm-remove ${className}`} role="group" aria-label={`Remove ${what}?`}>
+      <button type="button" className="icon-btn is-danger" aria-label={`Remove ${what}`} title="Remove" onClick={onRemove} autoFocus>
+        <svg viewBox="0 0 16 16" aria-hidden>
+          <path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 8.5h6.6l.7-8.5M6.8 7v4M9.2 7v4" />
+        </svg>
+      </button>
+      <button type="button" className="icon-btn" aria-label="Keep it" title="Keep" onClick={onKeep}>
+        <svg viewBox="0 0 16 16" aria-hidden>
+          <path d="M5.5 3.5 2.5 6.5l3 3M2.5 6.5h7a3.5 3.5 0 0 1 0 7H7" />
+        </svg>
+      </button>
+    </span>
   )
 }
 

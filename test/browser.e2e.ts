@@ -83,13 +83,6 @@ async function chooseDate(page: Page, chip: string, value: string) {
   await page.click(`.dp-pop [data-date="${value}"]`)
   await page.waitForFunction(() => !document.querySelector('.dp-pop'))
 }
-/** Open a menu and click the option with this label. */
-async function chooseMenu(page: Page, button: string, label: string) {
-  await page.click(button)
-  const item = await page.waitForSelector(`xpath/.//div[contains(@class,"menu-pop")]//button[@role="menuitemradio"][span[normalize-space(.)="${label}"]]`)
-  await item!.click()
-  await page.waitForFunction(() => !document.querySelector('.menu-pop'))
-}
 async function dragTo(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
@@ -102,11 +95,15 @@ const shot = async (page: Page, name: string) => shots && (await page.screenshot
 
 const errors: string[] = []
 
+// The first-visit tour would sit over the pages these steps click; one step below checks it.
+const tourSeen = () => localStorage.getItem('duckbook:tour') === null && localStorage.setItem('duckbook:tour', JSON.stringify(['month', 'week', 'day', 'reflect', 'focus']))
+
 async function main() {
   await startServer()
   const browser = await puppeteer.launch({ executablePath: browserPath, headless: true })
   try {
     const page = await browser.newPage()
+    await page.evaluateOnNewDocument(tourSeen)
     await page.setViewport({ width: 1440, height: 900 })
     page.on('console', (m) => m.type() === 'error' && !/401|409|Failed to load resource/.test(m.text()) && errors.push(m.text()))
     page.on('pageerror', (e) => errors.push(String(e)))
@@ -202,6 +199,7 @@ async function main() {
 
     await step('second tab sees saves from the first', async () => {
       const page2 = await browser.newPage()
+      await page2.evaluateOnNewDocument(tourSeen)
       await page2.setViewport({ width: 1440, height: 900 })
       await page2.goto(`${BASE}/#/day/2026-10-19`)
       await page2.waitForSelector('.day-page')
@@ -241,6 +239,30 @@ async function main() {
       await page.waitForFunction(() => /not duckbook data|No months/.test(document.querySelector('.settings')!.textContent!))
       await closeSettings(page)
       assert.equal(await valueOf(page, '.day-page .line textarea'), 'typed in tab one')
+    })
+
+    await step('Tour: shows once per page, keys step through it without flipping the page, Skip ends all', async () => {
+      await page.evaluate(() => localStorage.setItem('duckbook:tour', '[]'))
+      await page.goto(`${BASE}/#/week/2026-10-19`)
+      await page.waitForFunction(() => document.querySelector('.tour-card h3')?.textContent === 'Empty your head')
+      await page.keyboard.press('ArrowRight')
+      await page.waitForFunction(() => document.querySelector('.tour-card h3')?.textContent === 'Sort what matters')
+      assert.equal(await page.evaluate(() => location.hash), '#/week/2026-10-19', 'arrow stepped the tour, not the week')
+      await page.keyboard.press('Enter')
+      const done = await page.waitForSelector('xpath/.//div[contains(@class,"tour-card")]//button[normalize-space(.)="Got it"]')
+      await done!.click()
+      await page.waitForFunction(() => !document.querySelector('.tour'))
+      await page.reload()
+      await page.waitForSelector('.matrix')
+      await sleep(400)
+      assert.equal(await page.$('.tour'), null, 'a seen tour stays away')
+      await page.goto(`${BASE}/#/day/2026-10-19`)
+      const skip = await page.waitForSelector('xpath/.//div[contains(@class,"tour-card")]//button[normalize-space(.)="Skip tour"]')
+      await skip!.click()
+      await page.goto(`${BASE}/#/month/2026-10-19`)
+      await page.waitForSelector('.cal-3')
+      await sleep(400)
+      assert.equal(await page.$('.tour'), null, 'Skip ends the tour on every page')
     })
 
     await step('Settings is a page with paper tabs and returns to where you were', async () => {
@@ -306,8 +328,8 @@ async function main() {
       for (let i = 0; i < 12; i++) await page.keyboard.press("ArrowLeft")
       await page.waitForFunction(() => /Big bets/.test(document.querySelector('.canvas .note')!.getAttribute('aria-label')!))
       assert.equal(await page.evaluate(() => location.hash), '#/focus/2026-10-19', 'arrow keys did not flip the week')
-      await chooseMenu(page, '.canvas .note .place-btn', 'Fill-ins')
-      await page.waitForFunction(() => /Fill-ins/.test(document.querySelector('.canvas .note')!.getAttribute('aria-label')!))
+      for (let i = 0; i < 12; i++) await page.keyboard.press("ArrowDown")
+      await page.waitForFunction(() => /Let go/.test(document.querySelector('.canvas .note')!.getAttribute('aria-label')!))
       await waitSaved(page)
     })
 
@@ -484,13 +506,14 @@ async function main() {
       assert.equal(spans[0].end, '2026-11-04')
       await page.goto(`${BASE}/#/month/2026-11-02`)
       await page.waitForSelector('[data-day="2026-11-04"] .span-seg.is-end')
+      await page.waitForFunction(() => !document.documentElement.dataset.turn)
       // Its words sit where the line enters November, and echo faintly where it wraps to the next row.
       assert.ok(await page.$('[data-day="2026-11-01"] .span-label:not(.is-echo)'), 'November shows the line, with its words')
       assert.ok(await page.$('[data-day="2026-11-02"] .span-label.is-echo'))
 
       await page.click('[data-day="2026-11-01"] .span-label')
       await page.click('.span-pop .span-x')
-      const rm = await page.waitForSelector('xpath/.//div[contains(@class,"span-pop")]//button[normalize-space(.)="Remove"]')
+      const rm = await page.waitForSelector('.span-pop button[aria-label="Remove this line"]')
       await rm!.click()
       await waitSaved(page)
       assert.equal((await apiDocs(page)).find((d) => d.key === 'spans')!.value.spans.length, 0)
@@ -554,7 +577,7 @@ async function main() {
       await page.waitForSelector('.day-photos .polaroid-img img')
       await page.hover('.day-photos .polaroid')
       await page.click('.day-photos .polaroid-x')
-      const rm = await page.waitForSelector('xpath/.//span[contains(@class,"polaroid-confirm")]//button[normalize-space(.)="Remove"]')
+      const rm = await page.waitForSelector('.polaroid-confirm button[aria-label^="Remove photo"]')
       await rm!.click()
       await waitSaved(page)
       photos = (await apiDocs(page)).find((d) => d.key === 'day:2026-10-21')!.value.photos

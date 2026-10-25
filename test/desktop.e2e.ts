@@ -68,6 +68,7 @@ try {
   await page.waitForSelector('.day-page')
   assert.equal(fs.existsSync(env.DUCKBOOK_DATA_DIR!), false, 'bundling never invokes the standalone web entry point')
   assert.equal(fs.existsSync(env.DUCKBOOK_WEB_DATA_DIR!), false, 'startup does not create or open a source notebook')
+  await page.evaluate(() => localStorage.setItem('duckbook:tour', JSON.stringify(['month', 'week', 'day', 'reflect', 'focus'])))
   await page.goto(`${origin}/#/day/2026-10-19`)
   await page.waitForSelector('.day-page .line textarea')
   assert.equal(await page.evaluate(() => typeof (window as unknown as { require?: unknown }).require), 'undefined')

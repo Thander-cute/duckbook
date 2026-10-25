@@ -12,6 +12,7 @@ import { DayView } from './views/DayView'
 import { ReflectView } from './views/ReflectView'
 import { FocusView } from './views/FocusView'
 import { PomodoroBar } from './components/PomodoroBar'
+import { Tour } from './components/Tour'
 import { SettingsPage, type SettingsSection } from './components/SettingsPanel'
 
 const TABS: { view: View; step: string; label: string; key: string }[] = [
@@ -196,6 +197,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
       </main>
 
       <PomodoroBar />
+      {!inSettings && (view !== 'focus' || focusOn) && <Tour page={view} />}
     </div>
   )
 }

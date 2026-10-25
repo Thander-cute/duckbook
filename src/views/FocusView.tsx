@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { PageTitle, Write } from '../components/ui'
+import { ConfirmRemove, PageTitle, Write } from '../components/ui'
 import { DateChip } from '../components/DatePicker'
-import { Menu } from '../components/Menu'
 import { fmtShort, isoWeek, weekStart } from '../lib/date'
 import { href } from '../lib/router'
 import { editFocus, editWork, planIdea, plannedWeeks, uid, useFocus, useStore, type Idea, type IdeaStatus } from '../lib/store'
@@ -27,10 +26,10 @@ const useSelected = () =>
 // ───────── zones: left = hard, right = easy; top = high impact, bottom = low ─────────
 
 const ZONES = [
-  { key: 'big', name: 'Big bets', hint: 'High impact, hard', x: 0.25, y: 0.75 },
-  { key: 'quick', name: 'Quick wins', hint: 'High impact, easy', x: 0.75, y: 0.75 },
-  { key: 'letgo', name: 'Let go', hint: 'Low impact, hard', x: 0.25, y: 0.25 },
-  { key: 'fill', name: 'Fill-ins', hint: 'Low impact, easy', x: 0.75, y: 0.25 },
+  { key: 'big', name: 'Big bets', x: 0.25, y: 0.75 },
+  { key: 'quick', name: 'Quick wins', x: 0.75, y: 0.75 },
+  { key: 'letgo', name: 'Let go', x: 0.25, y: 0.25 },
+  { key: 'fill', name: 'Fill-ins', x: 0.75, y: 0.25 },
 ] as const
 
 export const zoneOf = (i: Pick<Idea, 'x' | 'y'>) => {
@@ -190,7 +189,6 @@ export function FocusView({ date }: { date: string }) {
       <header className="focus-head">
         <div>
           <PageTitle caps="FOCUS" italic="map" />
-          <p className="page-sub">Place each idea by how much it matters and how hard it is.</p>
         </div>
         <div className="filters" role="radiogroup" aria-label="Show">
           {FILTERS.map((f) => (
@@ -218,12 +216,10 @@ export function FocusView({ date }: { date: string }) {
               }}
             />
           </div>
-          <p className="pad-hint">Enter to tear it off</p>
           <div className="tray-label">
-            Tray <span>{loose.length ? 'drag onto the map' : ''}</span>
+            Tray
           </div>
           <div className="tray-notes">{loose.map((i) => note(i, 'tray'))}</div>
-          {!loose.length && <p className="muted small tray-empty">Drag a note here to take it off the map.</p>}
         </aside>
 
         <div className="canvas-wrap">
@@ -324,10 +320,10 @@ function Note({
 
       {(idea.status !== 'idea' || idea.date || plannedIn) && (
         <div className="note-meta" aria-hidden>
-          <span>{idea.status === 'doing' ? '◐ in progress' : idea.status === 'done' ? 'done' : ''}</span>
-          <span>
+          <span className="note-state">{idea.status === 'doing' ? '◐ in progress' : idea.status === 'done' ? 'done' : ''}</span>
+          <span className="note-when">
             {idea.date && fmtShort(idea.date)}
-            {plannedIn && <span className="note-wk">{weekLabel(plannedIn)}</span>}
+            {plannedIn && !(idea.date && weekStart(idea.date) === plannedIn) && <span className="note-wk">{weekLabel(plannedIn)}</span>}
           </span>
         </div>
       )}
@@ -347,33 +343,15 @@ function Note({
             {planned.length ? `Move to ${weekLabel(target)}` : `Plan · ${weekLabel(target)}`}
           </button>
         )}
-        <span className="bar-sep" />
-        <Menu
-          className="place-btn"
-          label="Place"
-          value={z ? z.key : 'tray'}
-          options={[{ value: 'tray', label: 'Tray', hint: 'off the map' }, ...ZONES.map((zone) => ({ value: zone.key, label: zone.name, hint: zone.hint }))]}
-          onChange={(v) => {
-            if (v === 'tray') return setPos(idea.id, null, null)
-            const zone = ZONES.find((x) => x.key === v)
-            if (zone) setPos(idea.id, zone.x, zone.y)
-          }}
-        />
         {confirmRemove ? (
-          <span className="remove-confirm">
-            <button
-              className="note-act"
-              onClick={() => {
-                editFocus((f) => void (f.ideas = f.ideas.filter((i) => i.id !== idea.id)))
-                selectIdea(null)
-              }}
-            >
-              Remove
-            </button>
-            <button className="note-act" onClick={() => setConfirmRemove(false)}>
-              Keep
-            </button>
-          </span>
+          <ConfirmRemove
+            what="this idea"
+            onRemove={() => {
+              editFocus((f) => void (f.ideas = f.ideas.filter((i) => i.id !== idea.id)))
+              selectIdea(null)
+            }}
+            onKeep={() => setConfirmRemove(false)}
+          />
         ) : (
           <button className="note-x" aria-label="Remove idea" title="Remove idea (planned tasks stay in their weeks)" onClick={() => setConfirmRemove(true)}>
             ✕

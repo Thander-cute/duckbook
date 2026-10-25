@@ -24,18 +24,17 @@ export function WeekView({ date }: { date: string }) {
     <Spread>
       <Page side="left" className="week-notes">
         <PageTitle step="2" caps="WEEKLY" italic="notes" />
-        <p className="page-sub">Jot down anything for the week: meetings, deadlines, ideas, thoughts. Come back to it as the week goes on.</p>
 
         <Line label="Biggest goal of the week:" value={week.goal} onChange={(v) => editWeek(monday, (w) => void (w.goal = v))} />
 
         <DropZone q={null} monday={monday} className="brain-dump">
-          <Label hint="Is it important? Is it urgent? Sort it →">Tasks of the week</Label>
+          <Label info="Is it important? Is it urgent? Drag each task into a box on the right.">Tasks of the week</Label>
           <ul className="dump-list">
             {unsorted.map((t) => (
               <WeekTaskItem key={t.id} monday={monday} task={t} sortable />
             ))}
           </ul>
-          <AddTask monday={monday} q={null} placeholder="Brain-dump a task, press Enter" />
+          <AddTask monday={monday} q={null} placeholder="Add a task…" />
         </DropZone>
 
         <Label>Notes</Label>

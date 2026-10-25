@@ -71,7 +71,7 @@ export function DayView({ date }: { date: string }) {
             <Write
               value={draft}
               onChange={setDraft}
-              placeholder={day.tasks.length >= SOFT_LIMIT ? 'Five is plenty. Still add another?' : 'Add a task, press Enter'}
+              placeholder={day.tasks.length >= SOFT_LIMIT ? 'Five is plenty. Still add another?' : 'Add a task…'}
               singleLine
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -212,10 +212,10 @@ function WeekCompanion({ date }: { date: string }) {
       )}
 
       <div className="pull">
-        <Label hint="Click to add to today">Pick from your plan</Label>
+        <Label>Pick from your plan</Label>
         {groups.every((g) => !g.tasks.length) && (
           <p className="muted small empty-hint">
-            Nothing planned for today or waiting in A or B. Sort this week’s tasks on the <a href={href('week', date)}>Week</a> page.
+            Nothing waiting · <a href={href('week', date)}>Week →</a>
           </p>
         )}
         {groups.map(
