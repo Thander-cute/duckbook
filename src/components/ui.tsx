@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type ReactNode, type KeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type KeyboardEvent } from 'react'
 
 /** A textarea that grows with its content — the app's universal "place to write". */
 export function Write({
@@ -141,4 +141,40 @@ export function Spread({ children, className = '' }: { children: ReactNode; clas
 
 export function Page({ children, className = '', side }: { children: ReactNode; className?: string; side: 'left' | 'right' }) {
   return <section className={`page page-${side} ${className}`}>{children}</section>
+}
+
+/** − n + for a whole number. Typing is free; the value is kept in range when you leave the field. */
+export function Stepper({ value, onChange, min, max, step = 1, label, unit }: { value: number; onChange: (v: number) => void; min: number; max: number; step?: number; label: string; unit?: string }) {
+  const [draft, setDraft] = useState(String(value))
+  useEffect(() => setDraft(String(value)), [value])
+  const commit = (v: number) => {
+    const n = Math.min(max, Math.max(min, Math.round(Number.isFinite(v) ? v : value)))
+    setDraft(String(n))
+    if (n !== value) onChange(n)
+  }
+  return (
+    <span className="stepper">
+      <button type="button" aria-label={`Less ${label}`} disabled={value <= min} onClick={() => commit(value - step)}>
+        −
+      </button>
+      <input
+        inputMode="numeric"
+        aria-label={label}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 3))}
+        onBlur={() => commit(parseInt(draft, 10))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault()
+            commit(value + (e.key === 'ArrowUp' ? step : -step))
+          }
+        }}
+      />
+      <button type="button" aria-label={`More ${label}`} disabled={value >= max} onClick={() => commit(value + step)}>
+        +
+      </button>
+      {unit && <span className="stepper-unit">{unit}</span>}
+    </span>
+  )
 }

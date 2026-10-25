@@ -10,6 +10,8 @@ import { getPaper, setPaper } from '../lib/paper'
 import { setHabitMark, useHabitMark } from '../lib/habitMark'
 import { resetTour } from '../lib/tour'
 import { HabitMark } from './HabitMark'
+import { Stepper } from './ui'
+import { setDefaultView, useDefaultView, type TimerView } from '../lib/timer'
 
 interface Backup { file: string; kind: string; createdAt: string; docs: number; bytes: number; verified: boolean }
 
@@ -24,6 +26,12 @@ const KIND: Record<string, string> = {
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 export type SettingsSection = 'notebook' | 'timer' | 'privacy' | 'data' | 'addons'
+
+const TIMER_VIEWS: { key: TimerView; label: string }[] = [
+  { key: 'overlay', label: 'Over the page' },
+  { key: 'mini', label: 'Small, in a corner' },
+  { key: 'full', label: 'Full screen' },
+]
 
 const SECTIONS: { key: SettingsSection; label: string }[] = [
   { key: 'notebook', label: 'Notebook' },
@@ -51,6 +59,7 @@ export function SettingsPage({
   const [tourMsg, setTourMsg] = useState('')
   const [paper, setPaperState] = useState(getPaper)
   const habitMark = useHabitMark()
+  const timerView = useDefaultView()
   const { status } = useSession()
 
   return (
@@ -140,16 +149,19 @@ export function SettingsPage({
           <div className="setting">
             <div className="label">Pomodoro</div>
             <div className="pomo-settings">
-              <label>
-                <input type="number" min={5} max={90} value={s.focusMin} onChange={(e) => update((st) => void (st.settings.focusMin = clamp(+e.target.value, 5, 90)))} />
-                min focus
-              </label>
-              <label>
-                <input type="number" min={1} max={30} value={s.breakMin} onChange={(e) => update((st) => void (st.settings.breakMin = clamp(+e.target.value, 1, 30)))} />
-                min break
-              </label>
+              <Stepper label="minutes of focus" unit="min focus" value={s.focusMin} min={5} max={90} step={5} onChange={(v) => update((st) => void (st.settings.focusMin = v))} />
+              <Stepper label="minutes of break" unit="min break" value={s.breakMin} min={1} max={30} onChange={(v) => update((st) => void (st.settings.breakMin = v))} />
             </div>
             <p className="muted small">Each focus block fills one circle on the Day page. Changes apply to the next block.</p>
+            <div className="label">Open the timer as</div>
+            <div className="seg">
+              {TIMER_VIEWS.map((v) => (
+                <button key={v.key} className={timerView === v.key ? 'is-on' : ''} onClick={() => setDefaultView(v.key)}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <p className="muted small">You can switch while it runs. Remembered in this browser.</p>
           </div>
         )}
 
@@ -663,4 +675,3 @@ function OldBrowserCopy({ legacy, onChange }: { legacy: LegacyInfo; onChange: ()
   )
 }
 
-const clamp = (n: number, lo: number, hi: number) => (Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : lo)

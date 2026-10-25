@@ -11,7 +11,7 @@ import { WeekView } from './views/WeekView'
 import { DayView } from './views/DayView'
 import { ReflectView } from './views/ReflectView'
 import { FocusView } from './views/FocusView'
-import { PomodoroBar } from './components/PomodoroBar'
+import { FocusTimer } from './components/FocusTimer'
 import { Tour } from './components/Tour'
 import { SettingsPage, type SettingsSection } from './components/SettingsPanel'
 
@@ -196,7 +196,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         )}
       </main>
 
-      <PomodoroBar />
+      <FocusTimer />
       {!inSettings && (view !== 'focus' || focusOn) && <Tour page={view} />}
     </div>
   )
