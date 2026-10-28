@@ -11,6 +11,8 @@ export function Write({
   autoFocus,
   ariaLabel,
   singleLine,
+  fit,
+  maxLength,
 }: {
   value: string
   onChange: (v: string) => void
@@ -21,14 +23,36 @@ export function Write({
   autoFocus?: boolean
   ariaLabel?: string
   singleLine?: boolean
+  /** Fill a fixed-height box: the biggest font size (px) in this range that still shows all the text. */
+  fit?: { min: number; max: number }
+  maxLength?: number
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
+  const fitMin = fit?.min
+  const fitMax = fit?.max
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [value])
+    if (fitMin === undefined || fitMax === undefined) {
+      el.style.height = 'auto'
+      el.style.height = `${el.scrollHeight}px`
+      return
+    }
+    const run = () => {
+      let lo = fitMin
+      let hi = fitMax
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2)
+        el.style.fontSize = `${mid}px`
+        if (el.scrollHeight <= el.clientHeight) lo = mid
+        else hi = mid - 1
+      }
+      el.style.fontSize = `${lo}px`
+    }
+    run()
+    // The handwriting font may arrive after the first measure.
+    void document.fonts?.ready.then(run)
+  }, [value, fitMin, fitMax])
   return (
     <textarea
       ref={ref}
@@ -39,6 +63,7 @@ export function Write({
       aria-label={ariaLabel ?? placeholder}
       autoFocus={autoFocus}
       spellCheck={false}
+      maxLength={maxLength}
       onChange={(e) => onChange(singleLine ? e.target.value.replace(/\n/g, ' ') : e.target.value)}
       onKeyDown={(e) => {
         if (singleLine && e.key === 'Enter' && !onKeyDown) {

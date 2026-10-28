@@ -69,7 +69,12 @@ const tilt = (id: string) => {
   return ((Math.abs(h) % 7) - 3) * 0.45
 }
 
-const weekLabel = (monday: string) => `Wk ${isoWeek(monday)}`
+// Notes are square and the text fills them, shrinking as it grows. The cap keeps it from getting tiny.
+const MAX_IDEA_CHARS = 100
+const FIT_CANVAS = { min: 12, max: 36 }
+const FIT_TRAY = { min: 9, max: 18 }
+
+const weekLabel =(monday: string) => `Wk ${isoWeek(monday)}`
 
 // ───────── dragging whole notes ─────────
 
@@ -82,6 +87,7 @@ interface Drag {
   offY: number
   width: number
   height: number
+  fontSize: string
   left: number
   top: number
   active: boolean
@@ -129,7 +135,7 @@ export function FocusView({ date }: { date: string }) {
     e.currentTarget.focus({ preventScroll: true })
     const r = e.currentTarget.getBoundingClientRect()
     selectIdea(idea.id)
-    setDrag({ id: idea.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, offX: e.clientX - r.left, offY: e.clientY - r.top, width: r.width, height: r.height, left: r.left, top: r.top, active: false, over: null })
+    setDrag({ id: idea.id, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, offX: e.clientX - r.left, offY: e.clientY - r.top, width: r.width, height: r.height, fontSize: getComputedStyle(e.currentTarget.querySelector('textarea') ?? e.currentTarget).fontSize, left: r.left, top: r.top, active: false, over: null })
   }
 
   const dragging = drag !== null
@@ -207,6 +213,7 @@ export function FocusView({ date }: { date: string }) {
               onChange={setDraft}
               placeholder="Write an idea…"
               singleLine
+              maxLength={MAX_IDEA_CHARS}
               ariaLabel="New idea"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -245,9 +252,9 @@ export function FocusView({ date }: { date: string }) {
 
       {lifted &&
         createPortal(
-          <div className={`note lifted state-${lifted.status}`} style={{ left: drag!.left, top: drag!.top, width: drag!.width, minHeight: drag!.height }} aria-hidden>
+          <div className={`note lifted state-${lifted.status}`} style={{ left: drag!.left, top: drag!.top, width: drag!.width, height: drag!.height }} aria-hidden>
             <div className="note-head" />
-            <div className="note-text-static">{lifted.text}</div>
+            <div className="note-text-static" style={{ fontSize: drag!.fontSize }}>{lifted.text}</div>
           </div>,
           document.body,
         )}
@@ -316,7 +323,7 @@ function Note({
           ✓
         </span>
       )}
-      <Write value={idea.text} onChange={(v) => editWork(idea.id, { text: v })} ariaLabel="Idea" className="note-text" />
+      <Write value={idea.text} onChange={(v) => editWork(idea.id, { text: v })} ariaLabel="Idea" className="note-text" fit={where === 'canvas' ? FIT_CANVAS : FIT_TRAY} maxLength={MAX_IDEA_CHARS} />
 
       {(idea.status !== 'idea' || idea.date || plannedIn) && (
         <div className="note-meta" aria-hidden>
