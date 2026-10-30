@@ -201,7 +201,7 @@ export function createHandler({ store, auth, port, distDir, token, webDataDir, w
         if (typeof x?.key !== 'string' || typeof x.baseRev !== 'number') throw new HttpError(400, 'Malformed change.')
         return { key: x.key, baseRev: x.baseRev, value: x.value }
       })
-      return send(res, 200, { revs: store.putDocs(changes, body.force === true) })
+      return send(res, 200, store.putDocs(changes, body.force === true))
     }
 
     if (route === 'POST /api/import/preview') {

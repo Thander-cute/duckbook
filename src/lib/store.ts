@@ -2,7 +2,8 @@ import { useSyncExternalStore } from 'react'
 import { produce, type Draft } from 'immer'
 import { weekStart } from './date'
 import { api, ApiError, OfflineError, setLockedHandler } from './api'
-import { API_LEVEL, SINGLETONS, validDayKey, docsToState, emptyDay, emptyFocus, emptyMonth, emptySpans, emptyState, emptyWeek, type DayData, type FocusData, type SpansData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
+import { rebaseDoc } from './tree'
+import { API_LEVEL, SINGLETONS, validDayKey, docsToState, stateToDocs, emptyDay, emptyFocus, emptyMonth, emptySpans, emptyState, emptyWeek, type DayData, type FocusData, type SpansData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
 
 export * from './schema'
 
@@ -169,6 +170,18 @@ function adoptDocs(docs: ServerDoc[], mode: 'merge' | 'replace') {
   emit()
 }
 
+/** Put one page the server merged into a draft of the state (with the other pages, for derived idea states). */
+function setPage(d: Draft<State>, key: string, value: unknown) {
+  const fresh = docsToState([...stateToDocs(state).filter((x) => x.key !== key), { key, value }])
+  const [kind, id] = splitKey(key)
+  if (kind === 'month') d.months[id] = fresh.months[id] as Draft<MonthData>
+  else if (kind === 'week') d.weeks[id] = fresh.weeks[id] as Draft<WeekData>
+  else if (kind === 'day') d.days[id] = fresh.days[id] as Draft<DayData>
+  else if (kind === 'focus') d.focus = fresh.focus as Draft<FocusData>
+  else if (kind === 'spans') d.spans = fresh.spans as Draft<SpansData>
+  else if (kind === 'settings') d.settings = fresh.settings
+}
+
 async function loadAll() {
   const { docs } = await api<{ docs: ServerDoc[] }>('GET', '/api/data')
   adoptDocs(docs, 'replace')
@@ -216,8 +229,19 @@ export async function flush(force = false): Promise<boolean> {
   saveStatus.set({ kind: 'saving' })
   inflight = (async () => {
     try {
-      const { revs: next } = await api<{ revs: Record<string, number> }>('PUT', '/api/docs', { changes: sent, force })
+      const { revs: next, merged } = await api<{ revs: Record<string, number>; merged: Record<string, unknown> }>('PUT', '/api/docs', { changes: sent, force })
       for (const c of sent) {
+        if (c.key in merged && isUnlocked()) {
+          // The page moved on elsewhere and the server merged this edit into it. Show the merged
+          // page, with anything typed here since the save started laid on top (saved next).
+          const typed = docRef(state, c.key)
+          const page = typed === c.value ? merged[c.key] : rebaseDoc(c.value, typed, merged[c.key])
+          state = produce(state, (d) => setPage(d, c.key, page))
+          revs.set(c.key, next[c.key])
+          savedRefs.set(c.key, typed === c.value ? docRef(state, c.key) : merged[c.key])
+          emit()
+          continue
+        }
         // If the tab locked while this was in flight, the parked copy is either this exact edit
         // (now saved) or a newer one whose base is now our own save.
         const p = parked.find((x) => x.key === c.key)

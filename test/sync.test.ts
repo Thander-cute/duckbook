@@ -19,7 +19,7 @@ function device() {
     get: (key: string) => store.allDocs().find((d) => d.key === key),
     save(key: string, value: unknown) {
       const rev = this.get(key)?.rev ?? 0
-      return store.putDocs([{ key, baseRev: rev, value }])
+      return store.putDocs([{ key, baseRev: rev, value }]).revs
     },
     /** Ops not yet sent from this device. */
     outbox() {
@@ -53,7 +53,7 @@ test('op-log replays to the stored pages, including an existing notebook', () =>
     const before = new Store(dir)
     before.replaceAll(normalizeState(fixtureLegacy()).state, { reason: 'pre-import', source: 'test' })
     // Simulate a notebook from before the op-log: drop its operations.
-    before.db.exec('DELETE FROM sync_leaves; DELETE FROM sync_ops;')
+    before.db.exec("DELETE FROM sync_leaves; DELETE FROM sync_ops; DELETE FROM meta WHERE key = 'sync_data_version';")
     before.close()
     const store = new Store(dir)
     assert.ok(!store.sync.isEmpty(), 'existing pages became operations')
@@ -181,5 +181,48 @@ test('a restore on one device reaches the other and is not undone by older edits
   } finally {
     a.close()
     b.close()
+  }
+})
+
+test('a tab saving over a page that sync changed is merged, not a conflict', () => {
+  const a = device()
+  const b = device()
+  try {
+    a.save('day:2026-10-22', day({ notes: 'first line', grateful: '' }))
+    exchange(a, b)
+    const tabRev = b.get('day:2026-10-22')!.rev
+    const tabView = b.get('day:2026-10-22')!.value as any
+    // A edits the gratitude and the start of the notes; B's open tab meanwhile adds to the end of the notes.
+    a.save('day:2026-10-22', { ...tabView, grateful: 'from A', notes: 'First line' })
+    exchange(a, b)
+    const r = b.store.putDocs([{ key: 'day:2026-10-22', baseRev: tabRev, value: { ...tabView, notes: 'first line, then more from B' } }])
+    const merged = r.merged['day:2026-10-22'] as any
+    assert.equal(merged.grateful, 'from A')
+    assert.equal(merged.notes, 'First line, then more from B')
+    assert.deepEqual(b.get('day:2026-10-22')!.value, merged)
+    exchange(a, b)
+    assert.deepEqual(pages(a), pages(b))
+    // An unknown base (a tab from before the page existed) is still a conflict.
+    assert.throws(() => b.store.putDocs([{ key: 'day:2026-10-22', baseRev: 0, value: day() }]), /changed in another tab/)
+  } finally {
+    a.close()
+    b.close()
+  }
+})
+
+test('pages changed by an older duckbook are picked up when the notebook opens', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-sync-'))
+  try {
+    let store = new Store(dir)
+    store.putDocs([{ key: 'day:2026-10-23', baseRev: 0, value: day({ notes: 'new app' }) }])
+    // An older duckbook writes the page directly and bumps data_version, but not the op-log.
+    store.db.prepare('UPDATE docs SET value = ? WHERE key = ?').run(JSON.stringify(day({ notes: 'old app' })), 'day:2026-10-23')
+    store.db.prepare("UPDATE meta SET value = value + 1 WHERE key = 'data_version'").run()
+    store.close()
+    store = new Store(dir)
+    assert.equal((repairDoc('day:2026-10-23', store.sync.materialize('day:2026-10-23')).value as any).notes, 'old app')
+    store.close()
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })

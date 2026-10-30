@@ -152,7 +152,7 @@ async function main() {
       assert.equal(docs.find((d) => d.key === 'day:2026-10-19')!.value.sentence, 'written while offline')
     })
 
-    await step('another writer changed the page: conflict banner, nothing overwritten', async () => {
+    await step('another writer changed the page: both edits kept, no conflict', async () => {
       await page.evaluate(async (apiLevel: string) => {
         const data = (await (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).json()) as { docs: { key: string; rev: number; value: object }[] }
         const d = data.docs.find((x) => x.key === 'day:2026-10-19')!
@@ -163,11 +163,33 @@ async function main() {
         })
       }, String(API_LEVEL))
       await typeInto(page, '.page-foot textarea', 'this tab edit')
+      await page.waitForFunction(() => (document.querySelector('.day-page textarea.notes') as HTMLTextAreaElement)?.value === 'from elsewhere')
+      await waitSaved(page)
+      assert.equal(await valueOf(page, '.page-foot textarea'), 'this tab edit')
+      const r = await fetch(`${BASE}/api/data`, { headers: { 'X-Duckbook': '1' } })
+      const saved = ((await r.json()) as { docs: { key: string; value: { notes: string; sentence: string } }[] }).docs.find((d) => d.key === 'day:2026-10-19')!.value
+      assert.deepEqual([saved.notes, saved.sentence], ['from elsewhere', 'this tab edit'])
+    })
+
+    await step('page changed elsewhere beyond what can be merged: conflict banner, nothing overwritten', async () => {
+      // More outside saves than the server keeps versions of, so this tab's base is unknown.
+      await page.evaluate(async (apiLevel: string) => {
+        for (let i = 0; i < 25; i++) {
+          const data = (await (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).json()) as { docs: { key: string; rev: number; value: object }[] }
+          const d = data.docs.find((x) => x.key === 'day:2026-10-19')!
+          await fetch('/api/docs', {
+            method: 'PUT',
+            headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': apiLevel, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ changes: [{ key: d.key, baseRev: d.rev, value: { ...d.value, notes: `outside ${i}` } }] }),
+          })
+        }
+      }, String(API_LEVEL))
+      await typeInto(page, '.page-foot textarea', 'conflicting tab edit')
       await page.waitForSelector('.save-status.is-conflict', { timeout: 5000 })
       await shot(page, '04-conflict')
       const [use] = await page.$$('xpath/.//button[contains(., "Use the saved version")]')
       await use.click()
-      await page.waitForFunction(() => (document.querySelector('.day-page textarea.notes') as HTMLTextAreaElement)?.value === 'from elsewhere')
+      await page.waitForFunction(() => (document.querySelector('.day-page textarea.notes') as HTMLTextAreaElement)?.value === 'outside 24')
       await waitSaved(page)
     })
 
@@ -175,11 +197,15 @@ async function main() {
       await page.evaluate(async (apiLevel: string) => {
         const data = (await (await fetch('/api/data', { headers: { 'X-Duckbook': '1' } })).json()) as { docs: { key: string; rev: number; value: object }[] }
         const d = data.docs.find((x) => x.key === 'day:2026-10-19')!
-        await fetch('/api/docs', {
-          method: 'PUT',
-          headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': apiLevel, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ changes: [{ key: d.key, baseRev: d.rev, value: { ...d.value, notes: 'second outside edit' } }] }),
-        })
+        let rev = d.rev
+        for (let i = 0; i < 25; i++) {
+          const r = await fetch('/api/docs', {
+            method: 'PUT',
+            headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': apiLevel, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ changes: [{ key: d.key, baseRev: rev, value: { ...d.value, notes: `second outside edit ${i}` } }] }),
+          })
+          rev = ((await r.json()) as { revs: Record<string, number> }).revs[d.key]
+        }
         await fetch('/api/backups', { method: 'POST', headers: { 'X-Duckbook': '1', 'X-Duckbook-Api': apiLevel } })
       }, String(API_LEVEL))
       await typeInto(page, '.page-foot textarea', 'unsaved precious words')

@@ -17,7 +17,7 @@ export function codeFingerprint() {
       .filter((f) => f.endsWith('.ts'))
       .sort()
       .map((f) => path.join('server', f)),
-    path.join('src', 'lib', 'schema.ts'),
+    ...['schema.ts', 'tree.ts'].map((f) => path.join('src', 'lib', f)),
   ]
   const h = createHash('sha256')
   for (const f of files) h.update(f).update('\0').update(fs.readFileSync(path.join(repo, f))).update('\0')

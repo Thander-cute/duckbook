@@ -85,8 +85,9 @@ export const SCHEMA_VERSION = 1
  * browser with new code refuses to save through a server still running old code (which would
  * reject or silently drop new fields). 2 = Focus Map page, settings.modules, WeekTask.ideaId.
  * 3 = idea status and planned date. 4 = spans page (notes for a range of days). 5 = day photos.
+ * 6 = a save of a page that moved on is merged and returned (`merged`), which the page must show.
  */
-export const API_LEVEL = 5
+export const API_LEVEL = 6
 
 export const emptyMonth = (): MonthData => ({
   theme: '',

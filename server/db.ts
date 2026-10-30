@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { Sync, type Op } from './sync/engine.ts'
+import { rebaseDoc } from '../src/lib/tree.ts'
 import { PHOTO_ID, docsToState, normalizeDoc, parseDocKey, photoRefs, repairDoc, stateToDocs, summarize, type Doc, type Quarantined, type State } from '../src/lib/schema.ts'
 
 export interface StoredDoc { key: string; rev: number; value: unknown }
@@ -50,6 +51,7 @@ export class Store {
         docs INTEGER NOT NULL, bytes INTEGER NOT NULL, verified INTEGER NOT NULL, content_hash TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS quarantine (id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, source TEXT NOT NULL,
         path TEXT NOT NULL, value TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS doc_revs (key TEXT NOT NULL, rev INTEGER NOT NULL, value TEXT NOT NULL, PRIMARY KEY (key, rev));
     `)
     const v = this.getMeta<number>('schema_version')
     if (v === undefined) {
@@ -59,8 +61,8 @@ export class Store {
       throw new Error(`The database was created by a newer duckbook (schema ${v}). Refusing to open it.`)
     }
     this.sync = new Sync(this.db)
-    // Pages saved before the op-log existed become this device's first operations.
-    if (this.sync.isEmpty() && this.docCount()) this.tx(() => this.allDocs().forEach((d) => this.sync.recordLocal(d.key, undefined, d.value)))
+    // Pages saved before the op-log existed, or by an older duckbook since, become operations now.
+    if ((this.getMeta<number>('data_version') ?? 0) !== (this.getMeta<number>('sync_data_version') ?? 0)) this.tx(() => this.reconcile())
   }
 
   close() {
@@ -97,7 +99,21 @@ export class Store {
   }
 
   private touch() {
-    this.setMeta('data_version', (this.getMeta<number>('data_version') ?? 0) + 1)
+    const v = (this.getMeta<number>('data_version') ?? 0) + 1
+    this.setMeta('data_version', v)
+    this.setMeta('sync_data_version', v)
+  }
+
+  /** Record as local operations whatever differs between the pages and the op-log. */
+  private reconcile() {
+    const docs = new Map(this.allDocs().map((d) => [d.key, d.value]))
+    const known = (this.db.prepare('SELECT DISTINCT key FROM sync_leaves').all() as { key: string }[]).map((r) => r.key)
+    for (const key of new Set([...docs.keys(), ...known])) {
+      const merged = this.sync.materialize(key)
+      const before = merged === undefined ? undefined : repairDoc(key, merged).value
+      if (JSON.stringify(before) !== JSON.stringify(docs.get(key))) this.sync.recordLocal(key, before, docs.get(key))
+    }
+    this.setMeta('sync_data_version', this.getMeta<number>('data_version') ?? 0)
   }
 
   docCount() {
@@ -109,32 +125,50 @@ export class Store {
     return rows.map((r) => ({ key: r.key, rev: r.rev, value: JSON.parse(r.value) }))
   }
 
-  /** Compare-and-swap save of changed pages. All or nothing. */
-  putDocs(changes: Change[], force = false): Record<string, number> {
+  /**
+   * Compare-and-swap save of changed pages. All or nothing. A page that moved on since the tab read
+   * it (another tab, or sync) is merged when its base version is still known; the merged pages are
+   * returned so the tab can show them. Otherwise it is a conflict.
+   */
+  putDocs(changes: Change[], force = false): { revs: Record<string, number>; merged: Record<string, unknown> } {
     const clean = changes.map((c) => ({ key: c.key, baseRev: c.baseRev, value: normalizeDoc(c.key, c.value) }))
     return this.tx(() => {
       const get = this.db.prepare('SELECT key, value, rev FROM docs WHERE key = ?')
+      const getOld = this.db.prepare('SELECT value FROM doc_revs WHERE key = ? AND rev = ?')
       const conflicts: StoredDoc[] = []
+      const merged: Record<string, unknown> = {}
       for (const c of clean) {
         const cur = get.get(c.key) as { key: string; value: string; rev: number } | undefined
-        if ((cur?.rev ?? 0) !== c.baseRev && !force) conflicts.push(cur ? { key: cur.key, rev: cur.rev, value: JSON.parse(cur.value) } : { key: c.key, rev: 0, value: null })
+        if ((cur?.rev ?? 0) === c.baseRev || force) continue
+        const base = cur && c.baseRev ? (getOld.get(c.key, c.baseRev) as { value: string } | undefined) : undefined
+        if (cur && base) {
+          c.value = repairDoc(c.key, rebaseDoc(JSON.parse(base.value), c.value, JSON.parse(cur.value))).value
+          merged[c.key] = c.value
+        } else conflicts.push(cur ? { key: cur.key, rev: cur.rev, value: JSON.parse(cur.value) } : { key: c.key, rev: 0, value: null })
       }
       if (conflicts.length) throw new ConflictError(conflicts)
-      const put = this.db.prepare(
-        'INSERT INTO docs (key, value, rev, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, rev = excluded.rev, updated_at = excluded.updated_at',
-      )
       const now = new Date().toISOString()
       const revs: Record<string, number> = {}
       for (const c of clean) {
-        const rev = this.nextRev()
         const cur = get.get(c.key) as { value: string } | undefined
         this.sync.recordLocal(c.key, cur ? JSON.parse(cur.value) : undefined, c.value)
-        put.run(c.key, JSON.stringify(c.value), rev, now)
-        revs[c.key] = rev
+        revs[c.key] = this.writeDoc(c.key, c.value, now)
       }
       this.touch()
-      return revs
+      return { revs, merged }
     })
+  }
+
+  /** Write one page with a new revision, keeping recent versions so a tab's late save can be merged. */
+  private writeDoc(key: string, value: unknown, now: string) {
+    const rev = this.nextRev()
+    const text = JSON.stringify(value)
+    this.db
+      .prepare('INSERT INTO docs (key, value, rev, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, rev = excluded.rev, updated_at = excluded.updated_at')
+      .run(key, text, rev, now)
+    this.db.prepare('INSERT INTO doc_revs (key, rev, value) VALUES (?, ?, ?)').run(key, rev, text)
+    this.db.prepare('DELETE FROM doc_revs WHERE key = ? AND rev NOT IN (SELECT rev FROM doc_revs WHERE key = ? ORDER BY rev DESC LIMIT 20)').run(key, key)
+    return rev
   }
 
   /**
@@ -159,9 +193,7 @@ export class Store {
         const { value, quarantine } = repairDoc(key, merged)
         const text = JSON.stringify(value)
         if (cur?.value === text) continue
-        this.db
-          .prepare('INSERT INTO docs (key, value, rev, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, rev = excluded.rev, updated_at = excluded.updated_at')
-          .run(key, text, this.nextRev(), now)
+        this.writeDoc(key, value, now)
         const q = this.db.prepare('INSERT INTO quarantine (at, source, path, value) VALUES (?, ?, ?, ?)')
         for (const item of quarantine) q.run(now, 'sync', item.path, JSON.stringify(item.value) ?? 'null')
         changed.push(key)
@@ -189,9 +221,8 @@ export class Store {
       const next = new Map(docs.map((d) => [d.key, d.value]))
       for (const key of new Set([...old.keys(), ...next.keys()])) this.sync.recordLocal(key, old.get(key), next.get(key))
       this.db.exec('DELETE FROM docs')
-      const put = this.db.prepare('INSERT INTO docs (key, value, rev, updated_at) VALUES (?, ?, ?, ?)')
       const now = new Date().toISOString()
-      for (const d of docs) put.run(d.key, JSON.stringify(d.value), this.nextRev(), now)
+      for (const d of docs) this.writeDoc(d.key, d.value, now)
       const q = this.db.prepare('INSERT INTO quarantine (at, source, path, value) VALUES (?, ?, ?, ?)')
       for (const item of opts.quarantine ?? []) q.run(now, opts.source, item.path, JSON.stringify(item.value) ?? 'null')
       this.touch()

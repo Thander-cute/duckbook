@@ -14,5 +14,5 @@
     "noUnusedParameters": true,
     "types": ["node"]
   },
-  "include": ["server", "test", "scripts/*.ts", "src/lib/schema.ts"]
+  "include": ["server", "test", "scripts/*.ts", "src/lib/schema.ts", "src/lib/tree.ts"]
 }

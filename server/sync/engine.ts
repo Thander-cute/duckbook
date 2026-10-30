@@ -5,7 +5,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { randomBytes } from 'node:crypto'
 import * as Y from 'yjs'
-import { DEL, diff, flatten, isTextPath, parsePath, pathKey, unflatten, type LeafValue } from './tree.ts'
+import { DEL, diff, flatten, isTextPath, parsePath, pathKey, unflatten, type LeafValue } from '../../src/lib/tree.ts'
 
 export interface Op {
   id: string
