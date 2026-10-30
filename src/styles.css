@@ -3700,3 +3700,60 @@ details.path p {
 .tour-next:hover {
   background: var(--ink-soft);
 }
+
+/* Google Drive sync: a status line and the next step. */
+.sd-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.link-btn {
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.link-btn:hover {
+  text-decoration-color: var(--ink-soft);
+}
+.sync-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.sync-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6f9b7a;
+}
+.sync-line.is-busy .sync-dot {
+  background: var(--muted);
+  animation: sync-pulse 1.2s ease-in-out infinite;
+}
+.sync-line.is-error {
+  color: #a3473a;
+}
+.sync-line.is-error .sync-dot {
+  background: #a3473a;
+}
+@keyframes sync-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+.sync-now svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sync-msg {
+  padding: 10px 0 0;
+}

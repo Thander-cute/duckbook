@@ -338,19 +338,25 @@ function PrivacyLock({ pinEnabled, autoLockMin }: { pinEnabled: boolean; autoLoc
   )
 }
 
+const ago = (iso: string) => {
+  const s = (Date.now() - Date.parse(iso)) / 1000
+  return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : fmtTime(iso)
+}
+
+/** Google Drive sync: one line saying where things stand, one control for the next step. */
 function SyncSection() {
   const st = useSync()
   const [inspect, setInspect] = useState<{ hasNotebook: boolean; localPages: number } | null>(null)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  const [confirm, setConfirm] = useState<'leave' | 'merge' | null>(null)
+  const [merging, setMerging] = useState(false)
+  const [, tick] = useState(0)
   const connected = !!st?.google.connected && !st.google.needsReconnect
 
   useEffect(() => void loadSync().catch(() => {}), [])
-  // While Google's page is open in the browser, watch for the sign-in to land.
+  // "Synced 2 min ago" stays true; and while Google's page is open, watch for the sign-in to land.
   useEffect(() => {
-    if (!st?.google.connecting) return
-    const t = window.setInterval(() => void loadSync().catch(() => {}), 2000)
+    const t = window.setInterval(() => (st?.google.connecting ? void loadSync().catch(() => {}) : tick((n) => n + 1)), st?.google.connecting ? 2000 : 30_000)
     return () => window.clearInterval(t)
   }, [st?.google.connecting])
   useEffect(() => {
@@ -380,116 +386,89 @@ function SyncSection() {
       if (!(await flush())) throw new Error('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
       const r = await syncAction<{ backup: string | null }>('/api/sync/join', { mode })
       if (mode !== 'start') await reloadAll()
-      setConfirm(null)
-      setMsg(r.backup ? 'This notebook now matches Drive. Your previous pages are in a “Before taking the Drive notebook” backup.' : 'Sync is on.')
+      setMerging(false)
+      if (r.backup) setMsg('Your previous pages are in a “Before taking the Drive notebook” backup.')
     })
-  const leave = (signOut: boolean) =>
-    run(async () => {
-      await syncAction('/api/sync/leave', { signOut })
-      setConfirm(null)
-      setMsg(signOut ? 'Sync is off and Google is signed out. Your pages stay here and in Drive.' : 'Sync is off. Your pages stay here and in Drive.')
-    })
+  const leave = (signOut: boolean) => run(() => syncAction('/api/sync/leave', { signOut }))
 
   if (!st) return null
   const g = st.google
+  const btn = (label: string, onClick: () => void) => (
+    <button className="text-btn" disabled={busy} onClick={onClick}>
+      {label}
+    </button>
+  )
+
+  let help: ReactNode
+  let control: ReactNode = null
+  if (!g.configured) help = 'Not available in this copy of duckbook.'
+  else if (g.connecting) {
+    help = 'Finish signing in with Google in your browser…'
+    control = btn('Cancel', () => void run(() => syncAction('/api/sync/cancel')))
+  } else if (!connected) {
+    help = g.connectError ?? (g.needsReconnect ? 'Google access has ended. Connect again to keep syncing.' : 'Keep this notebook the same on your other computers.')
+    control = btn(g.connectError || g.needsReconnect ? 'Try again' : 'Connect', () => void connect())
+  } else if (!st.joined) {
+    if (!inspect) help = 'Looking in your Drive…'
+    else if (merging) {
+      help = 'Both notebooks become one. Where the same box has different text, both are kept.'
+      control = (
+        <span className="sd-btns">
+          {btn('Cancel', () => setMerging(false))}
+          {btn('Merge', () => void join('merge'))}
+        </span>
+      )
+    } else if (!inspect.hasNotebook) {
+      help = 'Your pages will be kept in a “Duckbook Sync” folder in your Drive, not encrypted.'
+      control = btn('Start syncing', () => void join('start'))
+    } else if (!inspect.localPages) {
+      help = 'Your Drive has a duckbook notebook. Not encrypted.'
+      control = btn('Use it here', () => void join('replace'))
+    } else {
+      help = (
+        <>
+          Your Drive already has a notebook. This computer’s pages are backed up, then replaced by it.{' '}
+          <button className="link-btn" disabled={busy} onClick={() => setMerging(true)}>
+            Merge both instead
+          </button>
+        </>
+      )
+      control = btn('Use Drive’s notebook', () => void join('replace'))
+    }
+  } else {
+    const state = st.running ? 'Syncing…' : st.error ? `Couldn’t sync: ${st.error}` : st.lastSync ? `Synced ${ago(st.lastSync)}` : 'Waiting to sync…'
+    help = (
+      <span className={`sync-line${st.error ? ' is-error' : st.running ? ' is-busy' : ''}`}>
+        <span className="sync-dot" aria-hidden />
+        {state} · not encrypted
+      </span>
+    )
+    control = (
+      <span className="sd-btns">
+        <button className="icon-btn sync-now" disabled={busy || st.running} onClick={() => void run(syncNow)} aria-label="Sync now" title="Sync now">
+          <svg viewBox="0 0 20 20" aria-hidden>
+            <path d="M15.5 8.5A5.6 5.6 0 0 0 5 7M4.5 11.5A5.6 5.6 0 0 0 15 13M5 3.8V7h3.2M15 16.2V13h-3.2" />
+          </svg>
+        </button>
+        <label className="switch">
+          <input type="checkbox" role="switch" checked disabled={busy} onChange={() => void leave(false)} aria-label="Sync with Google Drive" />
+          <span className="switch-track" aria-hidden />
+        </label>
+      </span>
+    )
+  }
+
   return (
-    <div className="setting sync-setting">
-      <div className="label">Sync with Google Drive</div>
-      {!g.configured ? (
-        <p className="muted small">Keeps this notebook the same on your other computers through your Google Drive. This copy of duckbook was built without a Google client, so it can’t connect yet.</p>
-      ) : !connected ? (
-        <>
-          <p className="muted small">
-            {g.needsReconnect ? 'Google access has ended. Connect again to keep syncing.' : 'Sign in with Google in your browser. duckbook only sees the files it makes in your Drive.'}
-          </p>
-          <div className="row-btns">
-            <button className="text-btn" disabled={busy} onClick={() => void connect()}>
-              {g.connecting ? 'Open Google sign-in again…' : g.needsReconnect ? 'Reconnect Google Drive…' : 'Connect Google Drive…'}
-            </button>
-            {g.connecting && (
-              <button className="text-btn" disabled={busy} onClick={() => void run(() => syncAction('/api/sync/cancel'))}>
-                Cancel
-              </button>
-            )}
-          </div>
-          {g.connecting && <p className="muted small">Waiting for Google in your browser. If Google showed an error there, cancel or try again.</p>}
-          {g.connectError && <p className="small setting-msg">{g.connectError}</p>}
-        </>
-      ) : !st.joined ? (
-        <>
-          <p className="muted small">Not encrypted: your pages are kept in a “Duckbook Sync” folder in your Google Drive, readable by Google and by anyone with your Google account.</p>
-          {inspect && !inspect.hasNotebook && (
-            <div className="row-btns">
-              <button className="text-btn" disabled={busy} onClick={() => void join('start')}>
-                Start syncing this notebook
-              </button>
-            </div>
-          )}
-          {inspect?.hasNotebook && (
-            <>
-              <p className="muted small">
-                Your Drive already has a duckbook notebook.{' '}
-                {inspect.localPages ? 'Take it here (this computer’s pages are backed up first), or merge both.' : 'Take it to this computer.'}
-              </p>
-              <div className="row-btns">
-                <button className="text-btn" disabled={busy} onClick={() => void join('replace')}>
-                  Use the notebook from Drive
-                </button>
-                {inspect.localPages > 0 && (
-                  <button className="text-btn" disabled={busy} onClick={() => setConfirm('merge')}>
-                    Merge both…
-                  </button>
-                )}
-              </div>
-              {confirm === 'merge' && (
-                <p className="small setting-msg">
-                  Pages from both are combined. Where both have different text in the same box, both texts are kept, one after the other.{' '}
-                  <button className="text-btn" disabled={busy} onClick={() => void join('merge')}>
-                    Merge
-                  </button>{' '}
-                  <button className="text-btn" onClick={() => setConfirm(null)}>
-                    Cancel
-                  </button>
-                </p>
-              )}
-            </>
-          )}
-          <div className="row-btns">
-            <button className="text-btn" disabled={busy} onClick={() => void leave(true)}>
-              Sign out of Google
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p className="muted small sync-state">
-            {st.running ? 'Syncing…' : st.error ? `Not synced: ${st.error}` : st.lastSync ? `Synced ${fmtTime(st.lastSync)}` : 'Waiting to sync…'} · Not encrypted
-          </p>
-          <div className="row-btns">
-            <button className="text-btn" disabled={busy || st.running} onClick={() => void run(syncNow)}>
-              Sync now
-            </button>
-            <button className="text-btn" disabled={busy} onClick={() => setConfirm('leave')}>
-              Stop syncing…
-            </button>
-          </div>
-          {confirm === 'leave' && (
-            <p className="small setting-msg">
-              Pages stay on this computer and in Drive; they just stop updating each other.{' '}
-              <button className="text-btn" disabled={busy} onClick={() => void leave(false)}>
-                Stop
-              </button>{' '}
-              <button className="text-btn" disabled={busy} onClick={() => void leave(true)}>
-                Stop and sign out
-              </button>{' '}
-              <button className="text-btn" onClick={() => setConfirm(null)}>
-                Cancel
-              </button>
-            </p>
-          )}
-        </>
+    <div className="sync-setting">
+      <Row title="Sync with Google Drive" help={help}>
+        {control}
+      </Row>
+      {connected && (
+        <Row title="Google account" help={st.joined ? 'Signing out also stops syncing. Your pages stay here and in Drive.' : 'Connected.'}>
+          {btn('Sign out', () => void leave(true))}
+        </Row>
       )}
-      {msg && <p className="small setting-msg">{msg}</p>}
+      {msg && <p className="small setting-msg sync-msg">{msg}</p>}
     </div>
   )
 }

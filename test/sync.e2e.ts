@@ -60,10 +60,13 @@ async function main() {
     }
     const connect = async (page: Page) => {
       await openData(page)
-      await button(page, 'Connect Google Drive')
+      await shot(page, `sync-00-${page.url().includes('5397') ? 'a' : 'b'}-off`)
+      await button(page, 'Connect')
       const url = await page.waitForFunction(() => (window as unknown as { authUrl?: string }).authUrl).then((h) => h.jsonValue() as Promise<string>)
+      await page.waitForSelector('xpath/.//p[contains(., "Finish signing in")]')
+      await shot(page, 'sync-01-waiting')
       assert.equal(await google.approve(url), 200)
-      await page.waitForSelector('xpath/.//p[contains(., "Not encrypted")]', { timeout: 10_000 })
+      await page.waitForSelector('xpath/.//div[@class="sd-row-title" and .="Google account"]', { timeout: 10_000 })
     }
 
     const pa = await open(a.base)
@@ -71,15 +74,22 @@ async function main() {
     await pa.keyboard.type('synthetic gratitude from A')
     await pa.waitForSelector('[data-save="saved"]')
     await connect(pa)
-    await shot(pa, 'sync-01-connected')
-    await button(pa, 'Start syncing this notebook')
+    await shot(pa, 'sync-02-connected')
+    await button(pa, 'Start syncing')
     await pa.waitForSelector('xpath/.//p[contains(., "Synced")]', { timeout: 10_000 })
-    await shot(pa, 'sync-02-on')
+    await shot(pa, 'sync-03-on')
     console.log('ok - A connects Google and starts syncing')
 
     const pb = await open(b.base)
+    await pb.click('.day-page .page-foot textarea')
+    await pb.keyboard.type('synthetic sentence only on B')
+    await pb.waitForSelector('[data-save="saved"]')
     await connect(pb)
-    await button(pb, 'Use the notebook from Drive')
+    await shot(pb, 'sync-04-drive-has-notebook')
+    await button(pb, 'Merge both instead')
+    await shot(pb, 'sync-05-merge')
+    await button(pb, 'Cancel')
+    await button(pb, 'Use Drive’s notebook')
     await pb.waitForSelector('xpath/.//p[contains(., "Synced")]', { timeout: 10_000 })
     await pb.click('button[aria-label="Close settings"]')
     await pb.waitForFunction(() => (document.querySelector('.day-page .line textarea') as HTMLTextAreaElement)?.value === 'synthetic gratitude from A')
@@ -95,7 +105,7 @@ async function main() {
     // Coming back to A's window asks for a sync; A then picks up the page.
     await pa.evaluate(() => window.dispatchEvent(new Event('focus')))
     await pa.waitForFunction(() => (document.querySelector('.day-page .line textarea') as HTMLTextAreaElement)?.value === 'synthetic gratitude from A, and B', { timeout: 30_000 })
-    await shot(pa, 'sync-03-from-b')
+    await shot(pa, 'sync-06-from-b')
     console.log('ok - an edit on B reaches A’s open page')
     assert.deepEqual(errors, [])
   } finally {
