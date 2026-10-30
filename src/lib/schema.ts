@@ -452,6 +452,18 @@ export function normalizeDoc(key: string, value: unknown): unknown {
   return settings(value)
 }
 
+/** Validate one page leniently: values that don't fit are returned in `quarantine` instead of failing. */
+export function repairDoc(key: string, value: unknown): { value: unknown; quarantine: Quarantined[] } {
+  const p = parseDocKey(key)
+  if (!p) throw new SchemaError(`Unknown page key "${key}".`)
+  const c = new Ctx(false)
+  const v = isObj(value) ? value : {}
+  const [kind] = p
+  const out =
+    kind === 'month' ? month(c, v, key) : kind === 'week' ? week(c, v, key) : kind === 'day' ? day(c, v, key) : kind === 'focus' ? focus(c, v, key) : kind === 'spans' ? spans(c, v, key) : settings(v)
+  return { value: out, quarantine: c.quarantine }
+}
+
 export interface NormalizeResult {
   state: State
   issues: string[]

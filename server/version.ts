@@ -13,7 +13,7 @@ export function codeFingerprint() {
   if (typeof DESKTOP_CODE !== 'undefined') return DESKTOP_CODE
   const files = [
     ...fs
-      .readdirSync(path.join(repo, 'server'))
+      .readdirSync(path.join(repo, 'server'), { recursive: true, encoding: 'utf8' })
       .filter((f) => f.endsWith('.ts'))
       .sort()
       .map((f) => path.join('server', f)),

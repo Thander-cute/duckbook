@@ -6,7 +6,8 @@ import { DatabaseSync } from 'node:sqlite'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { PHOTO_ID, docsToState, normalizeDoc, parseDocKey, photoRefs, stateToDocs, summarize, type Doc, type Quarantined, type State } from '../src/lib/schema.ts'
+import { Sync, type Op } from './sync/engine.ts'
+import { PHOTO_ID, docsToState, normalizeDoc, parseDocKey, photoRefs, repairDoc, stateToDocs, summarize, type Doc, type Quarantined, type State } from '../src/lib/schema.ts'
 
 export interface StoredDoc { key: string; rev: number; value: unknown }
 export interface Change { key: string; baseRev: number; value: unknown }
@@ -30,6 +31,7 @@ export class Store {
   readonly dataDir: string
   readonly backupDir: string
   readonly photoDir: string
+  readonly sync: Sync
 
   constructor(dataDir: string) {
     this.dataDir = dataDir
@@ -56,6 +58,9 @@ export class Store {
     } else if (v > 1) {
       throw new Error(`The database was created by a newer duckbook (schema ${v}). Refusing to open it.`)
     }
+    this.sync = new Sync(this.db)
+    // Pages saved before the op-log existed become this device's first operations.
+    if (this.sync.isEmpty() && this.docCount()) this.tx(() => this.allDocs().forEach((d) => this.sync.recordLocal(d.key, undefined, d.value)))
   }
 
   close() {
@@ -122,11 +127,47 @@ export class Store {
       const revs: Record<string, number> = {}
       for (const c of clean) {
         const rev = this.nextRev()
+        const cur = get.get(c.key) as { value: string } | undefined
+        this.sync.recordLocal(c.key, cur ? JSON.parse(cur.value) : undefined, c.value)
         put.run(c.key, JSON.stringify(c.value), rev, now)
         revs[c.key] = rev
       }
       this.touch()
       return revs
+    })
+  }
+
+  /**
+   * Apply operations from another device and rewrite the pages they touch. Values that don't fit
+   * after a merge go to quarantine, never lost. Returns the keys whose pages changed.
+   */
+  applyRemote(ops: Op[]): string[] {
+    return this.tx(() => {
+      const keys = new Set<string>()
+      for (const op of ops) if (op.dev !== this.sync.device && parseDocKey(op.key) && this.sync.apply(op)) keys.add(op.key)
+      const changed: string[] = []
+      const get = this.db.prepare('SELECT value FROM docs WHERE key = ?')
+      const now = new Date().toISOString()
+      for (const key of keys) {
+        const merged = this.sync.materialize(key)
+        const cur = get.get(key) as { value: string } | undefined
+        if (merged === undefined) {
+          if (cur) this.db.prepare('DELETE FROM docs WHERE key = ?').run(key)
+          if (cur) changed.push(key)
+          continue
+        }
+        const { value, quarantine } = repairDoc(key, merged)
+        const text = JSON.stringify(value)
+        if (cur?.value === text) continue
+        this.db
+          .prepare('INSERT INTO docs (key, value, rev, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, rev = excluded.rev, updated_at = excluded.updated_at')
+          .run(key, text, this.nextRev(), now)
+        const q = this.db.prepare('INSERT INTO quarantine (at, source, path, value) VALUES (?, ?, ?, ?)')
+        for (const item of quarantine) q.run(now, 'sync', item.path, JSON.stringify(item.value) ?? 'null')
+        changed.push(key)
+      }
+      if (changed.length) this.touch()
+      return changed
     })
   }
 
@@ -144,6 +185,9 @@ export class Store {
     const docs = (Array.isArray(input) ? input : stateToDocs(input)).map((d) => ({ key: d.key, value: normalizeDoc(d.key, d.value) }))
     const backup = this.docCount() ? this.createBackup(opts.reason) : null
     this.tx(() => {
+      const old = new Map(this.allDocs().map((d) => [d.key, d.value]))
+      const next = new Map(docs.map((d) => [d.key, d.value]))
+      for (const key of new Set([...old.keys(), ...next.keys()])) this.sync.recordLocal(key, old.get(key), next.get(key))
       this.db.exec('DELETE FROM docs')
       const put = this.db.prepare('INSERT INTO docs (key, value, rev, updated_at) VALUES (?, ?, ?, ?)')
       const now = new Date().toISOString()
