@@ -54,7 +54,7 @@ Mã hóa dữ liệu trên ổ đĩa đang được để ngỏ, chưa làm (xem
 
 ## Đồng bộ qua Google Drive (không mã hóa)
 
-- Chỉ chạy khi bạn kết nối trong Settings → Data. Bạn tự tạo OAuth client; xem [hướng dẫn thiết lập](GOOGLE-DRIVE-SYNC-SETUP.md). Không có server Duckbook: mỗi máy nói chuyện thẳng với Google Drive.
+- Chỉ chạy khi bạn kết nối trong Settings → Data. OAuth client được nhúng trong app ([cách tạo](GOOGLE-DRIVE-SYNC-SETUP.md)). Không có server Duckbook: mỗi máy nói chuyện thẳng với Google Drive.
 - **Không mã hóa.** Mọi trang (nhật ký, task, reflection…) và ảnh của ngày được lưu thành file đọc được trong thư mục **"Duckbook Sync"** trên Drive của bạn. Google và bất kỳ ai vào được tài khoản Google đó đọc được chúng. Bản có mã hóa (mã khôi phục) sẽ làm sau.
 - Quyền xin là `drive.file`: app chỉ thấy các file chính nó tạo, không đọc phần còn lại của Drive.
 - Mỗi máy chỉ tạo file của riêng nó (`ops-<máy>-<số>.json`, `photo-<hash>.jpg`) và không sửa hay xóa file của máy khác. File SQLite đang dùng không bao giờ được đặt lên Drive.

@@ -12,6 +12,9 @@ release/
 !.env.example
 *.pem
 *.key
+# The app's Google OAuth client, built into the desktop app
+google-client.json
+google_client.json
 
 # Personal planner data: never commit journal pages, exports, or backups
 data/

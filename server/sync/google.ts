@@ -4,12 +4,13 @@
 //    listener on 127.0.0.1, PKCE (S256) and state. Scope drive.file: only files this app created.
 //  - The token lives in sync-google.json next to the notebook, outside duckbook.sqlite, so backups
 //    never contain it. Disconnect revokes it and deletes the file. It is not encrypted.
-//  - The OAuth client is the owner's: google-client.json in the data folder, or env vars.
+//  - The OAuth client is the app's own, built in (see readClient).
 
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import type { Remote, RemoteFile } from './remote.ts'
 
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
@@ -47,15 +48,36 @@ function endpoints() {
   }
 }
 
-export function readClient(dataDir: string): Client | null {
-  const id = process.env.DUCKBOOK_GOOGLE_CLIENT_ID
-  if (id) return { clientId: id, clientSecret: process.env.DUCKBOOK_GOOGLE_CLIENT_SECRET || undefined }
+declare const BUNDLED_GOOGLE_CLIENT: string | undefined
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+
+const parseClient = (text: string): Client | null => {
   try {
-    const raw = JSON.parse(fs.readFileSync(path.join(dataDir, 'google-client.json'), 'utf8'))
+    const raw = JSON.parse(text)
     const c = raw.installed ?? raw
     if (typeof c.client_id === 'string' && c.client_id) return { clientId: c.client_id, clientSecret: typeof c.client_secret === 'string' ? c.client_secret : undefined }
   } catch {}
   return null
+}
+
+const readFile = (dir: string) => {
+  for (const name of ['google-client.json', 'google_client.json']) {
+    try {
+      return parseClient(fs.readFileSync(path.join(dir, name), 'utf8'))
+    } catch {}
+  }
+  return null
+}
+
+/**
+ * The app's OAuth client: env vars (tests), a file in the data folder, or the one built into the app
+ * (the desktop bundle embeds it; the local server reads google-client.json at the repo root, not committed).
+ * Google treats installed-app clients as public; PKCE protects the sign-in.
+ */
+export function readClient(dataDir: string): Client | null {
+  const id = process.env.DUCKBOOK_GOOGLE_CLIENT_ID
+  if (id) return { clientId: id, clientSecret: process.env.DUCKBOOK_GOOGLE_CLIENT_SECRET || undefined }
+  return readFile(dataDir) ?? (typeof BUNDLED_GOOGLE_CLIENT !== 'undefined' ? parseClient(BUNDLED_GOOGLE_CLIENT) : readFile(repo))
 }
 
 export class GoogleDrive {

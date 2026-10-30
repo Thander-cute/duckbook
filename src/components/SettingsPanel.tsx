@@ -396,10 +396,7 @@ function SyncSection() {
     <div className="setting sync-setting">
       <div className="label">Sync with Google Drive</div>
       {!g.configured ? (
-        <p className="muted small">
-          Keeps this notebook the same on your other computers through your Google Drive. It needs your own Google OAuth client first: save it as <code>google-client.json</code> in the data
-          folder (Your pages → Show folder), then reopen Settings.
-        </p>
+        <p className="muted small">Keeps this notebook the same on your other computers through your Google Drive. This copy of duckbook was built without a Google client, so it can’t connect yet.</p>
       ) : !connected ? (
         <>
           <p className="muted small">
