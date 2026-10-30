@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSyncWatch } from './lib/sync'
 import { useRoute, go, type View } from './lib/router'
 import { addDays, addMonths, fmtLong, fmtMonth, fmtShort, isoWeek, monthKeyOf, todayKey, weekStart } from './lib/date'
 import { boot, getSession, lock, useSaveStatus, useSession, useSettings } from './lib/store'
@@ -289,6 +290,7 @@ export function App() {
   }, [welcome, phase, status])
 
   useIdleLock(phase === 'unlocked' && !!status?.pinEnabled, status?.autoLockMin ?? 0)
+  useSyncWatch(phase === 'unlocked')
 
   if (phase === 'loading') return <LoadingScreen />
   if (phase === 'offline') return <OfflineScreen />

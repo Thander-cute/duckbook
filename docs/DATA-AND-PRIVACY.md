@@ -51,3 +51,14 @@ Mã hóa dữ liệu trên ổ đĩa đang được để ngỏ, chưa làm (xem
 - **Export JSON** tạo một file văn bản đọc được, không mã hóa. Hãy cất ở nơi riêng tư.
 - File export **không chứa ảnh**, chỉ chứa tên file ảnh. Nhập file đó trên máy khác thì ô ảnh hiện "Not on this computer". Muốn mang ảnh theo thì chép cả thư mục `photos`.
 - **Import** kiểm tra dữ liệu trước khi nhập. File không phải dữ liệu duckbook bị từ chối. Giá trị nào lạ sẽ được để riêng, không bị bỏ đi. Trước khi thay thế trang hiện tại, app luôn sao lưu.
+
+## Đồng bộ qua Google Drive (không mã hóa)
+
+- Chỉ chạy khi bạn kết nối trong Settings → Data. Bạn tự tạo OAuth client; xem [hướng dẫn thiết lập](GOOGLE-DRIVE-SYNC-SETUP.md). Không có server Duckbook: mỗi máy nói chuyện thẳng với Google Drive.
+- **Không mã hóa.** Mọi trang (nhật ký, task, reflection…) và ảnh của ngày được lưu thành file đọc được trong thư mục **"Duckbook Sync"** trên Drive của bạn. Google và bất kỳ ai vào được tài khoản Google đó đọc được chúng. Bản có mã hóa (mã khôi phục) sẽ làm sau.
+- Quyền xin là `drive.file`: app chỉ thấy các file chính nó tạo, không đọc phần còn lại của Drive.
+- Mỗi máy chỉ tạo file của riêng nó (`ops-<máy>-<số>.json`, `photo-<hash>.jpg`) và không sửa hay xóa file của máy khác. File SQLite đang dùng không bao giờ được đặt lên Drive.
+- Token nằm trong **`sync-google.json`** cạnh notebook, dạng văn bản rõ, không nằm trong `duckbook.sqlite` hay các bản sao lưu. Khóa PIN không mã hóa file này.
+- Lưu trên máy không chờ mạng. Sync chạy nền: vài giây sau khi lưu, khi quay lại cửa sổ, và mỗi phút. Lỗi (mất mạng, hết quyền, file hỏng) hiện trong Settings → Data; file hỏng không được áp dụng.
+- **Dùng notebook từ Drive** thay toàn bộ trang trên máy này, sau một bản sao lưu đã kiểm tra ("Before taking the Drive notebook"). **Gộp cả hai** giữ trang của cả hai bên; ô nào hai bên có chữ khác nhau thì giữ cả hai đoạn, nối tiếp nhau.
+- **Stop syncing** giữ nguyên trang trên máy và file trên Drive. **Sign out** thu hồi token tại Google rồi xóa `sync-google.json`. Không có gì trên Drive bị xóa; muốn xóa thì tự xóa thư mục "Duckbook Sync".

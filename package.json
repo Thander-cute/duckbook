@@ -11,6 +11,7 @@
     "test": "node --test \"test/*.test.ts\"",
     "test:browser": "node test/browser.e2e.ts",
     "test:upgrade": "node test/upgrade.e2e.ts",
+    "test:sync": "node test/sync.e2e.ts",
     "desktop:bundle": "node desktop/build.ts",
     "desktop:dev": "npm run build && npm run desktop:bundle && electron .",
     "desktop:build": "npm run build && npm run desktop:bundle && electron-builder --win nsis --x64",

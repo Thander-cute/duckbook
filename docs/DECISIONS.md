@@ -56,6 +56,10 @@ Only **Decided** entries are approved for implementation. Add a dated entry when
   - Photos are JPEG files named by their hash in `photos/`, outside SQLite, so backups stay small and share them.
   - Files are kept while the pages or any kept backup refer to them.
   - The export has references only.
+- Sync (see `docs/plans/2026-10-sync-architecture.md`, `docs/GOOGLE-DRIVE-SYNC-SETUP.md`):
+  - Every save is also recorded as operations on page leaves; free text merges with Yjs, other fields last-writer-wins. Lead choice, made while the owner's question on journal conflicts was open.
+  - A late save over a page that moved on is merged instead of a conflict (`API_LEVEL` 6).
+  - Unencrypted Google Drive sync, `drive.file`, token in `sync-google.json` outside the notebook and its backups.
 - Update safety (found in Supervisor review of `ad3eafe`):
   - A server left running from before an update would reject Focus Map saves, failing the whole save batch, and would silently drop `settings.modules` and `ideaId`. This was reproduced on a synthetic instance.
   - Guard: `API_LEVEL` handshake (now 5: 3 Focus notes, 4 spans, 5 photos). The page shows an "updated" screen and edits nothing until the server matches.

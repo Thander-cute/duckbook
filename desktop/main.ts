@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, session, utilityProcess } from 'electron'
+import { app, BrowserWindow, dialog, session, shell, utilityProcess } from 'electron'
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -87,7 +87,11 @@ async function boot() {
   let bounds = { width: 1440, height: 940 }
   try { bounds = { ...bounds, ...JSON.parse(fs.readFileSync(boundsFile, 'utf8')) } } catch {}
   window = new BrowserWindow({ ...bounds, minWidth: 900, minHeight: 650, title: 'Duckbook', autoHideMenuBar: true, webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false } })
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  // Only Google's sign-in page (Drive sync, Calendar add-on) may leave the app, and only into the system browser.
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://accounts.google.com/')) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
   window.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault() })
   window.webContents.on('will-prevent-unload', () => {
     if (closing) return

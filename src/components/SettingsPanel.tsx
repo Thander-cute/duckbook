@@ -12,6 +12,7 @@ import { resetTour } from '../lib/tour'
 import { HabitMark } from './HabitMark'
 import { Stepper } from './ui'
 import { setDefaultView, useDefaultView, type TimerView } from '../lib/timer'
+import { loadSync, syncAction, syncNow, useSync } from '../lib/sync'
 
 interface Backup { file: string; kind: string; createdAt: string; docs: number; bytes: number; verified: boolean }
 
@@ -21,6 +22,7 @@ const KIND: Record<string, string> = {
   'pre-import': 'Before import',
   'pre-migration': 'Before moving browser pages',
   'pre-restore': 'Before restore',
+  'pre-sync': 'Before taking the Drive notebook',
 }
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -206,6 +208,7 @@ export function SettingsPage({
 
           {current === 'data' && (
             <>
+              <SyncSection />
               <Backups />
               <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
               {status?.desktop?.webImport && <FromBrowserVersion />}
@@ -331,6 +334,159 @@ function PrivacyLock({ pinEnabled, autoLockMin }: { pinEnabled: boolean; autoLoc
         The PIN hides your pages in the browser and is checked by the duckbook server. It is not encryption: anyone, or any program, that can open files on this
         computer can still read the database.
       </p>
+    </div>
+  )
+}
+
+function SyncSection() {
+  const st = useSync()
+  const [inspect, setInspect] = useState<{ hasNotebook: boolean; localPages: number } | null>(null)
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState<'leave' | 'merge' | null>(null)
+  const connected = !!st?.google.connected && !st.google.needsReconnect
+
+  useEffect(() => void loadSync().catch(() => {}), [])
+  // While Google's page is open in the browser, watch for the sign-in to land.
+  useEffect(() => {
+    if (!st?.google.connecting) return
+    const t = window.setInterval(() => void loadSync().catch(() => {}), 2000)
+    return () => window.clearInterval(t)
+  }, [st?.google.connecting])
+  useEffect(() => {
+    if (!connected || st?.joined) return setInspect(null)
+    void api<{ hasNotebook: boolean; localPages: number }>('POST', '/api/sync/inspect').then(setInspect, (e) => setMsg((e as Error).message))
+  }, [connected, st?.joined])
+
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true)
+    setMsg('')
+    try {
+      await fn()
+    } catch (e) {
+      setMsg((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const connect = () =>
+    run(async () => {
+      const { authUrl } = await api<{ authUrl: string }>('POST', '/api/sync/connect')
+      window.open(authUrl, '_blank', 'noopener')
+      await loadSync()
+    })
+  const join = (mode: 'start' | 'replace' | 'merge') =>
+    run(async () => {
+      if (!(await flush())) throw new Error('Some edits aren’t saved yet (see the message at the top). Resolve that first, so nothing typed is lost.')
+      const r = await syncAction<{ backup: string | null }>('/api/sync/join', { mode })
+      if (mode !== 'start') await reloadAll()
+      setConfirm(null)
+      setMsg(r.backup ? 'This notebook now matches Drive. Your previous pages are in a “Before taking the Drive notebook” backup.' : 'Sync is on.')
+    })
+  const leave = (signOut: boolean) =>
+    run(async () => {
+      await syncAction('/api/sync/leave', { signOut })
+      setConfirm(null)
+      setMsg(signOut ? 'Sync is off and Google is signed out. Your pages stay here and in Drive.' : 'Sync is off. Your pages stay here and in Drive.')
+    })
+
+  if (!st) return null
+  const g = st.google
+  return (
+    <div className="setting sync-setting">
+      <div className="label">Sync with Google Drive</div>
+      {!g.configured ? (
+        <p className="muted small">
+          Keeps this notebook the same on your other computers through your Google Drive. It needs your own Google OAuth client first: save it as <code>google-client.json</code> in the data
+          folder (Your pages → Show folder), then reopen Settings.
+        </p>
+      ) : !connected ? (
+        <>
+          <p className="muted small">
+            {g.needsReconnect ? 'Google access has ended. Connect again to keep syncing.' : 'Sign in with Google in your browser. duckbook only sees the files it makes in your Drive.'}
+          </p>
+          <div className="row-btns">
+            <button className="text-btn" disabled={busy || g.connecting} onClick={() => void connect()}>
+              {g.connecting ? 'Waiting for Google…' : g.needsReconnect ? 'Reconnect Google Drive…' : 'Connect Google Drive…'}
+            </button>
+          </div>
+          {g.connectError && <p className="small setting-msg">{g.connectError}</p>}
+        </>
+      ) : !st.joined ? (
+        <>
+          <p className="muted small">Not encrypted: your pages are kept in a “Duckbook Sync” folder in your Google Drive, readable by Google and by anyone with your Google account.</p>
+          {inspect && !inspect.hasNotebook && (
+            <div className="row-btns">
+              <button className="text-btn" disabled={busy} onClick={() => void join('start')}>
+                Start syncing this notebook
+              </button>
+            </div>
+          )}
+          {inspect?.hasNotebook && (
+            <>
+              <p className="muted small">
+                Your Drive already has a duckbook notebook.{' '}
+                {inspect.localPages ? 'Take it here (this computer’s pages are backed up first), or merge both.' : 'Take it to this computer.'}
+              </p>
+              <div className="row-btns">
+                <button className="text-btn" disabled={busy} onClick={() => void join('replace')}>
+                  Use the notebook from Drive
+                </button>
+                {inspect.localPages > 0 && (
+                  <button className="text-btn" disabled={busy} onClick={() => setConfirm('merge')}>
+                    Merge both…
+                  </button>
+                )}
+              </div>
+              {confirm === 'merge' && (
+                <p className="small setting-msg">
+                  Pages from both are combined. Where both have different text in the same box, both texts are kept, one after the other.{' '}
+                  <button className="text-btn" disabled={busy} onClick={() => void join('merge')}>
+                    Merge
+                  </button>{' '}
+                  <button className="text-btn" onClick={() => setConfirm(null)}>
+                    Cancel
+                  </button>
+                </p>
+              )}
+            </>
+          )}
+          <div className="row-btns">
+            <button className="text-btn" disabled={busy} onClick={() => void leave(true)}>
+              Sign out of Google
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="muted small sync-state">
+            {st.running ? 'Syncing…' : st.error ? `Not synced: ${st.error}` : st.lastSync ? `Synced ${fmtTime(st.lastSync)}` : 'Waiting to sync…'} · Not encrypted
+          </p>
+          <div className="row-btns">
+            <button className="text-btn" disabled={busy || st.running} onClick={() => void run(syncNow)}>
+              Sync now
+            </button>
+            <button className="text-btn" disabled={busy} onClick={() => setConfirm('leave')}>
+              Stop syncing…
+            </button>
+          </div>
+          {confirm === 'leave' && (
+            <p className="small setting-msg">
+              Pages stay on this computer and in Drive; they just stop updating each other.{' '}
+              <button className="text-btn" disabled={busy} onClick={() => void leave(false)}>
+                Stop
+              </button>{' '}
+              <button className="text-btn" disabled={busy} onClick={() => void leave(true)}>
+                Stop and sign out
+              </button>{' '}
+              <button className="text-btn" onClick={() => setConfirm(null)}>
+                Cancel
+              </button>
+            </p>
+          )}
+        </>
+      )}
+      {msg && <p className="small setting-msg">{msg}</p>}
     </div>
   )
 }

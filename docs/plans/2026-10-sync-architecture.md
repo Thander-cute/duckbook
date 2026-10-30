@@ -1,6 +1,6 @@
 # Slice plan: sync through Google Drive (desktop + local web)
 
-**Status:** draft. Direction decided by the owner; slices need agreement before code.
+**Status:** slices 0–3 built on `feat/sync` (owner: "code được nhanh thì làm luôn đi", 2026-10-30); not yet tried against real Google. Slice 4 (encrypted) not started.
 **Decision link:** `docs/DECISIONS.md`, 2026-10-28 and 2026-10-30.
 
 ## Why (owner)
@@ -74,6 +74,16 @@ UI (unchanged) ─► store.ts autosave (unchanged)
 | later | Daily Drive backup (archive v1), Android | | |
 
 Tests use a fake Drive (as Calendar uses a fake Google) and synthetic notebooks. No test touches the owner's real Drive, account or data dirs.
+
+## As built (Lead, 2026-10-30)
+
+- No page shape change, so slice 0 needed no new ids: list items already have ids (or a photo hash); Month goals and habit days stay positional, which is safe because their length is fixed.
+- Free text merges with Yjs (new dependency `yjs`), everything else last-writer-wins by a hybrid clock. Same starting text on two devices merges into one copy (content-derived Yjs client id), so a notebook imported into another doesn't double.
+- A tab that saves over a page that moved on (sync or another tab) is merged on the server and shown the result (`API_LEVEL` 6). The server keeps the last 20 versions per page for this; an older base is still a conflict.
+- Pages written by an older duckbook are folded into the op-log when the notebook next opens.
+- Drive: a visible "Duckbook Sync" folder, `drive.file`. Files listed by modification time with a 10-minute overlap; op files applied once each, by name. Photos copied both ways and hash-checked.
+- Not yet: snapshots/compaction (the folder grows by one small file per batch of saves), the encrypted option, a "2 versions" view (overlapping edits in a tab merge keep both texts one after the other).
+- Tests: `test/sync.test.ts` (op-log, merge, folder transport), `test/sync-drive.test.ts` (fake Google over HTTP), `npm run test:sync` (two browsers, two servers).
 
 ## Out
 

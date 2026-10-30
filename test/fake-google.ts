@@ -100,6 +100,6 @@ export async function startFakeGoogle() {
       back.searchParams.set('state', u.searchParams.get('state')!)
       return (await fetch(back)).status
     },
-    stop: () => new Promise((r) => server.close(r)),
+    stop: () => new Promise((r) => (server.close(r), server.closeAllConnections())),
   }
 }
