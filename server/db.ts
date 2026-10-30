@@ -176,31 +176,48 @@ export class Store {
    * after a merge go to quarantine, never lost. Returns the keys whose pages changed.
    */
   applyRemote(ops: Op[]): string[] {
-    return this.tx(() => {
-      const keys = new Set<string>()
-      for (const op of ops) if (op.dev !== this.sync.device && parseDocKey(op.key) && this.sync.apply(op)) keys.add(op.key)
-      const changed: string[] = []
-      const get = this.db.prepare('SELECT value FROM docs WHERE key = ?')
-      const now = new Date().toISOString()
-      for (const key of keys) {
-        const merged = this.sync.materialize(key)
-        const cur = get.get(key) as { value: string } | undefined
-        if (merged === undefined) {
-          if (cur) this.db.prepare('DELETE FROM docs WHERE key = ?').run(key)
-          if (cur) changed.push(key)
-          continue
-        }
-        const { value, quarantine } = repairDoc(key, merged)
-        const text = JSON.stringify(value)
-        if (cur?.value === text) continue
-        this.writeDoc(key, value, now)
-        const q = this.db.prepare('INSERT INTO quarantine (at, source, path, value) VALUES (?, ?, ?, ?)')
-        for (const item of quarantine) q.run(now, 'sync', item.path, JSON.stringify(item.value) ?? 'null')
-        changed.push(key)
+    return this.tx(() => this.applyOps(ops))
+  }
+
+  private applyOps(ops: Op[]): string[] {
+    const keys = new Set<string>()
+    for (const op of ops) if (op.dev !== this.sync.device && parseDocKey(op.key) && this.sync.apply(op)) keys.add(op.key)
+    const changed: string[] = []
+    const get = this.db.prepare('SELECT value FROM docs WHERE key = ?')
+    const now = new Date().toISOString()
+    for (const key of keys) {
+      const merged = this.sync.materialize(key)
+      const cur = get.get(key) as { value: string } | undefined
+      if (merged === undefined) {
+        if (cur) this.db.prepare('DELETE FROM docs WHERE key = ?').run(key)
+        if (cur) changed.push(key)
+        continue
       }
-      if (changed.length) this.touch()
-      return changed
+      const { value, quarantine } = repairDoc(key, merged)
+      const text = JSON.stringify(value)
+      if (cur?.value === text) continue
+      this.writeDoc(key, value, now)
+      const q = this.db.prepare('INSERT INTO quarantine (at, source, path, value) VALUES (?, ?, ?, ?)')
+      for (const item of quarantine) q.run(now, 'sync', item.path, JSON.stringify(item.value) ?? 'null')
+      changed.push(key)
+    }
+    if (changed.length) this.touch()
+    return changed
+  }
+
+  /**
+   * Replace this device's pages with a notebook from other devices, given all its operations.
+   * A verified backup is taken first; everything happens in one transaction.
+   */
+  takeRemote(ops: Op[]) {
+    const backup = this.docCount() ? this.createBackup('pre-sync') : null
+    this.tx(() => {
+      this.sync.reset()
+      this.db.exec('DELETE FROM docs; DELETE FROM doc_revs;')
+      this.applyOps(ops)
+      this.touch()
     })
+    return { backup: backup?.file ?? null }
   }
 
   contentHash(db: DatabaseSync = this.db) {

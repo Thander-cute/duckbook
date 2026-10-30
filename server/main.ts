@@ -9,6 +9,8 @@ import { Store } from './db.ts'
 import { Auth } from './auth.ts'
 import { createHandler } from './app.ts'
 import { defaultDataDir } from './paths.ts'
+import { GoogleDrive } from './sync/google.ts'
+import { SyncRunner } from './sync/runner.ts'
 export { defaultDataDir } from './paths.ts'
 
 export const DEFAULT_PORT = 5317
@@ -35,7 +37,9 @@ export async function start(opts: { port?: number; dataDir?: string; distDir?: s
 
   const store = new Store(dataDir)
   const auth = new Auth(store)
-  const handler = createHandler({ store, auth, port, distDir: opts.distDir ?? path.join(repoRoot, 'dist'), log, token: opts.token, webDataDir: opts.webDataDir, webPort: opts.webPort })
+  const google = new GoogleDrive(dataDir, log)
+  const runner = new SyncRunner(store, async () => google.remote(), log)
+  const handler = createHandler({ store, auth, port, distDir: opts.distDir ?? path.join(repoRoot, 'dist'), log, token: opts.token, webDataDir: opts.webDataDir, webPort: opts.webPort, sync: { runner, google } })
 
   // Both loopback addresses, or neither: a half-bound port would let "localhost" reach another server.
   const servers: http.Server[] = []
@@ -94,10 +98,17 @@ export async function start(opts: { port?: number; dataDir?: string; distDir?: s
 
   cleanPhotos()
 
+  if (runner.config()) {
+    runner.start()
+    void runner.syncNow().catch(() => {})
+  }
+
   log(`duckbook on http://localhost:${port}  data: ${dataDir}`)
 
   const stop = async () => {
     clearInterval(backupTimer)
+    runner.stop()
+    google.cancel()
     await Promise.all(servers.map((s) => new Promise((r) => s.close(r))))
     store.close()
   }

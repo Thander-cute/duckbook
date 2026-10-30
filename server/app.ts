@@ -14,6 +14,8 @@ import { codeFingerprint } from './version.ts'
 import { ConflictError, RestoreError, type Change, type Store } from './db.ts'
 import type { Auth } from './auth.ts'
 import { importWeb, readWeb, webIsRunning } from './web-import.ts'
+import { GoogleError, type GoogleDrive } from './sync/google.ts'
+import type { JoinMode, SyncRunner } from './sync/runner.ts'
 
 const MAX_BODY = 20 * 1024 * 1024
 const MAX_PHOTO = 15 * 1024 * 1024
@@ -54,9 +56,9 @@ class HttpError extends Error {
   }
 }
 
-export interface AppOptions { store: Store; auth: Auth; port: number; distDir: string; log?: (msg: string) => void; token?: string; webDataDir?: string; webPort?: number }
+export interface AppOptions { store: Store; auth: Auth; port: number; distDir: string; log?: (msg: string) => void; token?: string; webDataDir?: string; webPort?: number; sync?: { runner: SyncRunner; google: GoogleDrive } }
 
-export function createHandler({ store, auth, port, distDir, token, webDataDir, webPort, log = () => {} }: AppOptions) {
+export function createHandler({ store, auth, port, distDir, token, webDataDir, webPort, sync, log = () => {} }: AppOptions) {
   const code = codeFingerprint()
   const hosts = new Set([`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`])
   const cookieName = `duckbook_sid_${port}`
@@ -132,6 +134,46 @@ export function createHandler({ store, auth, port, distDir, token, webDataDir, w
     return { ...base, docCount: store.docCount(), quarantineCount: store.quarantined().length, migration: store.getMeta('migration') ?? null, dataDir: store.dataDir, lastBackup: store.getMeta('last_backup') ?? null }
   }
 
+  const syncStatus = () => ({
+    google: sync!.google.status(),
+    joined: sync!.runner.config(),
+    ...sync!.runner.state(),
+    dataVersion: store.getMeta<number>('data_version') ?? 0,
+  })
+
+  /** Google Drive sync. Errors from Google or the folder are shown to the person as they are. */
+  async function syncApi(req: http.IncomingMessage, res: http.ServerResponse, route: string) {
+    if (!sync) throw new HttpError(404, 'Sync is not available here.')
+    const { runner, google } = sync
+    try {
+      if (route === 'GET /api/sync') return send(res, 200, syncStatus())
+      if (route === 'POST /api/sync/connect') return send(res, 200, await google.connect())
+      if (route === 'POST /api/sync/inspect') return send(res, 200, await runner.inspect())
+      if (route === 'POST /api/sync/join') {
+        const mode = (await readJson(req)).mode
+        if (mode !== 'start' && mode !== 'replace' && mode !== 'merge') throw new HttpError(400, 'Unknown way to join.')
+        const out = await runner.join(mode as JoinMode)
+        runner.start()
+        return send(res, 200, { ...out, ...syncStatus() })
+      }
+      if (route === 'POST /api/sync/now') {
+        await runner.syncNow().catch(() => {})
+        return send(res, 200, syncStatus())
+      }
+      if (route === 'POST /api/sync/leave') {
+        const signOut = (await readJson(req)).signOut === true
+        runner.leave()
+        if (signOut) await google.disconnect()
+        return send(res, 200, syncStatus())
+      }
+    } catch (e) {
+      if (e instanceof GoogleError) throw new HttpError(e.status, e.message)
+      if (e instanceof HttpError || e instanceof RestoreError) throw e
+      throw new HttpError(502, (e as Error).message)
+    }
+    throw new HttpError(404, 'Not found.')
+  }
+
   async function api(req: http.IncomingMessage, res: http.ServerResponse, route: string) {
     const method = req.method ?? 'GET'
 
@@ -172,7 +214,9 @@ export function createHandler({ store, auth, port, distDir, token, webDataDir, w
         if (store.docCount() && body.replace !== true) throw new HttpError(409, 'There are already pages here.', { needsReplace: true })
         const source = readWeb(webDataDir)
         if (!source) throw new HttpError(404, 'No browser notebook was found.')
-        return send(res, 200, importWeb(store, source))
+        const out = importWeb(store, source)
+        sync?.runner.nudge()
+        return send(res, 200, out)
       }
       // Never open a source database while its writer is running.
       const source = running ? null : readWeb(webDataDir)
@@ -201,8 +245,12 @@ export function createHandler({ store, auth, port, distDir, token, webDataDir, w
         if (typeof x?.key !== 'string' || typeof x.baseRev !== 'number') throw new HttpError(400, 'Malformed change.')
         return { key: x.key, baseRev: x.baseRev, value: x.value }
       })
-      return send(res, 200, store.putDocs(changes, body.force === true))
+      const out = store.putDocs(changes, body.force === true)
+      sync?.runner.nudge()
+      return send(res, 200, out)
     }
+
+    if (route === 'GET /api/sync' || route.startsWith('POST /api/sync/')) return syncApi(req, res, route)
 
     if (route === 'POST /api/import/preview') {
       const body = await readJson(req)
@@ -222,6 +270,7 @@ export function createHandler({ store, auth, port, distDir, token, webDataDir, w
         store.setMeta('migration', { at: new Date().toISOString(), sourceHash: hash, summary: out.summary })
       } else store.setMeta('migration', null)
       log(`import (${source}): ${out.summary.days} days, ${out.summary.weeks} weeks, ${out.summary.months} months; ${r.issues.length} issues`)
+      sync?.runner.nudge()
       return send(res, 200, { ...out, issueCount: r.issues.length, docs: store.allDocs() })
     }
 
@@ -244,6 +293,7 @@ export function createHandler({ store, auth, port, distDir, token, webDataDir, w
       const out = store.restoreBackup(body.file)
       store.setMeta('migration', null)
       log(`restore: ${body.file}`)
+      sync?.runner.nudge()
       return send(res, 200, { ...out, docs: store.allDocs() })
     }
 

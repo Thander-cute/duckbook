@@ -6,6 +6,8 @@ import path from 'node:path'
 import { Store } from '../server/db.ts'
 import { normalizeState, repairDoc, stateToDocs } from '../src/lib/schema.ts'
 import { fixtureLegacy } from './helpers.ts'
+import { FolderRemote } from '../server/sync/remote.ts'
+import { SyncRunner } from '../server/sync/runner.ts'
 
 const day = (over: Record<string, unknown> = {}) => ({ grateful: '', tasks: [], notes: '', sentence: '', ...over })
 
@@ -224,5 +226,71 @@ test('pages changed by an older duckbook are picked up when the notebook opens',
     store.close()
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ───────── through a shared folder standing in for Google Drive ─────────
+
+const jpeg = (seed: string) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.from(`synthetic photo ${seed}`), Buffer.from([0xff, 0xd9])])
+
+test('devices sync through a shared folder: start, take, edit both, photos', async () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-drive-'))
+  const remote = new FolderRemote(folder)
+  const a = device()
+  const b = device()
+  const ra = new SyncRunner(a.store, async () => remote)
+  const rb = new SyncRunner(b.store, async () => remote)
+  try {
+    const photo = a.store.savePhoto(jpeg('a'))
+    a.save('day:2026-10-24', day({ notes: 'on A before sync', photos: [{ full: photo, thumb: photo, w: 10, h: 10 }] }))
+    b.save('day:2026-10-01', day({ notes: 'B had its own page' }))
+    assert.deepEqual(await rb.inspect(), { hasNotebook: false, localPages: 1 })
+    await ra.join('start')
+    await assert.rejects(rb.join('start'), /already has a duckbook notebook/)
+
+    const { backup } = await rb.join('replace')
+    assert.ok(backup, 'B was backed up before taking the notebook')
+    assert.deepEqual(pages(b), pages(a))
+    assert.ok(b.store.readPhoto(photo), 'photo copied')
+
+    a.save('day:2026-10-24', { ...(a.get('day:2026-10-24')!.value as object), grateful: 'A again' })
+    b.save('day:2026-10-25', day({ notes: 'written on B' }))
+    await rb.syncNow()
+    await ra.syncNow()
+    await rb.syncNow()
+    assert.deepEqual(pages(a), pages(b))
+    assert.equal((b.get('day:2026-10-24')!.value as any).grateful, 'A again')
+    assert.equal((a.get('day:2026-10-25')!.value as any).notes, 'written on B')
+  } finally {
+    a.close()
+    b.close()
+    fs.rmSync(folder, { recursive: true, force: true })
+  }
+})
+
+test('merge join keeps both notebooks; damaged files are reported, not applied', async () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-drive-'))
+  const remote = new FolderRemote(folder)
+  const a = device()
+  const b = device()
+  const ra = new SyncRunner(a.store, async () => remote)
+  const rb = new SyncRunner(b.store, async () => remote)
+  try {
+    a.save('day:2026-10-26', day({ notes: 'A' }))
+    b.save('day:2026-10-27', day({ notes: 'B' }))
+    await ra.join('start')
+    await rb.join('merge')
+    await ra.syncNow()
+    assert.deepEqual(pages(a), pages(b))
+    assert.deepEqual(pages(a).map((p) => p.key), ['day:2026-10-26', 'day:2026-10-27'])
+
+    fs.writeFileSync(path.join(folder, 'ops-00000000000000ff-000000000001.json'), '{"format":"duckbook-ops","version":1,"ops":[{"id":"x"}]}')
+    await assert.rejects(ra.syncNow(), /can't read/)
+    assert.match(ra.state().error ?? '', /can't read/)
+    assert.deepEqual(pages(a), pages(b), 'nothing applied')
+  } finally {
+    a.close()
+    b.close()
+    fs.rmSync(folder, { recursive: true, force: true })
   }
 })

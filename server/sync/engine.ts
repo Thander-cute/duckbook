@@ -29,8 +29,8 @@ const hash32 = (s: string) => {
 
 export class Sync {
   readonly db: DatabaseSync
-  readonly device: string
-  private readonly client: number
+  device = ''
+  private client = 0
 
   constructor(db: DatabaseSync) {
     this.db = db
@@ -40,13 +40,24 @@ export class Sync {
       CREATE TABLE IF NOT EXISTS sync_ops (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, dev TEXT NOT NULL, ts TEXT NOT NULL,
         key TEXT NOT NULL, path TEXT NOT NULL, kind TEXT NOT NULL, value TEXT, upd BLOB);
     `)
-    let dev = this.meta<string>('sync_device')
-    if (!dev) {
-      dev = randomBytes(8).toString('hex')
-      this.setMeta('sync_device', dev)
-    }
+    this.useDevice(this.meta<string>('sync_device') ?? randomBytes(8).toString('hex'))
+  }
+
+  private useDevice(dev: string) {
+    this.setMeta('sync_device', dev)
     this.device = dev
     this.client = hash32(dev)
+  }
+
+  /** Forget every operation and start as a new device (before taking a notebook from another device). */
+  reset() {
+    this.db.exec('DELETE FROM sync_leaves; DELETE FROM sync_ops;')
+    this.useDevice(randomBytes(8).toString('hex'))
+  }
+
+  /** Highest operation number on this device. */
+  lastSeq() {
+    return (this.db.prepare('SELECT COALESCE(MAX(seq), 0) AS n FROM sync_ops').get() as { n: number }).n
   }
 
   private meta<T>(key: string): T | undefined {
