@@ -403,10 +403,16 @@ function SyncSection() {
             {g.needsReconnect ? 'Google access has ended. Connect again to keep syncing.' : 'Sign in with Google in your browser. duckbook only sees the files it makes in your Drive.'}
           </p>
           <div className="row-btns">
-            <button className="text-btn" disabled={busy || g.connecting} onClick={() => void connect()}>
-              {g.connecting ? 'Waiting for Google…' : g.needsReconnect ? 'Reconnect Google Drive…' : 'Connect Google Drive…'}
+            <button className="text-btn" disabled={busy} onClick={() => void connect()}>
+              {g.connecting ? 'Open Google sign-in again…' : g.needsReconnect ? 'Reconnect Google Drive…' : 'Connect Google Drive…'}
             </button>
+            {g.connecting && (
+              <button className="text-btn" disabled={busy} onClick={() => void run(() => syncAction('/api/sync/cancel'))}>
+                Cancel
+              </button>
+            )}
           </div>
+          {g.connecting && <p className="muted small">Waiting for Google in your browser. If Google showed an error there, cancel or try again.</p>}
           {g.connectError && <p className="small setting-msg">{g.connectError}</p>}
         </>
       ) : !st.joined ? (

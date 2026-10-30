@@ -28,6 +28,11 @@ test('two notebooks sync through Google Drive (fake): sign in, start, take, edit
       assert.ok(!fs.readFileSync(path.join(s.dataDir, 'duckbook.sqlite')).includes('rt-fixture'), 'token is not in the notebook database')
     }
 
+    // Google refused before coming back (e.g. not a test user): waiting can be cancelled and retried.
+    await a.call('POST', '/api/sync/connect')
+    assert.equal((await a.call('GET', '/api/sync')).json.google.connecting, true)
+    assert.equal((await a.call('POST', '/api/sync/cancel')).json.google.connecting, false)
+
     await a.call('PUT', '/api/docs', { changes: [{ key: 'day:2026-10-28', baseRev: 0, value: day({ notes: 'synthetic note from A' }) }] })
     await connect(a)
     assert.deepEqual((await a.call('POST', '/api/sync/inspect')).json, { hasNotebook: false, localPages: 1 })

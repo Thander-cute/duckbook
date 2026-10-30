@@ -148,6 +148,10 @@ export function createHandler({ store, auth, port, distDir, token, webDataDir, w
     try {
       if (route === 'GET /api/sync') return send(res, 200, syncStatus())
       if (route === 'POST /api/sync/connect') return send(res, 200, await google.connect())
+      if (route === 'POST /api/sync/cancel') {
+        google.cancel()
+        return send(res, 200, syncStatus())
+      }
       if (route === 'POST /api/sync/inspect') return send(res, 200, await runner.inspect())
       if (route === 'POST /api/sync/join') {
         const mode = (await readJson(req)).mode
