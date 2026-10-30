@@ -1,6 +1,6 @@
 # Slice plan: sync through Google Drive (desktop + local web)
 
-**Status:** slices 0–3 built on `feat/sync` (owner: "code được nhanh thì làm luôn đi", 2026-10-30); not yet tried against real Google. Slice 4 (encrypted) not started.
+**Status:** slices 0–3 built on `feat/sync` (owner: "code được nhanh thì làm luôn đi", 2026-10-30). Owner tried two dev notebooks with real Google Drive (Testing mode): "work khá tốt". Slice 4 (encrypted) not started.
 **Decision link:** `docs/DECISIONS.md`, 2026-10-28 and 2026-10-30.
 
 ## Why (owner)
