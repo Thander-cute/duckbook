@@ -85,6 +85,10 @@ Tests use a fake Drive (as Calendar uses a fake Google) and synthetic notebooks.
 - Not yet: snapshots/compaction (the folder grows by one small file per batch of saves), the encrypted option, a "2 versions" view (overlapping edits in a tab merge keep both texts one after the other).
 - Tests: `test/sync.test.ts` (op-log, merge, folder transport), `test/sync-drive.test.ts` (fake Google over HTTP), `npm run test:sync` (two browsers, two servers).
 
+## Owner to-do (remind the owner)
+
+- [ ] Google client to **In production** (asked 2026-10-31, "rảnh nhắc t làm sau"): Google Auth Platform → Branding → remove the logo (a logo requires app verification with domains and a privacy policy), then Audience → Publish app. Until then the client is in Testing: only listed test users can sign in, and sign-in expires after 7 days.
+
 ## Out
 
 - Android sync, hosted web, a Duckbook server or account.
