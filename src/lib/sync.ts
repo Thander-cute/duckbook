@@ -10,6 +10,7 @@ export interface SyncStatus {
   joined: { notebookId: string; joinedAt: string } | null
   lastSync: string | null
   error: string | null
+  warning: string | null
   running: boolean
   dataVersion: number
 }

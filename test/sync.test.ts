@@ -294,3 +294,148 @@ test('merge join keeps both notebooks; damaged files are reported, not applied',
     fs.rmSync(folder, { recursive: true, force: true })
   }
 })
+
+// ───────── review findings (2026-10-31), each reproduced first ─────────
+
+const month = (cells: Record<string, string>) => ({ theme: '', goals: [], cells, moods: {}, notes: '' })
+
+test('a removed calendar note stays removed whatever order the changes arrive in', () => {
+  const [a, b, c] = [device(), device(), device()]
+  try {
+    a.save('month:2026-10', month({ '2026-10-05': 'synthetic cell' }))
+    const created = a.outbox()
+    a.save('month:2026-10', month({}))
+    const removed = a.outbox()
+    b.store.applyRemote(created)
+    b.store.applyRemote(removed)
+    c.store.applyRemote(removed)
+    c.store.applyRemote(created)
+    assert.deepEqual((b.get('month:2026-10')!.value as any).cells, {})
+    assert.deepEqual(pages(b), pages(c))
+  } finally {
+    a.close()
+    b.close()
+    c.close()
+  }
+})
+
+test('a page removed and written again does not bring back its old tasks', () => {
+  const a = device()
+  const b = device()
+  try {
+    a.save('day:2026-10-10', day({ tasks: [{ id: 'old', text: 'old task', estimate: 1, pomos: 0, done: false }] }))
+    a.store.replaceAll(normalizeState({ version: 1, days: {} }).state, { reason: 'pre-import', source: 'test' })
+    a.save('day:2026-10-10', day({ notes: 'new life' }))
+    assertReplays(a)
+    exchange(a, b)
+    assert.deepEqual((b.get('day:2026-10-10')!.value as any).tasks, [])
+    assert.deepEqual(pages(a), pages(b))
+  } finally {
+    a.close()
+    b.close()
+  }
+})
+
+test('changes that would not make a page are refused whole, nothing applied', () => {
+  const a = device()
+  try {
+    a.save('day:2026-10-11', day({ notes: 'keep me' }))
+    const bad = { id: 'x1', dev: '00000000000000aa', ts: '9999999999999.000000.00000000000000aa', key: 'day:2026-10-11', path: '[]', kind: 'set' as const, value: 'not a page' }
+    assert.throws(() => a.store.applyRemote([bad as any]))
+    assert.equal((a.get('day:2026-10-11')!.value as any).notes, 'keep me')
+  } finally {
+    a.close()
+  }
+})
+
+test('a failed take from Drive leaves this device as it was', () => {
+  const a = device()
+  try {
+    a.save('day:2026-10-12', day({ notes: 'mine' }))
+    const dev = a.store.sync.device
+    const junk = { id: 'y1', dev: '00000000000000bb', ts: '0000000000001.000000.00000000000000bb', key: 'day:2026-10-12', path: '["notes"]', kind: 'text' as const, upd: Buffer.from('not yjs').toString('base64') }
+    assert.throws(() => a.store.takeRemote([junk]))
+    assert.equal(a.store.sync.device, dev)
+    assert.equal(a.store.getMeta('sync_device'), dev)
+    assert.ok(a.store.sync.localOps().length > 0, 'own operations still found')
+    assert.equal((a.get('day:2026-10-12')!.value as any).notes, 'mine')
+  } finally {
+    a.close()
+  }
+})
+
+/** A folder whose clock runs an hour behind this computer's. */
+class SkewedRemote extends FolderRemote {
+  async list(since?: string) {
+    const shift = (iso: string, by: number) => new Date(Date.parse(iso) + by).toISOString()
+    const files = await super.list(since ? shift(since, 3600_000) : undefined)
+    return files.map((f) => ({ ...f, modifiedTime: shift(f.modifiedTime!, -3600_000) }))
+  }
+}
+
+test('a Drive clock far from this computer’s still finds every new file', async () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-drive-'))
+  const remote = new SkewedRemote(folder)
+  const a = device()
+  const b = device()
+  const ra = new SyncRunner(a.store, async () => remote)
+  const rb = new SyncRunner(b.store, async () => remote)
+  try {
+    a.save('day:2026-10-13', day({ notes: 'one' }))
+    await ra.join('start')
+    await rb.join('replace')
+    for (const text of ['two', 'three']) {
+      a.save('day:2026-10-13', { ...(a.get('day:2026-10-13')!.value as object), notes: text })
+      await ra.syncNow()
+      await rb.syncNow()
+      assert.equal((b.get('day:2026-10-13')!.value as any).notes, text)
+    }
+  } finally {
+    a.close()
+    b.close()
+    fs.rmSync(folder, { recursive: true, force: true })
+  }
+})
+
+test('starting a new Drive notebook from pages that came from another one sends them all', async () => {
+  const [f1, f2] = [fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-drive-')), fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-drive-'))]
+  const [a, b, c] = [device(), device(), device()]
+  try {
+    a.save('day:2026-10-14', day({ notes: 'from A' }))
+    await new SyncRunner(a.store, async () => new FolderRemote(f1)).join('start')
+    const rb1 = new SyncRunner(b.store, async () => new FolderRemote(f1))
+    await rb1.join('replace')
+    rb1.leave()
+    await new SyncRunner(b.store, async () => new FolderRemote(f2)).join('start')
+    await new SyncRunner(c.store, async () => new FolderRemote(f2)).join('replace')
+    assert.deepEqual(pages(c), pages(b))
+    assert.equal((c.get('day:2026-10-14')!.value as any).notes, 'from A')
+  } finally {
+    for (const d of [a, b, c]) d.close()
+    for (const f of [f1, f2]) fs.rmSync(f, { recursive: true, force: true })
+  }
+})
+
+test('photos go up before the pages that show them; a photo Drive lacks is reported', async () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-drive-'))
+  const remote = new FolderRemote(folder)
+  const a = device()
+  const b = device()
+  try {
+    const kept = a.store.savePhoto(jpeg('kept'))
+    const lost = a.store.savePhoto(jpeg('lost'))
+    a.save('day:2026-10-15', day({ photos: [kept, lost].map((id) => ({ full: id, thumb: id, w: 10, h: 10 })) }))
+    fs.rmSync(path.join(a.store.photoDir, `${lost}.jpg`))
+    await new SyncRunner(a.store, async () => remote).join('start')
+    const ops = fs.readdirSync(folder).filter((n) => n.startsWith('ops-')).map((n) => fs.statSync(path.join(folder, n)).mtimeMs)
+    assert.ok(fs.statSync(path.join(folder, `photo-${kept}.jpg`)).mtimeMs <= Math.min(...ops), 'photo written before the changes')
+    const rb = new SyncRunner(b.store, async () => remote)
+    await rb.join('replace')
+    assert.ok(b.store.readPhoto(kept))
+    assert.equal(rb.state().warning, '1 photo not in Drive yet')
+  } finally {
+    a.close()
+    b.close()
+    fs.rmSync(folder, { recursive: true, force: true })
+  }
+})

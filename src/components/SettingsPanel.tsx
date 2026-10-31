@@ -436,7 +436,7 @@ function SyncSection() {
       control = btn('Use Drive’s notebook', () => void join('replace'))
     }
   } else {
-    const state = st.running ? 'Syncing…' : st.error ? `Couldn’t sync: ${st.error}` : st.lastSync ? `Synced ${ago(st.lastSync)}` : 'Waiting to sync…'
+    const state = st.running ? 'Syncing…' : st.error ? `Couldn’t sync: ${st.error}` : st.lastSync ? `Synced ${ago(st.lastSync)}${st.warning ? ` · ${st.warning}` : ''}` : 'Waiting to sync…'
     help = (
       <span className={`sync-line${st.error ? ' is-error' : st.running ? ' is-busy' : ''}`}>
         <span className="sync-dot" aria-hidden />

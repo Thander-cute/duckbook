@@ -51,7 +51,7 @@ export async function startFakeGoogle() {
       // Two files per page, to exercise paging.
       const start = Number(url.searchParams.get('pageToken') ?? 0)
       const page = list.slice(start, start + 2)
-      return json(200, { files: page.map((f) => ({ id: f.id, name: f.name })), ...(start + 2 < list.length ? { nextPageToken: String(start + 2) } : {}) })
+      return json(200, { files: page.map((f) => ({ id: f.id, name: f.name, modifiedTime: f.modifiedTime })), ...(start + 2 < list.length ? { nextPageToken: String(start + 2) } : {}) })
     }
     if (req.method === 'POST' && url.pathname === '/drive/files') {
       const meta = JSON.parse(body.toString())

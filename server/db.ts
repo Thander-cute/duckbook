@@ -188,6 +188,8 @@ export class Store {
     for (const key of keys) {
       const merged = this.sync.materialize(key)
       const cur = get.get(key) as { value: string } | undefined
+      // Not a page at all: refuse the whole batch (it rolls back) rather than show a blank page.
+      if (merged !== undefined && (typeof merged !== 'object' || merged === null || Array.isArray(merged))) throw new RestoreError(`Changes from another device would make ${key} unreadable; none were applied.`)
       if (merged === undefined) {
         if (cur) this.db.prepare('DELETE FROM docs WHERE key = ?').run(key)
         if (cur) changed.push(key)
@@ -211,13 +213,34 @@ export class Store {
    */
   takeRemote(ops: Op[]) {
     const backup = this.docCount() ? this.createBackup('pre-sync') : null
-    this.tx(() => {
-      this.sync.reset()
+    this.withNewDevice(() => {
       this.db.exec('DELETE FROM docs; DELETE FROM doc_revs;')
       this.applyOps(ops)
       this.touch()
     })
     return { backup: backup?.file ?? null }
+  }
+
+  /**
+   * Start the op-log again from the pages as they are, as a new device, so this device's operations
+   * alone describe every page (before it starts a notebook in Drive or merges into one).
+   */
+  restartOpLog() {
+    this.withNewDevice(() => {
+      for (const d of this.allDocs()) this.sync.recordLocal(d.key, undefined, d.value)
+      this.setMeta('sync_data_version', this.getMeta<number>('data_version') ?? 0)
+    })
+  }
+
+  private withNewDevice(fn: () => void) {
+    try {
+      this.tx(() => {
+        this.sync.reset()
+        fn()
+      })
+    } finally {
+      this.sync.reloadDevice()
+    }
   }
 
   contentHash(db: DatabaseSync = this.db) {

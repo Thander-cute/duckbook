@@ -5,7 +5,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { randomBytes } from 'node:crypto'
 import * as Y from 'yjs'
-import { DEL, diff, flatten, isTextPath, parsePath, pathKey, unflatten, type LeafValue } from '../../src/lib/tree.ts'
+import { DEL, diff, flatten, isDel, isMarker, isTextPath, parsePath, pathKey, unflatten, type LeafValue } from '../../src/lib/tree.ts'
 
 export interface Op {
   id: string
@@ -40,19 +40,24 @@ export class Sync {
       CREATE TABLE IF NOT EXISTS sync_ops (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, dev TEXT NOT NULL, ts TEXT NOT NULL,
         key TEXT NOT NULL, path TEXT NOT NULL, kind TEXT NOT NULL, value TEXT, upd BLOB);
     `)
-    this.useDevice(this.meta<string>('sync_device') ?? randomBytes(8).toString('hex'))
+    if (!this.meta<string>('sync_device')) this.setMeta('sync_device', randomBytes(8).toString('hex'))
+    this.reloadDevice()
   }
 
-  private useDevice(dev: string) {
-    this.setMeta('sync_device', dev)
-    this.device = dev
-    this.client = hash32(dev)
+  /** Take the device id from the database (again after a rolled-back reset). */
+  reloadDevice() {
+    this.device = this.meta<string>('sync_device')!
+    this.client = hash32(this.device)
   }
 
-  /** Forget every operation and start as a new device (before taking a notebook from another device). */
+  /**
+   * Forget every operation and start as a new device. Call inside a transaction; if it rolls back,
+   * call reloadDevice() so the id in memory matches the database again.
+   */
   reset() {
     this.db.exec('DELETE FROM sync_leaves; DELETE FROM sync_ops;')
-    this.useDevice(randomBytes(8).toString('hex'))
+    this.setMeta('sync_device', randomBytes(8).toString('hex'))
+    this.reloadDevice()
   }
 
   /** Highest operation number on this device. */
@@ -94,16 +99,38 @@ export class Sync {
 
   /** Record a page saved on this device. `after` undefined deletes the page. Call inside the save's transaction. */
   recordLocal(key: string, before: unknown, after: unknown): Op[] {
-    const changes = after === undefined ? new Map<string, LeafValue>([[ROOT, DEL]]) : diff(before === undefined ? new Map() : flatten(before), flatten(after))
+    const old = before === undefined ? new Map<string, LeafValue>() : flatten(before)
+    const next = after === undefined ? new Map<string, LeafValue>() : flatten(after)
+    const changes = after === undefined ? new Map<string, LeafValue>([[ROOT, DEL]]) : diff(old, next)
+    if (after !== undefined) {
+      // Something created again (a page, a list item, a day's cell) must not bring back what its
+      // earlier life held under a tombstone: retire those leaves now.
+      const created = [...changes].filter(([p, v]) => isMarker(v) && !isDel(v) && !old.has(p)).map(([p]) => p)
+      if (created.length) {
+        const rows = this.db.prepare('SELECT path, value FROM sync_leaves WHERE key = ?').all(key) as { path: string; value: string }[]
+        for (const r of rows) {
+          if (next.has(r.path) || changes.has(r.path) || isDel(JSON.parse(r.value))) continue
+          if (created.some((c) => r.path.startsWith(c === ROOT ? '[' : `${c.slice(0, -1)},`))) changes.set(r.path, DEL)
+        }
+      }
+    }
     const ops: Op[] = []
     for (const [path, value] of changes) {
-      const op = typeof value === 'string' && isTextPath(parsePath(path)) ? this.textOp(key, path, value) : { id: this.newId(), dev: this.device, ts: this.tick(), key, path, kind: 'set' as const, value }
+      const op = typeof value === 'string' && isTextPath(parsePath(path)) ? (this.textOp(key, path, value) ?? this.revive(key, path, value)) : this.setOp(key, path, value)
       if (op) {
         this.apply(op)
         ops.push(op)
       }
     }
     return ops
+  }
+
+  private setOp = (key: string, path: string, value: LeafValue): Op => ({ id: this.newId(), dev: this.device, ts: this.tick(), key, path, kind: 'set', value })
+
+  /** Text that was removed and comes back unchanged needs only its presence restored. */
+  private revive(key: string, path: string, text: string): Op | null {
+    const row = this.db.prepare('SELECT value FROM sync_leaves WHERE key = ? AND path = ?').get(key, path) as { value: string } | undefined
+    return row && isDel(JSON.parse(row.value)) ? this.setOp(key, path, text) : null
   }
 
   private loadText(key: string, path: string) {
@@ -142,16 +169,19 @@ export class Sync {
       .run(op.id, op.dev, op.ts, op.key, op.path, op.kind, op.value === undefined ? null : JSON.stringify(op.value), op.upd ? Buffer.from(op.upd, 'base64') : null)
     if (!r.changes) return false
     this.observe(op.ts)
-    const row = this.db.prepare('SELECT ts FROM sync_leaves WHERE key = ? AND path = ?').get(op.key, op.path) as { ts: string } | undefined
+    const row = this.db.prepare('SELECT ts, value FROM sync_leaves WHERE key = ? AND path = ?').get(op.key, op.path) as { ts: string; value: string } | undefined
     if (op.kind === 'text') {
       const { doc } = this.loadText(op.key, op.path)
       Y.applyUpdate(doc, Buffer.from(op.upd ?? '', 'base64'))
+      // The content always merges; whether the field exists is last-writer-wins, so an older edit
+      // arriving after a newer removal doesn't bring the field back.
+      const removed = row && row.ts > op.ts && isDel(JSON.parse(row.value))
       const ts = row && row.ts > op.ts ? row.ts : op.ts
       this.db
         .prepare(
           'INSERT INTO sync_leaves (key, path, ts, value, ystate) VALUES (?, ?, ?, ?, ?) ON CONFLICT(key, path) DO UPDATE SET ts = excluded.ts, value = excluded.value, ystate = excluded.ystate',
         )
-        .run(op.key, op.path, ts, JSON.stringify(doc.getText('t').toString()), Y.encodeStateAsUpdate(doc))
+        .run(op.key, op.path, ts, removed ? row.value : JSON.stringify(doc.getText('t').toString()), Y.encodeStateAsUpdate(doc))
     } else if (!row || op.ts > row.ts) {
       this.db
         .prepare('INSERT INTO sync_leaves (key, path, ts, value) VALUES (?, ?, ?, ?) ON CONFLICT(key, path) DO UPDATE SET ts = excluded.ts, value = excluded.value')

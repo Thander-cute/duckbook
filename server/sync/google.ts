@@ -85,6 +85,8 @@ export class GoogleDrive {
   private file: string
   private log: (msg: string) => void
   private pending: { server: http.Server; timer: NodeJS.Timeout } | null = null
+  /** Bumped by sign-out: sign-in or token work started before it must not save a token afterwards. */
+  private signOuts = 0
   private connectError: string | null = null
 
   constructor(dataDir: string, log: (msg: string) => void = () => {}) {
@@ -133,7 +135,8 @@ export class GoogleDrive {
     }, CONNECT_TIMEOUT)
     timer.unref()
     this.pending = { server, timer }
-    server.on('request', (req, res) => void this.callback(req, res, { client, state, verifier, redirectUri }).catch(() => res.destroy()))
+    const signOuts = this.signOuts
+    server.on('request', (req, res) => void this.callback(req, res, { client, state, verifier, redirectUri, live: () => this.pending?.server === server && this.signOuts === signOuts }).catch(() => res.destroy()))
     const q = new URLSearchParams({
       client_id: client.clientId,
       redirect_uri: redirectUri,
@@ -155,7 +158,7 @@ export class GoogleDrive {
     this.pending = null
   }
 
-  private async callback(req: http.IncomingMessage, res: http.ServerResponse, f: { client: Client; state: string; verifier: string; redirectUri: string }) {
+  private async callback(req: http.IncomingMessage, res: http.ServerResponse, f: { client: Client; state: string; verifier: string; redirectUri: string; live: () => boolean }) {
     const page = (status: number, text: string) => {
       res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
       res.end(`<!doctype html><meta charset="utf-8"><title>duckbook</title><p style="font:16px system-ui;margin:3em">${text}</p>`)
@@ -174,6 +177,7 @@ export class GoogleDrive {
       if (typeof tok.refresh_token !== 'string' || !tok.refresh_token) throw new GoogleError(502, 'Google sent no refresh token.')
       const granted = String(tok.scope ?? '').split(' ')
       if (!granted.includes(DRIVE_SCOPE)) throw new GoogleError(403, 'Drive access was not granted. Tick the Drive box when Google asks.')
+      if (!f.live()) throw new GoogleError(409, 'This sign-in was cancelled in duckbook.')
       this.save({ refreshToken: tok.refresh_token, accessToken: tok.access_token, expiresAt: Date.now() + Number(tok.expires_in ?? 0) * 1000, connectedAt: new Date().toISOString() })
       this.log('sync: Google Drive connected')
       page(200, 'duckbook is connected to Google Drive. You can close this tab.')
@@ -204,7 +208,9 @@ export class GoogleDrive {
     if (!force && a.expiresAt - Date.now() > 60_000) return a.accessToken
     const client = readClient(this.dataDir)
     if (!client) throw new GoogleError(409, 'The Google OAuth client is missing.')
+    const signOuts = this.signOuts
     const tok = await this.tokenRequest(client, { grant_type: 'refresh_token', refresh_token: a.refreshToken })
+    if (signOuts !== this.signOuts || !this.account()) throw new GoogleError(409, 'Google Drive is not connected.')
     this.save({ ...a, accessToken: tok.access_token, expiresAt: Date.now() + Number(tok.expires_in ?? 0) * 1000, needsReconnect: false })
     return tok.access_token
   }
@@ -253,9 +259,9 @@ export class GoogleDrive {
         let pageToken: string | undefined
         do {
           const q = `'${folder}' in parents and trashed = false${since ? ` and modifiedTime > '${since}'` : ''}`
-          const params = new URLSearchParams({ q, fields: 'nextPageToken,files(id,name)', pageSize: '1000', spaces: 'drive', ...(pageToken ? { pageToken } : {}) })
+          const params = new URLSearchParams({ q, fields: 'nextPageToken,files(id,name,modifiedTime)', pageSize: '1000', spaces: 'drive', ...(pageToken ? { pageToken } : {}) })
           const page = (await (await this.call(`${ep.driveUrl}/files?${params}`)).json()) as { files?: RemoteFile[]; nextPageToken?: string }
-          out.push(...(page.files ?? []).map((f) => ({ id: f.id, name: f.name })))
+          out.push(...(page.files ?? []).map((f) => ({ id: f.id, name: f.name, modifiedTime: f.modifiedTime })))
           pageToken = page.nextPageToken
         } while (pageToken)
         return out
@@ -276,6 +282,7 @@ export class GoogleDrive {
 
   /** Sign out: revoke the token at Google and forget it here. Files in Drive stay. */
   async disconnect() {
+    this.signOuts++
     this.cancel()
     const a = this.account()
     if (!a) return

@@ -11,25 +11,47 @@ const NOTEBOOK = 'notebook.json'
 const OPS_FILE = /^ops-([0-9a-f]{16})-(\d{12})\.json$/
 const PHOTO_FILE = /^photo-([0-9a-f]{64})\.jpg$/
 const TS = /^\d{13}\.\d{6}\.[0-9a-f]{16}$/
+const FIELD = /^(?:[A-Za-z@][A-Za-z0-9_-]{0,40}|\d{4}-\d{2}-\d{2})$/
 const MAX_OPS_FILE = 50 * 1024 * 1024
-/** Files listed by modification time are re-listed this far back, for clock differences and slow uploads. */
+/**
+ * New files are found by modification time as Drive records it (never this computer's clock),
+ * re-listing this far back for uploads still finishing when the last listing ran.
+ */
 const OVERLAP_MS = 10 * 60_000
 
 export interface SyncConfig { notebookId: string; joinedAt: string }
-export interface SyncState { lastSync: string | null; error: string | null; running: boolean }
+export interface SyncState { lastSync: string | null; error: string | null; warning: string | null; running: boolean }
 export type JoinMode = 'start' | 'replace' | 'merge'
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
+const validSeg = (s: unknown) =>
+  typeof s === 'string' ? FIELD.test(s) : typeof s === 'number' ? Number.isInteger(s) && s >= 0 && s < 1000 : isObj(s) && Object.keys(s).length === 1 && typeof s.id === 'string' && s.id.length > 0 && s.id.length <= 100
+
+/** A leaf value the page shapes can hold at this path: markers where structure goes, plain values elsewhere. */
+function validValue(path: unknown[], v: unknown) {
+  if (path[path.length - 1] === '@order') return Array.isArray(v) && v.length <= 1000 && v.every((x) => typeof x === 'string' && x.length <= 100)
+  if (isObj(v)) {
+    const keys = Object.keys(v).length
+    if (v.$ === 'arr') return keys === 2 && Number.isInteger(v.n) && (v.n as number) >= 0 && (v.n as number) <= 1000 && path.length > 0
+    return keys === 1 && (v.$ === 'obj' || v.$ === 'del' || (v.$ === 'keyed' && path.length > 0))
+  }
+  if (!path.length) return false
+  return v === null || typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v.length <= 200_000)
+}
+
 function validOp(o: unknown): o is Op {
   if (!isObj(o) || typeof o.id !== 'string' || o.id.length > 64 || typeof o.dev !== 'string' || !/^[0-9a-f]{16}$/.test(o.dev)) return false
   if (typeof o.ts !== 'string' || !TS.test(o.ts) || typeof o.key !== 'string' || !parseDocKey(o.key) || typeof o.path !== 'string') return false
+  let path: unknown
   try {
-    if (!Array.isArray(JSON.parse(o.path))) return false
+    path = JSON.parse(o.path)
   } catch {
     return false
   }
-  return (o.kind === 'set' && 'value' in o) || (o.kind === 'text' && typeof o.upd === 'string')
+  if (!Array.isArray(path) || path.length > 8 || !path.every(validSeg)) return false
+  if (o.kind === 'set') return validValue(path, o.value)
+  return o.kind === 'text' && typeof o.upd === 'string' && o.upd.length <= 2_000_000 && path.length > 0
 }
 
 export class SyncRunner {
@@ -39,6 +61,7 @@ export class SyncRunner {
   private running: Promise<void> | null = null
   private again = false
   private error: string | null = null
+  private warning: string | null = null
   private timer: NodeJS.Timeout | null = null
   private nudgeTimer: NodeJS.Timeout | null = null
 
@@ -54,7 +77,7 @@ export class SyncRunner {
   }
 
   state(): SyncState {
-    return { lastSync: this.store.getMeta<string>('sync_last') ?? null, error: this.error, running: !!this.running }
+    return { lastSync: this.store.getMeta<string>('sync_last') ?? null, error: this.error, warning: this.warning, running: !!this.running }
   }
 
   /** Sync every `everyMs` while joined, and shortly after local saves (see nudge). */
@@ -107,6 +130,9 @@ export class SyncRunner {
       notebookId = meta.notebookId
     }
     let backup: string | null = null
+    // This device's own operations must describe every page (some may have come from a notebook
+    // it synced with before), so a new or merged notebook in Drive gets all of them.
+    if (mode !== 'replace') this.store.restartOpLog()
     if (mode === 'replace') {
       // Download everything first; only then replace, in one transaction.
       const all: Op[] = []
@@ -119,6 +145,7 @@ export class SyncRunner {
       this.markApplied(names)
     }
     this.store.setMeta('sync_pushed', mode === 'replace' ? this.store.sync.lastSeq() : 0)
+    this.store.db.prepare('DELETE FROM sync_files WHERE name LIKE ?').run('photo-%')
     this.store.setMeta('sync_config', { notebookId, joinedAt: new Date().toISOString() } satisfies SyncConfig)
     this.store.setMeta('sync_listed', null)
     this.log(`sync: joined (${mode})`)
@@ -168,13 +195,15 @@ export class SyncRunner {
 
   private async once() {
     const remote = await this.need()
-    const startedAt = Date.now()
     const listedAt = this.store.getMeta<string>('sync_listed')
     const files = await remote.list(listedAt ? new Date(Date.parse(listedAt) - OVERLAP_MS).toISOString() : undefined)
+    // Photos first, so no other device ever reads a page whose photo isn't in Drive yet.
+    const all = await this.sendPhotos(remote)
     await this.push(remote)
     await this.pull(remote, files)
-    await this.photos(remote)
-    this.store.setMeta('sync_listed', new Date(startedAt).toISOString())
+    await this.fetchPhotos(remote, all)
+    const newest = files.reduce((m, f) => (f.modifiedTime && f.modifiedTime > m ? f.modifiedTime : m), listedAt ?? '')
+    if (newest) this.store.setMeta('sync_listed', newest)
   }
 
   private async push(remote: Remote) {
@@ -222,31 +251,45 @@ export class SyncRunner {
     }
   }
 
-  private async photos(remote: Remote) {
-    const refs = photoRefs(this.store.allDocs())
-    if (!refs.size) return
+  private photoWork() {
+    const refs = [...photoRefs(this.store.allDocs())]
     const sent = new Set((this.store.db.prepare('SELECT name FROM sync_files WHERE name LIKE ?').all('photo-%') as { name: string }[]).map((r) => r.name))
-    const missingHere = [...refs].filter((id) => !this.store.readPhoto(id))
-    const toSend = [...refs].filter((id) => !sent.has(`photo-${id}.jpg`) && this.store.readPhoto(id))
-    if (!missingHere.length && !toSend.length) return
-    // Photos may predate the last listing, so look at everything when there is work to do.
+    return { toSend: refs.filter((id) => !sent.has(`photo-${id}.jpg`) && this.store.readPhoto(id)), missing: refs.filter((id) => !this.store.readPhoto(id)) }
+  }
+
+  /** Upload this device's photos that Drive doesn't have. Returns the full listing if it needed one. */
+  private async sendPhotos(remote: Remote): Promise<RemoteFile[] | null> {
+    const { toSend, missing } = this.photoWork()
+    if (!toSend.length && !missing.length) return null
+    // Photos may predate the last listing, so look at everything when there is photo work.
     const all = await remote.list()
-    const there = new Map(all.filter((f) => PHOTO_FILE.test(f.name)).map((f) => [f.name, f]))
+    const there = new Set(all.map((f) => f.name))
     for (const id of toSend) {
       const name = `photo-${id}.jpg`
       if (!there.has(name)) await remote.create(name, this.store.readPhoto(id)!, 'image/jpeg')
       this.markApplied([name])
     }
-    for (const id of missingHere) {
+    return all
+  }
+
+  /** Download photos the pages need. Ones Drive doesn't have (yet) or has damaged are reported and retried next time. */
+  private async fetchPhotos(remote: Remote, listed: RemoteFile[] | null) {
+    const { missing } = this.photoWork()
+    this.warning = null
+    if (!missing.length) return
+    const all = listed ?? (await remote.list())
+    const there = new Map(all.filter((f) => PHOTO_FILE.test(f.name)).map((f) => [f.name, f]))
+    let lacking = 0
+    for (const id of missing) {
       const f = there.get(`photo-${id}.jpg`)
-      if (!f) continue
-      const bytes = await remote.read(f)
-      if (createHash('sha256').update(bytes).digest('hex') !== id) {
-        this.log(`sync: photo ${id.slice(0, 8)} in Drive is damaged; skipped`)
+      const bytes = f ? await remote.read(f) : null
+      if (!bytes || createHash('sha256').update(bytes).digest('hex') !== id) {
+        if (bytes) this.log(`sync: photo ${id.slice(0, 8)} in Drive is damaged`)
+        lacking++
         continue
       }
       this.store.savePhoto(bytes)
-      this.markApplied([f.name])
     }
+    if (lacking) this.warning = `${lacking} photo${lacking > 1 ? 's' : ''} not in Drive yet`
   }
 }

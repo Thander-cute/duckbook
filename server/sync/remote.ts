@@ -4,7 +4,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-export interface RemoteFile { id: string; name: string }
+/** `modifiedTime` is the store's own clock (ISO), never this computer's. */
+export interface RemoteFile { id: string; name: string; modifiedTime?: string }
 
 export interface Remote {
   /** Files in the notebook folder, optionally only those added since a time (ISO). */
@@ -25,8 +26,9 @@ export class FolderRemote implements Remote {
     const after = since ? Date.parse(since) : 0
     return fs
       .readdirSync(this.dir)
-      .filter((name) => !name.endsWith('.tmp') && fs.statSync(path.join(this.dir, name)).mtimeMs >= after)
-      .map((name) => ({ id: name, name }))
+      .map((name) => ({ name, mtime: fs.statSync(path.join(this.dir, name)).mtimeMs }))
+      .filter((f) => !f.name.endsWith('.tmp') && f.mtime > after)
+      .map((f) => ({ id: f.name, name: f.name, modifiedTime: new Date(f.mtime).toISOString() }))
   }
 
   async read(file: RemoteFile) {

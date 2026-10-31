@@ -244,9 +244,14 @@ export async function flush(force = false): Promise<boolean> {
         }
         // If the tab locked while this was in flight, the parked copy is either this exact edit
         // (now saved) or a newer one whose base is now our own save.
+        // If the server merged, a newer parked copy gets the merge laid under it, or its resend
+        // would undo what came from elsewhere.
         const p = parked.find((x) => x.key === c.key)
         if (p && p.value === c.value) parked = parked.filter((x) => x !== p)
-        else if (p) p.baseRev = next[c.key]
+        else if (p) {
+          if (c.key in merged) p.value = rebaseDoc(c.value, p.value, merged[c.key])
+          p.baseRev = next[c.key]
+        }
         if (!isUnlocked()) continue
         revs.set(c.key, next[c.key])
         savedRefs.set(c.key, c.value)
