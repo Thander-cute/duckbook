@@ -29,6 +29,7 @@ try {
     assert.equal(r.status, 200, p)
     assert.match(r.headers.get('content-type')!, /text\/html/)
     assert.match(r.headers.get('content-security-policy')!, /default-src 'none'/)
+    assert.match(r.headers.get('cache-control')!, /\bno-transform\b/, `${p} forbids proxies injecting scripts`)
     const html = await r.text()
     assert.ok(html.includes(`<title>${title}</title>`), p)
     assert.ok(html.includes('href="mailto:ndkhoa1000@gmail.com"'), `${p} has the contact`)
@@ -51,6 +52,7 @@ try {
   assert.equal((await head.text()).length, 0)
   const font = await get('/fonts/newsreader-latin-400-normal.woff2')
   assert.equal(font.headers.get('content-type'), 'font/woff2')
+  assert.match(font.headers.get('cache-control')!, /\bno-transform\b/)
   assert.deepEqual(Buffer.from(await font.arrayBuffer()), fs.readFileSync(new URL('../site/public/fonts/newsreader-latin-400-normal.woff2', import.meta.url)))
   console.log('ok - worker serves pages, assets, redirects, 404 and refuses other methods')
 

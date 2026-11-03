@@ -76,7 +76,8 @@ export default {
     const file = FILES[key]
     const found = !!file && !key.endsWith('/404.html')
     const f = found ? file : FILES['/404.html']
-    const cache = f.type.startsWith('text/html') ? 'public, max-age=300' : 'public, max-age=86400'
+    // no-transform: keeps Cloudflare from injecting its analytics beacon, which the CSP would block.
+    const cache = f.type.startsWith('text/html') ? 'public, max-age=300, no-transform' : 'public, max-age=86400, no-transform'
     return new Response(request.method === 'HEAD' ? null : body(f), { status: found ? 200 : 404, headers: { 'Content-Type': f.type, 'Cache-Control': cache, ...SECURITY } })
   },
 }
