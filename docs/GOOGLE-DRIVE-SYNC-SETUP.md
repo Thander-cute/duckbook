@@ -39,4 +39,16 @@ Gỡ quyền: Settings → Data → Stop syncing → Stop and sign out, hoặc <
 
 Mã nguồn ở `site/public`. Chạy `npm run site:build`, kết quả nằm ở `site/dist/public` (file tĩnh) và `site/dist/worker.js` (một Cloudflare Worker module chứa sẵn mọi file). Kiểm tra bằng `npm run test:site`. Email liên hệ khai báo trong `site/build.ts`. Trang web không có đăng nhập và không nối tới sổ nào.
 
-Triển khai: Cloudflare Worker `duckbook-public` (do Supervisor đẩy lên), gắn custom domain `duckbook.khoadev.id.vn`. Mã Worker và phiên bản sẽ ghi vào đây sau khi trang đã chạy công khai.
+### Đã triển khai (2026-11-03)
+
+- URL: <https://duckbook.khoadev.id.vn/>, <https://duckbook.khoadev.id.vn/privacy>, <https://duckbook.khoadev.id.vn/terms>.
+- Cloudflare Worker `duckbook-public`, do Supervisor đẩy lên. Thông số:
+  - deployment `010eeb82d54440b3b862aa076df4361c`, tag `efd18f92039040269d4becb074a0b6b3`;
+  - custom domain id `e7602e6258bb99572f4cf802d1a2cc4d21575c6d`, zone `c4fe22faadde3692f94edda84a1eb426`;
+  - observability và logpush đều tắt.
+- Artifact: `site/dist/worker.js` build từ commit `4f1dc8f`, 176 610 byte, sha256 `9a637ed2654429f1b94131d487ad80ec7aa3ca07731cec4f8dd73900c85c9774`.
+- Kiểm tra:
+  - Trước khi đẩy: `npm run test:site` qua, tức là route, header, asset và Chrome ở 1280/390 px đều ổn.
+  - Sau khi đẩy: HTTPS trả 200 cho `/`, `/privacy`, `/terms`, `/styles.css`, `/icon.png`; `/oauth/callback` trả 404, đúng như ý vì app không dùng callback trên web.
+- Chưa làm (cần chủ project đăng nhập Google): xác minh domain trong Search Console (Google cấp mã TXT), điền Branding, rồi Publish app. Agent không có quyền vào Google Console và không có mã xác minh.
+- Muốn đổi nội dung thì sửa `site/public`, chạy `npm run site:build` và `npm run test:site`, rồi đẩy lại `site/dist/worker.js`.
