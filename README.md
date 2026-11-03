@@ -3,6 +3,11 @@
 A minimalist planner after *The Present Day Planner* (The Present Writer), for personal single-user use on this computer.
 See [IDEA.md](IDEA.md) for the product idea, [docs/DECISIONS.md](docs/DECISIONS.md) for what is decided, and [docs/DATA-AND-PRIVACY.md](docs/DATA-AND-PRIVACY.md) for where data lives and what the PIN lock does.
 
+Current private beta: **0.1.0-beta.1**. Download the Windows installer or unpacked
+app from [GitHub Releases](https://github.com/Thander-cute/duckbook/releases/tag/v0.1.0-beta.1).
+Read the [beta notes and recovery limitations](docs/releases/0.1.0-beta.1.md)
+before using it with an existing notebook. Repository access is required.
+
 ## Use
 
 Double-click **`Duckbook.cmd`**. It starts a small background server (once) and opens **http://localhost:5317** in your default browser.
