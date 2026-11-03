@@ -3757,3 +3757,10 @@ details.path p {
 .sync-msg {
   padding: 10px 0 0;
 }
+.sync-links {
+  margin: 0;
+  padding: 10px 0 0;
+}
+.sync-links a {
+  color: inherit;
+}

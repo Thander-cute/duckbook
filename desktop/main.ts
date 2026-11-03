@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defaultDataDir } from '../server/paths.ts'
+import { opensOutside } from './links.ts'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const port = Number(process.env.DUCKBOOK_DESKTOP_PORT ?? 5327)
@@ -87,9 +88,8 @@ async function boot() {
   let bounds = { width: 1440, height: 940 }
   try { bounds = { ...bounds, ...JSON.parse(fs.readFileSync(boundsFile, 'utf8')) } } catch {}
   window = new BrowserWindow({ ...bounds, minWidth: 900, minHeight: 650, title: 'Duckbook', autoHideMenuBar: true, webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false } })
-  // Only Google's sign-in page (Drive sync, Calendar add-on) may leave the app, and only into the system browser.
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https://accounts.google.com/')) void shell.openExternal(url)
+    if (opensOutside(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
   window.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== origin) event.preventDefault() })

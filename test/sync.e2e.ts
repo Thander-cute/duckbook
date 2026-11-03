@@ -61,6 +61,8 @@ async function main() {
     const connect = async (page: Page) => {
       await openData(page)
       await shot(page, `sync-00-${page.url().includes('5397') ? 'a' : 'b'}-off`)
+      const links = await page.$$eval('.sync-links a', (as) => as.map((a) => [a.textContent, (a as HTMLAnchorElement).href, (a as HTMLAnchorElement).target]))
+      assert.deepEqual(links, [['Privacy policy', 'https://duckbook.khoadev.id.vn/privacy', '_blank'], ['Terms', 'https://duckbook.khoadev.id.vn/terms', '_blank']])
       await button(page, 'Connect')
       const url = await page.waitForFunction(() => (window as unknown as { authUrl?: string }).authUrl).then((h) => h.jsonValue() as Promise<string>)
       await page.waitForSelector('xpath/.//p[contains(., "Finish signing in")]')

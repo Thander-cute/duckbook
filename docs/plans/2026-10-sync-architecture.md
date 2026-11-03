@@ -1,6 +1,6 @@
 # Slice plan: sync through Google Drive (desktop + local web)
 
-**Status:** slices 0–3 built on `feat/sync` (owner: "code được nhanh thì làm luôn đi", 2026-10-30). Owner tried two dev notebooks with real Google Drive (Testing mode): "work khá tốt". Slice 4 (encrypted) not started.
+**Status:** slices 0–3 built on `feat/sync`, shipped in desktop 0.1.0-beta.2 (local build, 2026-11-03) (owner: "code được nhanh thì làm luôn đi", 2026-10-30). Owner tried two dev notebooks with real Google Drive (Testing mode): "work khá tốt". Slice 4 (encrypted) not started.
 **Decision link:** `docs/DECISIONS.md`, 2026-10-28 and 2026-10-30.
 
 ## Why (owner)
@@ -87,7 +87,7 @@ Tests use a fake Drive (as Calendar uses a fake Google) and synthetic notebooks.
 
 ## Owner to-do (remind the owner)
 
-- [ ] Google client to **In production** (asked 2026-10-31, "rảnh nhắc t làm sau"). On 2026-11-03 the owner chose to publish a homepage, privacy policy and terms at `https://duckbook.khoadev.id.vn` (source `site/`). Remaining owner steps, in `docs/GOOGLE-DRIVE-SYNC-SETUP.md`: verify `khoadev.id.vn` in Search Console, fill Branding with the three URLs, then Audience → Publish app. Until then the client is in Testing: only listed test users can sign in, and sign-in expires after 7 days.
+- [x] Google client to **In production**: owner reported done on 2026-11-03 ("coi như cái duckbook phần google drive xong rồi"). Public pages at `https://duckbook.khoadev.id.vn` (source `site/`). Not independently checked: agents have no Google Console access.
 
 ## Out
 

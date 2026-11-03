@@ -35,3 +35,4 @@ npm run test:browser   # puppeteer-core + local Chrome, throwaway server on :539
 - Match the surrounding code: small files, few comments, no new dependency without a reason.
 - Commits are small and imperative ("Add focus map grid"). Use branches for anything larger than one sitting. `main` must always build.
 - Verify UI changes in a browser, not just with a typecheck.
+- Keep your own test runs focused on what you changed. Broad regression and packaged-app checks go to a separate test agent (owner, 2026-11-03).

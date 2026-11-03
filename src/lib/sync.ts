@@ -5,6 +5,9 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { api } from './api'
 import { refresh } from './store'
 
+/** Duckbook's public pages: homepage, privacy policy and terms for Google sign-in. */
+export const SITE = 'https://duckbook.khoadev.id.vn'
+
 export interface SyncStatus {
   google: { configured: boolean; connected: boolean; needsReconnect: boolean; connecting: boolean; connectError: string | null }
   joined: { notebookId: string; joinedAt: string } | null

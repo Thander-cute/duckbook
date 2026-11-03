@@ -12,7 +12,7 @@ import { resetTour } from '../lib/tour'
 import { HabitMark } from './HabitMark'
 import { Stepper } from './ui'
 import { setDefaultView, useDefaultView, type TimerView } from '../lib/timer'
-import { loadSync, syncAction, syncNow, useSync } from '../lib/sync'
+import { SITE, loadSync, syncAction, syncNow, useSync } from '../lib/sync'
 
 interface Backup { file: string; kind: string; createdAt: string; docs: number; bytes: number; verified: boolean }
 
@@ -469,6 +469,18 @@ function SyncSection() {
         </Row>
       )}
       {msg && <p className="small setting-msg sync-msg">{msg}</p>}
+      {g.configured && (
+        <p className="small muted sync-links">
+          How duckbook uses Google:{' '}
+          <a href={`${SITE}/privacy`} target="_blank" rel="noopener noreferrer">
+            Privacy policy
+          </a>{' '}
+          ·{' '}
+          <a href={`${SITE}/terms`} target="_blank" rel="noopener noreferrer">
+            Terms
+          </a>
+        </p>
+      )}
     </div>
   )
 }

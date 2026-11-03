@@ -12,6 +12,7 @@ const origin = `http://127.0.0.1:${port}`
 const dev = process.argv.includes('--dev')
 const exe = path.resolve(dev ? 'node_modules/electron/dist/electron.exe' : 'release/win-unpacked/Duckbook.exe')
 const env: NodeJS.ProcessEnv = { ...process.env, DUCKBOOK_DESKTOP_DATA_DIR: path.join(temp, 'notebook'), DUCKBOOK_WEB_DATA_DIR: path.join(temp, 'absent-web'), DUCKBOOK_WEB_PORT: '5396', DUCKBOOK_DESKTOP_PORT: String(port), DUCKBOOK_DATA_DIR: path.join(temp, 'forbidden-web-default'), DUCKBOOK_PORT: '5394', PATH: process.env.SystemRoot ?? 'C:\\Windows' }
+for (const key of Object.keys(env)) if (key.startsWith('DUCKBOOK_GOOGLE')) delete env[key]
 delete env.ELECTRON_RUN_AS_NODE
 let child: ChildProcess | undefined
 let browser: Browser | undefined
@@ -82,6 +83,16 @@ try {
   assert.equal(await page.evaluate(async () => (await (await fetch('/api/health', { headers: { 'X-Duckbook': '1' } })).json()).pid), health.pid)
   await page.waitForFunction(() => document.hasFocus())
   console.log('ok - Electron opens notebook with isolated renderer, token gate, single instance, and PATH without Node')
+  // The Google client must come from the build itself: no env override and no file in the notebook folder.
+  assert.deepEqual(Object.keys(env).filter((k) => k.startsWith('DUCKBOOK_GOOGLE')), [])
+  assert.equal(fs.readdirSync(env.DUCKBOOK_DESKTOP_DATA_DIR!).filter((f) => /google[-_]client/.test(f)).length, 0)
+  const sync = await page.evaluate(async () => (await (await fetch('/api/sync', { headers: { 'X-Duckbook': '1' } })).json()) as { google: { configured: boolean; connected: boolean }; joined: unknown })
+  assert.deepEqual([sync.google.configured, sync.google.connected, sync.joined], [true, false, null])
+  const windows = (await browser.pages()).length
+  assert.equal(await page.evaluate(() => window.open('https://example.com/', '_blank', 'noopener') === null), true)
+  await sleep(500)
+  assert.equal((await browser.pages()).length, windows, 'other sites open nowhere')
+  console.log('ok - Google client built in, sync off until connected, other sites cannot open a window')
   await page.type('.day-page .line textarea', 'synthetic desktop durable save')
   await page.waitForSelector('[data-save="saved"]')
   await page.evaluate(() => localStorage.setItem('duckbook:paper', 'cream'))
