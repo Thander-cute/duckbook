@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy policy · Duckbook</title>
+    <meta name="description" content="How the Duckbook app handles your notebook and Google Drive data, and what this website records." />
+    <link rel="icon" href="/icon.png" type="image/png" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="sheet">
+      <header class="top">
+        <a class="brand" href="/"><img src="/icon.png" alt="" width="34" height="34" />duckbook</a>
+        <nav aria-label="Site">
+          <a href="/">Home</a>
+          <a href="/privacy" aria-current="page">Privacy</a>
+          <a href="/terms">Terms</a>
+        </nav>
+      </header>
+
+      <main id="main">
+        <h1>Privacy policy</h1>
+        <p class="meta">Effective 3 November 2026</p>
+
+        <div class="note">
+          <p><strong>In short:</strong> Duckbook keeps your notebook on your own computer. If you turn on sync, it is copied to a folder in your own Google Drive, directly from your computer. The developer runs no server for the app and never receives your notebook, your Google data or your sign-in.</p>
+        </div>
+
+        <p>This policy covers the Duckbook planner app (the Windows desktop app and the local browser version) and this website. “We” means the developer of Duckbook, reachable at <!--CONTACT-->.</p>
+
+        <h2>The app on your computer</h2>
+        <p>Everything you write in Duckbook (tasks, journal lines, reflections, ideas, settings) and the day photos you add are saved on your computer, in Duckbook’s data folder. The app also keeps automatic backups there and a log of events such as start-up, backups and imports, which does not contain notebook text.</p>
+        <p>The app has no Duckbook account, no analytics or telemetry, no advertising and no AI features. It does not contact any server other than Google’s, and only when you turn on sync. Fonts are built into the app.</p>
+        <p>The optional PIN lock hides the notebook on screen and blocks the app from showing it until the PIN is entered. It is an access lock, not encryption: files in the data folder are readable by anyone who can open your computer account.</p>
+
+        <h2>Google user data</h2>
+        <p>Sync is optional and off until you connect a Google account in <strong>Settings → Data → Sync with Google Drive</strong>.</p>
+
+        <h3>What Duckbook accesses</h3>
+        <ul>
+          <li>Duckbook requests a single permission, <code>https://www.googleapis.com/auth/drive.file</code>. With it, the app can see, create and change only files that Duckbook itself created in your Google Drive. It cannot see your other files and folders.</li>
+          <li>It does not request your name, email address, contacts, calendar or any other Google data.</li>
+        </ul>
+
+        <h3>How Duckbook uses it</h3>
+        <ul>
+          <li>It creates a folder named <strong>Duckbook Sync</strong> in your Drive and writes your notebook there: a file describing the notebook, small files with the changes made on each of your computers, and your day photos as JPEG files.</li>
+          <li>It reads those same files back so that each of your computers shows the same pages.</li>
+          <li>That is the only use. Your Google data is not used for advertising, is not sold, and is not used to train AI or machine-learning models.</li>
+        </ul>
+
+        <h3>Where it goes and who can see it</h3>
+        <ul>
+          <li>Data travels only between your computer and Google, over HTTPS. There is no Duckbook server in between, and nothing is sent to the developer or any other party.</li>
+          <li>The files in Drive are stored by Google under your account and Google’s own privacy policy. Duckbook does not encrypt them: anyone with access to that Google account can read them. An encrypted option is planned but not available yet.</li>
+          <li>To stay signed in, the app keeps the access and refresh tokens Google issues in a file named <code>sync-google.json</code> in Duckbook’s data folder on your computer. This file is not encrypted, is not part of Duckbook backups, and is never uploaded.</li>
+        </ul>
+
+        <h3>Limited Use</h3>
+        <p>Duckbook’s use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+        <h2>Stopping sync and deleting your data</h2>
+        <p>Because your data lives on your computer and in your own Drive, you control it directly. The developer holds no copy to delete.</p>
+        <ul>
+          <li><strong>Stop syncing:</strong> in Duckbook, choose <strong>Settings → Data → Stop syncing → Stop and sign out</strong>. The app asks Google to revoke its access and deletes <code>sync-google.json</code> from your computer. Files already in Drive stay there.</li>
+          <li><strong>Make sure access is revoked:</strong> if you were offline when signing out, or no longer have the app, remove Duckbook at <a href="https://myaccount.google.com/permissions">Google Account → Third-party connections</a>.</li>
+          <li><strong>Delete the copy in Drive:</strong> delete the <strong>Duckbook Sync</strong> folder in Google Drive and empty the Drive trash.</li>
+          <li><strong>Delete the copy on your computer:</strong> delete Duckbook’s data folder (for the browser version, <code>%LOCALAPPDATA%\Duckbook</code>; for the desktop app, <code>%APPDATA%\Duckbook</code>, which holds the <code>notebook</code> folder). Uninstalling the app does not delete this folder.</li>
+        </ul>
+
+        <h2>How long data is kept</h2>
+        <p>Your notebook, its backups and photos stay on your computer, and the synced copy stays in your Google Drive, until you delete them as described above. Uninstalling the app or signing out of Google does not delete either copy. If you email us, we keep your message only as long as needed to answer it.</p>
+
+        <h2>This website</h2>
+        <p>This website is a set of static pages hosted on Cloudflare. It has no sign-in, and the pages themselves set no cookies and use no analytics or tracking. Like any web host, Cloudflare processes technical request data such as your IP address, browser type and the page requested, and may set security cookies, in order to deliver the pages and protect the site from abuse, under <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare’s privacy policy</a>.</p>
+
+        <h2>Children</h2>
+        <p>Duckbook is not directed at children under 13.</p>
+
+        <h2>Changes</h2>
+        <p>If this policy changes, the new version will be posted on this page with a new effective date. Changes to how Google user data is used will be described here before the app uses data in a new way.</p>
+
+        <h2>Contact</h2>
+        <p>Questions about this policy or your data: <!--CONTACT-->.</p>
+      </main>
+
+      <footer>
+        <a href="/">Duckbook</a>
+        <a href="/privacy" aria-current="page">Privacy policy</a>
+        <a href="/terms">Terms of use</a>
+        <span>Contact: <!--CONTACT--></span>
+      </footer>
+    </div>
+  </body>
+</html>

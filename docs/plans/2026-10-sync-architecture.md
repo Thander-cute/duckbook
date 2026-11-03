@@ -87,7 +87,7 @@ Tests use a fake Drive (as Calendar uses a fake Google) and synthetic notebooks.
 
 ## Owner to-do (remind the owner)
 
-- [ ] Google client to **In production** (asked 2026-10-31, "rảnh nhắc t làm sau"): Google Auth Platform → Branding → remove the logo (a logo requires app verification with domains and a privacy policy), then Audience → Publish app. Until then the client is in Testing: only listed test users can sign in, and sign-in expires after 7 days.
+- [ ] Google client to **In production** (asked 2026-10-31, "rảnh nhắc t làm sau"). On 2026-11-03 the owner chose to publish a homepage, privacy policy and terms at `https://duckbook.khoadev.id.vn` (source `site/`). Remaining owner steps, in `docs/GOOGLE-DRIVE-SYNC-SETUP.md`: verify `khoadev.id.vn` in Search Console, fill Branding with the three URLs, then Audience → Publish app. Until then the client is in Testing: only listed test users can sign in, and sign-in expires after 7 days.
 
 ## Out
 

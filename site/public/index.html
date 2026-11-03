@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Duckbook: a personal paper-style planner</title>
+    <meta name="description" content="Duckbook is a personal planner app for Windows and the local browser. Pages stay on your computer; optional sync goes to a folder in your own Google Drive." />
+    <link rel="icon" href="/icon.png" type="image/png" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="home">
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="wide">
+      <header class="top">
+        <a class="brand" href="/"><img src="/icon.png" alt="" width="34" height="34" />duckbook</a>
+        <nav aria-label="Site">
+          <a href="/" aria-current="page">Home</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+        </nav>
+      </header>
+
+      <main id="main">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-text">
+            <p class="kicker">A personal planner</p>
+            <h1 id="hero-title">A planner that feels <span class="hand">like paper</span></h1>
+            <p class="lede">Month, week and day pages in pale-blue ink, after <em>The Present Day Planner</em>. Plan the day, look back on the week, and keep it all on your own computer.</p>
+            <ul class="facts">
+              <li>Runs on your computer</li>
+              <li>No account</li>
+              <li>Optional sync to your own Google Drive</li>
+            </ul>
+          </div>
+
+          <figure class="mock">
+            <div class="mock-stack" aria-hidden="true">
+              <div class="paper paper-back"></div>
+              <div class="paper paper-front">
+                <div class="mock-head">
+                  <span class="mock-day">Tuesday</span>
+                  <span class="mock-date">28 October</span>
+                </div>
+                <p class="mock-label">Tasks of the day</p>
+                <ul class="mock-tasks">
+                  <li class="done"><span class="box"></span><span class="t">Draft the chapter outline</span><span class="pomos"><i class="on"></i><i class="on"></i><i class="on"></i></span></li>
+                  <li><span class="box"></span><span class="t">Return the library books</span><span class="pomos"><i class="on"></i></span></li>
+                  <li><span class="box"></span><span class="t">Walk before dinner</span><span class="pomos"><i></i><i></i></span></li>
+                </ul>
+                <p class="mock-label">Today I am grateful for:</p>
+                <p class="mock-line">slow coffee and a quiet morning</p>
+                <p class="mock-label">My day in one sentence:</p>
+                <p class="mock-line">Small steps, but the outline is done.</p>
+              </div>
+            </div>
+            <figcaption>An example day page, with made-up text.</figcaption>
+          </figure>
+        </section>
+
+        <section class="band" aria-labelledby="pages-title">
+          <h2 id="pages-title">Five kinds of pages</h2>
+          <ul class="pages">
+            <li><strong>Month</strong>A theme, goals and a calendar with room to note each day.</li>
+            <li><strong>Week</strong>Tasks of the week, an urgent/important grid and a habit tracker.</li>
+            <li><strong>Day</strong>Tasks with pomodoro estimates, gratitude, your day in one sentence and up to three photos.</li>
+            <li><strong>Reflect</strong>Look back on the week in seven sentences, and on the month.</li>
+            <li><strong>Focus</strong>Place ideas on an impact and difficulty map, then plan them into weeks.</li>
+          </ul>
+        </section>
+
+        <section class="split">
+          <div>
+            <h2>Your pages stay on your computer</h2>
+            <p>Duckbook is an app you run yourself: a Windows desktop app, or the same notebook in a browser, served by a small program that only listens on your own computer. There is no Duckbook account and no Duckbook server on the internet.</p>
+            <p>Pages, photos and automatic backups are saved in a folder on your device. This website only describes the app: you cannot sign in here, and it holds no one’s notebook.</p>
+          </div>
+
+          <div>
+            <h2>Optional sync through your Google Drive</h2>
+            <p>To use the same notebook on more than one computer, connect your Google account in <strong>Settings → Data → Sync with Google Drive</strong>. Sync is off until you do.</p>
+            <svg class="flow" viewBox="0 0 360 110" role="img" aria-labelledby="flow-title">
+              <title id="flow-title">Each computer exchanges files directly with a Duckbook Sync folder in your Google Drive. There is no Duckbook server in between.</title>
+              <g class="flow-line">
+                <path d="M108 28 C168 28 172 46 232 46" />
+                <path d="M108 82 C168 82 172 64 232 64" />
+              </g>
+              <g class="flow-box">
+                <rect x="4" y="8" width="104" height="40" rx="6" />
+                <rect x="4" y="62" width="104" height="40" rx="6" />
+                <rect x="232" y="28" width="124" height="54" rx="6" class="drive" />
+              </g>
+              <g class="flow-text">
+                <text x="56" y="33">Computer 1</text>
+                <text x="56" y="87">Computer 2</text>
+                <text x="294" y="51">Your Google Drive</text>
+                <text x="294" y="69" class="sub">Duckbook Sync</text>
+              </g>
+            </svg>
+          </div>
+        </section>
+
+        <section class="band" aria-labelledby="google-title">
+          <h2 id="google-title">What Duckbook does with Google</h2>
+          <ul class="cards">
+            <li>
+              <h3>One narrow permission</h3>
+              <p>Duckbook asks only for <code>drive.file</code>: it can see and change the files it created, not the rest of your Drive. It does not ask for your name or email.</p>
+            </li>
+            <li>
+              <h3>Straight to your Drive</h3>
+              <p>Pages and day photos go into a visible <strong>Duckbook Sync</strong> folder. Each computer talks to Google directly; the developer never receives them.</p>
+            </li>
+            <li>
+              <h3>Not encrypted yet</h3>
+              <p>Synced files are readable by anyone who can open that Google account. An encrypted option is planned but not available yet.</p>
+            </li>
+            <li>
+              <h3>Easy to stop</h3>
+              <p><strong>Stop syncing → Stop and sign out</strong> asks Google to revoke access and removes the sign-in from your computer. If you are offline, use <a href="https://myaccount.google.com/permissions">Google Account → Third-party connections</a>.</p>
+            </li>
+          </ul>
+          <p class="more">The details are in the <a href="/privacy">privacy policy</a> and the <a href="/terms">terms of use</a>.</p>
+        </section>
+
+        <aside class="note">
+          <p><span class="hand">A personal project.</span> Duckbook is built by one person for their own use. It is not offered as a public download or a hosted service.</p>
+        </aside>
+      </main>
+
+      <footer>
+        <span>Duckbook</span>
+        <a href="/privacy">Privacy policy</a>
+        <a href="/terms">Terms of use</a>
+        <span>Contact: <!--CONTACT--></span>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,567 @@
+/* duckbook public pages: the app's pale-blue ink on white paper */
+
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/newsreader-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('/fonts/newsreader-latin-400-italic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/newsreader-latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Dancing Script';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/dancing-script-latin-400-normal.woff2') format('woff2');
+}
+
+:root {
+  --desk: #eef1f8;
+  --paper: #ffffff;
+  --ink: #26346b;
+  --ink-soft: #55628f;
+  --muted: #6c789f;
+  --rule: #c9d2ea;
+  --rule-soft: #e2e7f4;
+  --tint: #e6ebf7;
+  --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --hand: 'Dancing Script', 'Segoe Script', cursive;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 32px 16px 48px;
+}
+
+a {
+  color: var(--ink);
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+a:hover {
+  text-decoration-color: var(--ink);
+}
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+.skip:focus {
+  left: 16px;
+  top: 12px;
+  background: var(--paper);
+  padding: 6px 12px;
+}
+
+.sheet {
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(38, 52, 107, 0.05), 0 12px 32px rgba(38, 52, 107, 0.07);
+  padding: 28px clamp(20px, 6vw, 64px) 40px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--hand);
+  font-size: 1.7rem;
+  text-decoration: none;
+}
+.brand img {
+  width: 34px;
+  height: 34px;
+}
+.top nav {
+  display: flex;
+  gap: 18px;
+  font-size: 0.95rem;
+}
+.top nav a[aria-current='page'] {
+  text-decoration-color: var(--ink);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  line-height: 1.25;
+}
+h1 {
+  font-size: 2.1rem;
+  margin: 36px 0 8px;
+}
+h2 {
+  font-size: 1.3rem;
+  margin: 40px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+h3 {
+  font-size: 1.05rem;
+  margin: 24px 0 4px;
+}
+
+.lede {
+  font-size: 1.2rem;
+  color: var(--ink-soft);
+  margin-top: 0;
+}
+.hand {
+  font-family: var(--hand);
+  font-size: 1.35em;
+  line-height: 1;
+}
+.meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+ul {
+  padding-left: 1.2em;
+}
+li + li {
+  margin-top: 4px;
+}
+
+.note {
+  margin: 24px 0;
+  padding: 14px 18px;
+  background: var(--tint);
+  border-left: 3px solid var(--ink-soft);
+  border-radius: 0 4px 4px 0;
+}
+.note p {
+  margin: 0;
+}
+.note p + p {
+  margin-top: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  margin: 12px 0;
+}
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+th {
+  font-weight: 600;
+}
+
+code {
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 0.85em;
+  background: var(--tint);
+  padding: 1px 5px;
+  border-radius: 3px;
+  overflow-wrap: anywhere;
+}
+
+footer {
+  margin-top: 48px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+footer a {
+  color: var(--ink-soft);
+}
+
+/* ───────── homepage ───────── */
+
+.wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 clamp(4px, 2vw, 16px);
+}
+.home .top {
+  border-bottom: 0;
+}
+.home main > section,
+.home main > aside {
+  margin-top: 64px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 48px;
+  align-items: center;
+  margin-top: 32px !important;
+}
+.kicker {
+  margin: 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.hero h1 {
+  font-size: clamp(2.3rem, 5vw, 3.4rem);
+  line-height: 1.1;
+  margin: 10px 0 18px;
+}
+.hero h1 .hand {
+  display: inline-block;
+  font-weight: 400;
+  font-size: 1.15em;
+  color: var(--ink-soft);
+}
+.hero .lede {
+  max-width: 30em;
+}
+.facts {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.facts li {
+  margin: 0;
+  padding: 4px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.9rem;
+}
+
+/* A day page drawn in HTML: dot-grid paper on a second sheet */
+.mock {
+  margin: 0;
+}
+.mock-stack {
+  position: relative;
+  padding: 18px 18px 18px 6px;
+}
+.paper {
+  background-color: var(--paper);
+  background-image: radial-gradient(circle, var(--rule) 1px, transparent 1.4px);
+  background-size: 24px 24px;
+  background-position: 12px 12px;
+  border: 1px solid var(--rule-soft);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(38, 52, 107, 0.06), 0 18px 40px rgba(38, 52, 107, 0.12);
+}
+.paper-back {
+  position: absolute;
+  inset: 0 0 36px 30px;
+  transform: rotate(3deg);
+  background-image: none;
+  background: #f7f9fd;
+}
+.paper-front {
+  position: relative;
+  transform: rotate(-1.2deg);
+  padding: 26px 30px 28px;
+}
+.mock-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  border-bottom: 1.5px solid var(--ink);
+}
+.mock-day {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+.mock-date {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.mock-label {
+  margin: 16px 0 4px;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.mock-tasks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.mock-tasks li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.mock-tasks .t {
+  flex: 1;
+}
+.box {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border: 1.5px solid var(--ink-soft);
+  border-radius: 3px;
+}
+.mock-tasks .done .box {
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 2.5px var(--paper);
+}
+.mock-tasks .done .t {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--rule);
+}
+.pomos {
+  display: flex;
+  gap: 4px;
+}
+.pomos i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.2px solid var(--muted);
+}
+.pomos i.on {
+  background: var(--ink-soft);
+  border-color: var(--ink-soft);
+}
+.mock-line {
+  margin: 0;
+  padding: 0 2px 2px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--hand);
+  font-size: 1.35rem;
+  line-height: 1.5;
+}
+.mock figcaption {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.home h2 {
+  border-bottom: 0;
+  margin: 0 0 14px;
+  padding: 0;
+  font-size: 1.5rem;
+}
+
+.pages {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 14px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pages li {
+  margin: 0;
+  padding: 16px 16px 18px;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-top: 3px solid var(--ink);
+  border-radius: 4px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.pages strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  padding: 36px clamp(20px, 4vw, 44px);
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: 8px;
+}
+.split h2 {
+  font-size: 1.3rem;
+}
+.split p {
+  color: var(--ink-soft);
+}
+
+.flow {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 18px;
+}
+.flow-box rect {
+  fill: var(--paper);
+  stroke: var(--rule);
+  stroke-width: 1.2;
+}
+.flow-box .drive {
+  fill: var(--tint);
+  stroke: var(--ink-soft);
+}
+.flow-text text {
+  fill: var(--ink);
+  font-family: var(--serif);
+  font-size: 13px;
+  text-anchor: middle;
+}
+.flow-text .sub {
+  font-size: 11px;
+  font-style: italic;
+  fill: var(--ink-soft);
+}
+.flow-line path {
+  fill: none;
+  stroke: var(--ink-soft);
+  stroke-width: 1.4;
+  stroke-dasharray: 4 4;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.cards li {
+  margin: 0;
+  padding: 18px 18px 20px;
+  background: var(--paper);
+  border: 1px solid var(--rule-soft);
+  border-radius: 6px;
+}
+.cards h3 {
+  margin: 0 0 6px;
+}
+.cards p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.more {
+  margin: 16px 0 0;
+}
+
+.home .note {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  border-left: 0;
+  border-radius: 6px;
+}
+.home footer {
+  justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .split {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .mock {
+    max-width: 460px;
+    margin: 0 auto;
+  }
+  .pages {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  html {
+    font-size: 17px;
+  }
+  .home body,
+  body.home {
+    padding: 16px 12px 32px;
+  }
+  .pages,
+  .cards {
+    grid-template-columns: 1fr;
+  }
+  .paper-front {
+    padding: 20px 18px 22px;
+  }
+  body {
+    padding: 0;
+  }
+  .sheet {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  h1 {
+    font-size: 1.75rem;
+  }
+}
