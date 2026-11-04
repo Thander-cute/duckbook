@@ -39,17 +39,18 @@ Gỡ quyền: Settings → Data → Stop syncing → Stop and sign out, hoặc <
 
 Mã nguồn ở `site/public`. Chạy `npm run site:build`, kết quả nằm ở `site/dist/public` (file tĩnh) và `site/dist/worker.js` (một Cloudflare Worker module chứa sẵn mọi file). Kiểm tra bằng `npm run test:site`. Email liên hệ khai báo trong `site/build.ts`. Trang web không có đăng nhập và không nối tới sổ nào.
 
-### Đã triển khai (2026-11-03)
+### Đã triển khai (cập nhật 2026-11-05)
 
 - URL: <https://duckbook.khoadev.id.vn/>, <https://duckbook.khoadev.id.vn/privacy>, <https://duckbook.khoadev.id.vn/terms>.
 - Cloudflare Worker `duckbook-public`, do Supervisor đẩy lên. Thông số:
-  - deployment `7024a8a89de84b14a117ab91378c52a9` (thay bản đầu `010eeb82…`), tag `efd18f92039040269d4becb074a0b6b3`;
+  - deployment `dfc85d4a1a534b5ea99b93e1c8212834` (thay bản `7024a8a89de84b14a117ab91378c52a9`);
   - custom domain id `e7602e6258bb99572f4cf802d1a2cc4d21575c6d`, zone `c4fe22faadde3692f94edda84a1eb426`;
   - observability và logpush đều tắt.
-- Artifact: `site/dist/worker.js` build từ commit `237cd4d`, 176 740 byte, sha256 `938aa11e3f7674acc07551edbccbd024ff92a08131039c49e91282860da5557d`.
+- Artifact: `site/dist/worker.js` build từ commit `ea5069e`, 177 396 byte, sha256 `7ef5e54a2ff69baad83609056c0afd8d00f4afd8048e104f96b6a4dd2426782f`.
+- Nội dung mới: Duckbook là mã nguồn mở dưới MIT; Privacy giải thích việc app desktop kiểm tra và tải cập nhật từ GitHub, không gửi nội dung sổ.
 - Kiểm tra:
-  - Trước khi đẩy: `npm run test:site` qua, tức là route, header (có `no-transform`), asset và Chrome ở 1280/390 px đều ổn.
-  - Sau khi đẩy, Supervisor mở trang thật bằng Chrome: `/` ở 1280 và 390 px, `/privacy` ở 390 px, `/terms` ở 1280 px. Tất cả trả 200 với header `public, max-age=300, no-transform`; trang không có script nào, không có request ra ngoài, không có lỗi console, có email liên hệ và không tràn ngang. `/oauth/callback` trả 404, đúng như ý.
+  - Ngày 2026-11-05: cả ba URL trả 200 với header `no-transform`, không có beacon analytics bị chèn vào HTML; Privacy có nội dung GitHub mới và Terms dẫn tới MIT.
+  - Kiểm tra giao diện trước đó (2026-11-03): `test:site` và Chrome trên trang thật ở 1280/390 px qua; không có lỗi console, request ra ngoài hay tràn ngang. Không chạy lại lượt browser đó cho lần sửa nội dung ngày 2026-11-05.
 - Beacon analytics của Cloudflare: bản đầu bị Cloudflare tự chèn script này (CSP chặn, nên console báo lỗi). Cloudflare có cách loại trừ riêng một host, nhưng gói Free không cho tạo thêm rule (lỗi 409 maxRulesError). Header `Cache-Control: no-transform` đã chặn được việc chèn mà không phải đổi cài đặt của zone.
-- Chưa làm (cần chủ project đăng nhập Google): xác minh domain trong Search Console (Google cấp mã TXT), điền Branding, rồi Publish app. Agent không có quyền vào Google Console và không có mã xác minh.
+- Chủ project đã báo phần Google Drive/OAuth hoàn tất ngày 2026-11-03. Agent không có quyền vào Google Console để xác minh độc lập trạng thái này.
 - Muốn đổi nội dung thì sửa `site/public`, chạy `npm run site:build` và `npm run test:site`, rồi đẩy lại `site/dist/worker.js`.
