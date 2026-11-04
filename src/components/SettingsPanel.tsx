@@ -13,6 +13,7 @@ import { HabitMark } from './HabitMark'
 import { Stepper } from './ui'
 import { setDefaultView, useDefaultView, type TimerView } from '../lib/timer'
 import { SITE, loadSync, syncAction, syncNow, useSync } from '../lib/sync'
+import { updateAction, useUpdates } from '../lib/updates'
 
 interface Backup { file: string; kind: string; createdAt: string; docs: number; bytes: number; verified: boolean }
 
@@ -208,6 +209,7 @@ export function SettingsPage({
 
           {current === 'data' && (
             <>
+              <UpdatesSection />
               <SyncSection />
               <Backups />
               <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
@@ -341,6 +343,53 @@ function PrivacyLock({ pinEnabled, autoLockMin }: { pinEnabled: boolean; autoLoc
 const ago = (iso: string) => {
   const s = (Date.now() - Date.parse(iso)) / 1000
   return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : fmtTime(iso)
+}
+
+/** Desktop app updates: one line of status, one next step. Nothing downloads or installs unasked. */
+function UpdatesSection() {
+  const u = useUpdates()
+  const [busy, setBusy] = useState(false)
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => tick((n) => n + 1), 30_000)
+    return () => window.clearInterval(t)
+  }, [])
+  if (!u || u.status === 'off') return null
+  const btn = (label: string, action: Parameters<typeof updateAction>[0]) => (
+    <button
+      className="text-btn"
+      disabled={busy}
+      onClick={() => {
+        setBusy(true)
+        void updateAction(action).finally(() => setBusy(false))
+      }}
+    >
+      {label}
+    </button>
+  )
+
+  let help: ReactNode = `Duckbook ${u.current} · ${u.checkedAt ? `up to date, checked ${ago(u.checkedAt)}` : 'not checked yet'}`
+  let control: ReactNode = btn('Check now', 'check')
+  if (u.status === 'checking') [help, control] = ['Checking for updates…', null]
+  else if (u.status === 'available') [help, control] = [`Duckbook ${u.version} is available. You have ${u.current}.`, btn('Download', 'download')]
+  else if (u.status === 'downloading') [help, control] = [`Downloading Duckbook ${u.version}… ${u.percent ?? 0}%`, null]
+  else if (u.status === 'ready') [help, control] = [`Duckbook ${u.version} is ready. Installing saves your pages, closes Duckbook and opens the new version.`, btn('Install and restart', 'install')]
+  else if (u.status === 'installing') [help, control] = ['Saving your pages and closing…', null]
+  else if (u.status === 'error') [help, control] = [`Duckbook ${u.current}`, btn('Try again', u.version ? 'download' : 'check')]
+
+  return (
+    <div className="update-setting">
+      <Row title="App updates" help={help}>
+        {control}
+      </Row>
+      {u.notes && ['available', 'downloading', 'ready'].includes(u.status) && <p className="small update-notes">{u.notes}</p>}
+      {u.error && (
+        <p className="small setting-msg update-msg" role="alert">
+          {u.error}
+        </p>
+      )}
+    </div>
+  )
 }
 
 /** Google Drive sync: one line saying where things stand, one control for the next step. */

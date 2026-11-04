@@ -3764,3 +3764,17 @@ details.path p {
 .sync-links a {
   color: inherit;
 }
+.update-notes {
+  margin: 0;
+  padding: 6px 0 0;
+  white-space: pre-wrap;
+  color: var(--ink-soft);
+}
+.update-msg {
+  padding: 8px 0 0;
+}
+.update-setting {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule-soft);
+  margin-bottom: 6px;
+}

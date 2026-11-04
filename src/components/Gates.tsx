@@ -3,6 +3,7 @@ import { API_LEVEL, boot, reloadAll, useSaveStatus, useSession, useStore, resolv
 import { migrateLegacy, type LegacyInfo } from '../lib/legacy'
 import type { Summary } from '../lib/schema'
 import { api } from '../lib/api'
+import { useUpdates } from '../lib/updates'
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 export const describe = (s: Summary) => `${plural(s.days, 'day')}, ${plural(s.weeks, 'week')}, ${plural(s.months, 'month')}`
@@ -297,6 +298,7 @@ export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null;
           <span>{save.message}</span>
         </div>
       )}
+      <UpdateBanner onOpenSettings={onOpenSettings} />
       {legacy && !legacy.migrated && !legacy.error && (
         <div className="banner">
           <span>This browser still holds pages from the earlier version that differ from your database.</span>
@@ -306,5 +308,29 @@ export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null;
         </div>
       )}
     </>
+  )
+}
+
+const UPDATE_SEEN = 'duckbook:update-seen'
+
+/** Desktop only: a new version is out. Once dismissed, quiet until the next version. */
+function UpdateBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const u = useUpdates()
+  const [seen, setSeen] = useState(() => sessionStorage.getItem(UPDATE_SEEN))
+  if (!u?.version || !['available', 'ready'].includes(u.status) || seen === u.version) return null
+  const later = () => {
+    sessionStorage.setItem(UPDATE_SEEN, u.version!)
+    setSeen(u.version!)
+  }
+  return (
+    <div className="banner" role="status">
+      <span>Duckbook {u.version} is available.</span>
+      <button className="text-btn" onClick={onOpenSettings}>
+        See what’s new
+      </button>
+      <button className="text-btn" onClick={later}>
+        Later
+      </button>
+    </div>
   )
 }

@@ -1,7 +1,7 @@
 {
   "name": "duckbook",
   "private": true,
-  "version": "0.1.0-beta.2",
+  "version": "0.1.0-beta.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,13 +16,14 @@
     "test:site": "node test/site.e2e.ts",
     "desktop:bundle": "node desktop/build.ts",
     "desktop:dev": "npm run build && npm run desktop:bundle && electron .",
-    "desktop:build": "npm run build && npm run desktop:bundle && electron-builder --win nsis --x64",
+    "desktop:build": "npm run build && npm run desktop:bundle && electron-builder --win nsis --x64 --publish never",
     "desktop:pack": "npm run build && npm run desktop:bundle && electron-builder --win --x64 --dir",
     "desktop:test": "node test/desktop.e2e.ts"
   },
   "dependencies": {
     "@fontsource/dancing-script": "^5.3.0",
     "@fontsource/newsreader": "^5.3.0",
+    "electron-updater": "6.8.11",
     "immer": "^11.1.21",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

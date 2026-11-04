@@ -10,7 +10,7 @@
 | Nhật ký server | `%LOCALAPPDATA%\Duckbook\logs\server.log`. Chỉ ghi sự kiện (khởi động, backup, import), không ghi nội dung sổ. |
 | Bản cũ trong trình duyệt | `localStorage['duckbook:v1']` của `http://localhost:5317`. Chỉ đọc. Bản này chỉ bị xóa khi bạn tự bấm "Remove old copy", và nút đó chỉ hiện ra sau khi dữ liệu đã chuyển sang database và được xác minh khớp. |
 
-Không có gì được gửi ra ngoài máy. Server chỉ nghe trên `127.0.0.1` và `::1`. Không có tài khoản, không đồng bộ, không telemetry, không AI. Font chữ được đóng gói sẵn trong app, không tải từ mạng.
+Nội dung sổ không bao giờ được gửi cho Duckbook hay bên thứ ba nào. Server chỉ nghe trên `127.0.0.1` và `::1`. Không có tài khoản, không telemetry, không AI. Font chữ được đóng gói sẵn trong app, không tải từ mạng. Chỉ có hai thứ đi ra mạng: đồng bộ Google Drive (chỉ khi bạn bật, xem bên dưới) và việc app desktop kiểm tra bản mới trên GitHub (xem mục cập nhật).
 
 ## Ghi dữ liệu
 
@@ -62,3 +62,10 @@ Mã hóa dữ liệu trên ổ đĩa đang được để ngỏ, chưa làm (xem
 - Lưu trên máy không chờ mạng. Sync chạy nền: vài giây sau khi lưu, khi quay lại cửa sổ, và mỗi phút. Lỗi (mất mạng, hết quyền, file hỏng) hiện trong Settings → Data; file hỏng không được áp dụng.
 - **Dùng notebook từ Drive** thay toàn bộ trang trên máy này, sau một bản sao lưu đã kiểm tra ("Before taking the Drive notebook"). **Gộp cả hai** giữ trang của cả hai bên; ô nào hai bên có chữ khác nhau thì giữ cả hai đoạn, nối tiếp nhau.
 - **Stop syncing** giữ nguyên trang trên máy và file trên Drive. **Sign out** thu hồi token tại Google rồi xóa `sync-google.json`. Không có gì trên Drive bị xóa; muốn xóa thì tự xóa thư mục "Duckbook Sync".
+
+## Cập nhật app desktop
+
+- App desktop hỏi GitHub bản phát hành mới nhất của `Thander-cute/duckbook` (file `latest.yml`) mỗi khi mở app và khi bạn bấm **Check now** trong Settings → Data → App updates. GitHub thấy địa chỉ IP và yêu cầu tải file, như mọi lượt tải. Không có gì về sổ được gửi đi.
+- Không tự tải, không tự cài. Bạn bấm **Download** thì app mới tải bản cài về thư mục tạm, rồi so kích thước và SHA-512 với `latest.yml`. Bạn bấm **Install and restart** thì app lưu mọi trang, dừng server của sổ, rồi mới chạy bản cài. Nếu còn chỗ chưa lưu, app không cài, và không có lựa chọn "Close anyway".
+- Bản cài không có chữ ký số (code signing). SHA-512 chỉ chứng minh file khớp với `latest.yml` của cùng bản phát hành trên GitHub, không chứng minh ai là người phát hành.
+- Sổ, bản sao lưu, ảnh và token Google nằm trong thư mục dữ liệu, ngoài thư mục cài đặt, nên cập nhật không đụng tới chúng.

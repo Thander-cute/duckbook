@@ -8,15 +8,27 @@ files:
   - package.json
   - '!node_modules/**'
 asar: true
+extraFiles:
+  - from: LICENSE
+    to: LICENSE.duckbook.txt
+  - from: desktop-dist/THIRD_PARTY_NOTICES.txt
+    to: THIRD_PARTY_NOTICES.txt
 npmRebuild: false
 win:
   icon: build/icon.png
   target: nsis
   signExecutable: false
 nsis:
+  artifactName: Duckbook-Setup-${version}.${ext}
   oneClick: false
   perMachine: false
   allowElevation: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
   runAfterFinish: false
+# Written into app-update.yml for the updater; desktop/updater.ts sets the same feed. Upload by hand (docs/RELEASING.md).
+publish:
+  provider: generic
+  url: https://github.com/Thander-cute/duckbook/releases/latest/download
+  # Betas too: GitHub's "latest" release and latest.yml are the one feed.
+  channel: latest

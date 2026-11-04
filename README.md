@@ -1,12 +1,11 @@
 # duckbook
 
-A minimalist planner after *The Present Day Planner* (The Present Writer), for personal single-user use on this computer.
-See [IDEA.md](IDEA.md) for the product idea, [docs/DECISIONS.md](docs/DECISIONS.md) for what is decided, and [docs/DATA-AND-PRIVACY.md](docs/DATA-AND-PRIVACY.md) for where data lives and what the PIN lock does.
+A minimalist paper-style planner after *The Present Day Planner* (The Present Writer): Month, Week, Day and Reflect pages, an optional Focus Map, day photos and a focus timer. Your pages stay on your own computer, in SQLite; optional sync goes to a folder in your own Google Drive. There are no accounts, no Duckbook server, no analytics and no AI.
 
-Current private beta: **0.1.0-beta.2** (local build, adds Google Drive sync; [notes](docs/releases/0.1.0-beta.2.md)).
-The previous [0.1.0-beta.1](docs/releases/0.1.0-beta.1.md) is on
-[GitHub Releases](https://github.com/Thander-cute/duckbook/releases/tag/v0.1.0-beta.1).
-Read the beta notes and recovery limitations before using it with an existing notebook.
+- **Windows app:** download `Duckbook-Setup-<version>.exe` from [Releases](https://github.com/Thander-cute/duckbook/releases). Current beta: **0.1.0-beta.3** ([notes](docs/releases/0.1.0-beta.3.md)). The installer is not code-signed, so Windows SmartScreen warns; choose *More info → Run anyway* if you trust this repository. Beta 1 and 2 can't update themselves: install 0.1.0-beta.3 by hand once, then Duckbook offers new versions itself.
+- **Browser version:** run it from source with Node.js 24+ (below).
+- **Your data:** [docs/DATA-AND-PRIVACY.md](docs/DATA-AND-PRIVACY.md) says where everything lives, what leaves your computer (Google Drive sync, update checks) and what the PIN lock does and doesn't do. Keep your own copy of the data folder; this is beta software.
+- **Project:** [IDEA.md](IDEA.md) for the idea, [docs/DECISIONS.md](docs/DECISIONS.md) for what is decided, [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [docs/RELEASING.md](docs/RELEASING.md). Licensed under [MIT](LICENSE); third-party licences are listed in the app's `THIRD_PARTY_NOTICES.txt`.
 
 ## Use
 
@@ -30,18 +29,18 @@ Your pages are stored in `%LOCALAPPDATA%\Duckbook\duckbook.sqlite`, with automat
 
 **Pages from the earlier version** (kept in your browser) are offered for moving the first time you open the new duckbook, in the same browser you used before at `http://localhost:5317`. Moving is verified, and the browser copy is kept until you remove it in Settings.
 
-## Desktop app (Windows, local build)
+## Desktop app (Windows)
 
 A desktop window with the same notebook, no browser and no Node install needed.
 
-- **Build:** `npm run desktop:build` makes `release\Duckbook Setup <version>.exe` (unsigned, per-user installer; Windows SmartScreen will warn because it isn't signed) and the ready-to-run folder `release\win-unpacked\Duckbook.exe`. `npm run desktop:pack` builds only the folder.
-- **Its own pages:** the desktop app keeps a separate notebook in `%APPDATA%\duckbook\notebook` (Settings → Data shows the exact folder; it has its own `backups\` and `photos\`). It never opens the browser version's database by itself, and the browser version with `Duckbook.cmd` keeps working as before.
-- **Bringing pages over:** on first run with an empty notebook, or later in Settings → Data, choose to look for the browser version's pages. Close the browser version's server window first (`Duckbook.cmd --stop`); the app refuses to copy while it runs. Pages and photos are copied and checked, the desktop pages are backed up before being replaced, and the browser version is only read. Paper and habit-mark choices are per app; set them again.
-- **Closing:** the window saves pending edits before it closes. If something can't be saved (for example the notebook is locked with edits waiting), it asks: Keep open, or Close anyway.
-- **Updating:** close the app, build or install the new version, open it again. Server and pages always update together, so there is no stale server to restart.
-- **Safety:** each launch makes a fresh token and API calls without it are refused; the window can't navigate elsewhere or open other sites, and has no Node access. This limits casual access from other programs and web pages; it is not encryption, and software already running as your Windows user could still read the files. The PIN is an access lock, as in the browser version.
-- **Sync:** Settings → Data → Sync with Google Drive, the same as in the browser version. The Google client is built in when `google-client.json` is at the repo root during `desktop:build` (see [setup](docs/GOOGLE-DRIVE-SYNC-SETUP.md)). Synced files are not encrypted.
-- **Not yet:** code signing, auto-update, a run of the installer on a clean Windows machine, and encrypted sync.
+- **Install:** the installer from Releases is per-user and unsigned. `npm run desktop:build` builds it yourself: `release\Duckbook-Setup-<version>.exe` and the ready-to-run folder `release\win-unpacked\Duckbook.exe` (`npm run desktop:pack` builds only the folder).
+- **Its own pages:** the desktop app keeps a separate notebook in `%APPDATA%\duckbook\notebook` (Settings → Data shows the exact folder; it has its own `backups\` and `photos\`). It never opens the browser version's database by itself.
+- **Bringing pages over:** on first run with an empty notebook, or later in Settings → Data, choose to look for the browser version's pages. Close the browser version's server window first (`Duckbook.cmd --stop`). Pages and photos are copied and checked, the desktop pages are backed up before being replaced, and the browser version is only read. Paper and habit-mark choices are per app; set them again.
+- **Closing:** the window saves pending edits before it closes. If something can't be saved, it asks: Keep open, or Close anyway.
+- **Updates:** Duckbook checks this repository's latest release when it opens and when you press *Check now* (Settings → Data → App updates). A note says when a new version is out; you choose when to download it and when to install. *Install and restart* saves every page and stops the notebook first, and refuses (no "close anyway") if anything isn't saved. The download is checked against the SHA-512 in the release's `latest.yml`; there is no publisher signature.
+- **Safety:** each launch makes a fresh token and API calls without it are refused; the window can't navigate elsewhere or open other sites, and has no Node access. Only Google sign-in and Duckbook's privacy pages open, in your browser. This is not encryption: software running as your Windows user can read the files. The PIN is an access lock, as in the browser version.
+- **Sync:** Settings → Data → Sync with Google Drive, as in the browser version. Builds made from source have no Google client unless you add your own `google-client.json` ([setup](docs/GOOGLE-DRIVE-SYNC-SETUP.md)). Synced files are not encrypted.
+- **Not yet:** code signing, a run of the installer on a clean Windows machine, and encrypted sync.
 
 ## Develop
 
@@ -65,7 +64,7 @@ DUCKBOOK_PORT=5398 DUCKBOOK_DATA_DIR=/tmp/duckbook-dev node server/main.ts
 
 Never point development at port 5317 or at the real data directory.
 
-Working agreement: [AGENTS.md](AGENTS.md). Plan larger changes with [docs/templates/slice-plan.md](docs/templates/slice-plan.md).
+Working agreement for contributors and coding agents: [AGENTS.md](AGENTS.md). Plan larger changes with [docs/templates/slice-plan.md](docs/templates/slice-plan.md).
 
 Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `F` Focus Map (when turned on) · `L` lock (when a PIN is set) · `Esc` leave Settings.
 

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defaultDataDir } from '../server/paths.ts'
 import { opensOutside } from './links.ts'
+import { setupUpdates } from './updater.ts'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const port = Number(process.env.DUCKBOOK_DESKTOP_PORT ?? 5327)
@@ -37,16 +38,21 @@ else {
   })
 }
 
+/** Ask the notebook server to close its database and exit; true only if it did so in time. */
+async function stopRuntime() {
+  if (!runtime) return true
+  const r = runtime
+  return await new Promise<boolean>((resolve) => {
+    const timer = setTimeout(() => { r.kill(); resolve(false) }, 5000)
+    r.once('exit', (code) => { clearTimeout(timer); resolve(code === 0) })
+    r.postMessage({ type: 'stop' })
+  })
+}
+
 async function shutdown() {
   if (stopping) return
   stopping = true
-  if (runtime) {
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => { runtime?.kill(); resolve() }, 5000)
-      runtime!.once('exit', () => { clearTimeout(timer); resolve() })
-      runtime!.postMessage({ type: 'stop' })
-    })
-  }
+  await stopRuntime()
   stopped = true
   app.quit()
 }
@@ -87,7 +93,7 @@ async function boot() {
   const boundsFile = path.join(app.getPath('userData'), 'window.json')
   let bounds = { width: 1440, height: 940 }
   try { bounds = { ...bounds, ...JSON.parse(fs.readFileSync(boundsFile, 'utf8')) } } catch {}
-  window = new BrowserWindow({ ...bounds, minWidth: 900, minHeight: 650, title: 'Duckbook', autoHideMenuBar: true, webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false } })
+  window = new BrowserWindow({ ...bounds, minWidth: 900, minHeight: 650, title: 'Duckbook', autoHideMenuBar: true, webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: path.join(here, 'preload.cjs') } })
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (opensOutside(url)) void shell.openExternal(url)
     return { action: 'deny' }
@@ -105,23 +111,66 @@ async function boot() {
     void closeWindow()
   })
   window.on('closed', () => { window = null })
+  setupUpdates({ origin, window: () => window, prepareInstall, installFailed })
   await window.loadURL(origin)
 
-  async function closeWindow() {
-    let saved = false
+  async function flushPage() {
     let timer: ReturnType<typeof setTimeout> | undefined
     try {
-      saved = await Promise.race([
+      return await Promise.race([
         window!.webContents.executeJavaScript('window.duckbookFlush ? window.duckbookFlush() : false') as Promise<boolean>,
         new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), 8000) }),
       ])
-    } catch {} finally { clearTimeout(timer) }
+    } catch {
+      return false
+    } finally { clearTimeout(timer) }
+  }
+
+  function keepWindowState() {
+    try { fs.writeFileSync(boundsFile, JSON.stringify(window!.getNormalBounds())) } catch {}
+    session.defaultSession.flushStorageData()
+  }
+
+  // Installing an update never offers "Close anyway": every edit must be saved and the server stopped.
+  async function prepareInstall() {
+    if (!window || closing || stopping) return 'Duckbook is closing.'
+    closing = true
+    // No typing from here on, so nothing new appears after the last save.
+    window.setEnabled(false)
+    if (!(await flushPage())) {
+      window.setEnabled(true)
+      closing = false
+      return 'Some edits aren’t saved yet. Wait until nothing says “Not saved”, then try again.'
+    }
+    keepWindowState()
+    stopping = true
+    const clean = await stopRuntime()
+    stopped = true
+    if (!clean) {
+      const reason = 'The notebook could not be closed cleanly, so the update was not installed. Your saved pages are safe; Duckbook will restart.'
+      installFailed(reason)
+      return reason
+    }
+    return null
+  }
+
+  /** The server is already stopped: start Duckbook again rather than leave a window with no notebook. */
+  function installFailed(reason: string) {
+    if (window && !window.isDestroyed()) {
+      dialog.showMessageBoxSync(window, { type: 'warning', message: 'The update was not installed.', detail: reason })
+      window.destroy()
+    }
+    app.relaunch()
+    app.quit()
+  }
+
+  async function closeWindow() {
+    const saved = await flushPage()
     if (!saved) {
       const answer = await dialog.showMessageBox(window!, { type: 'warning', message: "Some edits aren't saved yet.", detail: 'Keep Duckbook open to finish saving, or close anyway and lose unsaved changes.', buttons: ['Keep open', 'Close anyway'], defaultId: 0, cancelId: 0 })
       if (answer.response === 0) { closing = false; return }
     }
-    try { fs.writeFileSync(boundsFile, JSON.stringify(window!.getNormalBounds())) } catch {}
-    session.defaultSession.flushStorageData()
+    keepWindowState()
     window!.destroy()
   }
 }
