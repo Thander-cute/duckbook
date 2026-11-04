@@ -90,8 +90,9 @@ export function setupUpdates(opts: {
     // When the server had already stopped, prepareInstall restarts the app itself.
     const problem = await opts.prepareInstall()
     if (problem) return set({ status: 'ready', error: problem })
-    // install() is what quitAndInstall() runs; its result says whether the installer was launched (not
-    // that it went on to succeed). If it fails after Duckbook quits, the old version stays installed.
+    // install() is what quitAndInstall() runs. false means it refused (no download, already called);
+    // true only means a launch was attempted: the installer starts asynchronously, so a failure to start
+    // or to install shows up after Duckbook has quit, with the old version still installed.
     let started = false
     try {
       started = (updater as unknown as { install(silent: boolean, runAfter: boolean): boolean }).install(true, true)
