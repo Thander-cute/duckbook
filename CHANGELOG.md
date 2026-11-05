@@ -4,6 +4,7 @@ Notable changes per release. Full notes, including how to update, are in [docs/r
 
 ## 0.1.0-beta.4 (unreleased)
 
+- Licence changes from MIT to PolyForm Noncommercial 1.0.0 for this and later versions. Copies of 0.1.0-beta.3 and earlier, and of the source published before the change, keep the MIT licence they were released under.
 - App updates show the new version's notes and a progress bar, explain failures plainly with Try again, and are checked again every few hours while Duckbook is open.
 
 [Release notes](docs/releases/0.1.0-beta.4.md)

@@ -14,4 +14,4 @@ Duckbook is a small personal planner. Issues and pull requests are welcome; it i
 
 Please follow the [code of conduct](CODE_OF_CONDUCT.md).
 
-By contributing you agree that your work is licensed under the [MIT License](LICENSE).
+By contributing you agree that your work is licensed under the same terms as Duckbook ([PolyForm Noncommercial 1.0.0](LICENSE)).
