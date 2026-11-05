@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in Duckbook doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please don't paste your own journal text or screenshots of real pages. Describe them, or use made-up text.
+        Security problems go to the private report instead (see SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the week page
+        2. ...
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Which Duckbook
+      options:
+        - Windows app
+        - Browser version (Duckbook.cmd)
+        - Built from source
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Settings → Data → App updates shows it in the Windows app.
+      placeholder: 0.1.0-beta.3
+  - type: dropdown
+    id: sync
+    attributes:
+      label: Google Drive sync on?
+      options:
+        - 'No'
+        - 'Yes'
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Error messages, browser name, Windows version.

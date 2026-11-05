@@ -1,9 +1,15 @@
 # Duckbook
 
+[![CI](https://github.com/Thander-cute/duckbook/actions/workflows/ci.yml/badge.svg)](https://github.com/Thander-cute/duckbook/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Thander-cute/duckbook?include_prereleases&label=release)](https://github.com/Thander-cute/duckbook/releases/latest)
+[![MIT licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+
 A quiet, paper-style planner for Windows and your browser, after *The Present Day Planner*.
 Month, week and day pages in pale-blue ink, a weekly look back, and an optional focus map, kept on your own computer.
 
-[Download for Windows](https://github.com/Thander-cute/duckbook/releases/latest) · [Website](https://duckbook.khoadev.id.vn) · [Privacy](docs/DATA-AND-PRIVACY.md) · [MIT licence](LICENSE)
+[Download for Windows](https://github.com/Thander-cute/duckbook/releases/latest) · [Website](https://duckbook.khoadev.id.vn) · [Privacy](docs/DATA-AND-PRIVACY.md) · [Changelog](CHANGELOG.md)
+
+![The day page: tasks with pomodoro marks, gratitude, notes and the week's plan](docs/images/day.png)
 
 > Duckbook is in beta. Keep your own copy of your data folder.
 
@@ -18,6 +24,12 @@ Month, week and day pages in pale-blue ink, a weekly look back, and an optional 
 - **Optional Google Drive sync** between your computers, into a folder in your own Drive. No Duckbook account or server.
 
 No analytics, no ads, no AI. See [docs/GUIDE.md](docs/GUIDE.md) for how the pages work.
+
+| Month | Week | Focus Map |
+| --- | --- | --- |
+| ![Month page with a theme, goals and a calendar](docs/images/month.png) | ![Week page with the urgent/important grid and habit tracker](docs/images/week.png) | ![Focus Map with sticky-note ideas](docs/images/focus.png) |
+
+<sub>Screenshots use made-up pages (`npm run screenshots`).</sub>
 
 ## Install
 
@@ -67,7 +79,9 @@ DUCKBOOK_PORT=5398 DUCKBOOK_DATA_DIR=/tmp/duckbook-dev node server/main.ts
 
 Desktop development (`npm run desktop:dev`) likewise needs `DUCKBOOK_DESKTOP_DATA_DIR`, `DUCKBOOK_WEB_DATA_DIR`, `DUCKBOOK_WEB_PORT` and `DUCKBOOK_DESKTOP_PORT`. Builds from source have no Google Drive sync unless you add your own OAuth client ([docs/GOOGLE-DRIVE-SYNC-SETUP.md](docs/GOOGLE-DRIVE-SYNC-SETUP.md)).
 
-[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [docs/RELEASING.md](docs/RELEASING.md) · [AGENTS.md](AGENTS.md) (guidelines for coding agents)
+## Contributing
+
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md); please follow the [code of conduct](CODE_OF_CONDUCT.md), and report security problems privately as described in [SECURITY.md](SECURITY.md). Maintainers release with [docs/RELEASING.md](docs/RELEASING.md); coding agents read [AGENTS.md](AGENTS.md).
 
 ## Licence
 

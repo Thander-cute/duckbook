@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/Thander-cute/duckbook/security/advisories/new
+    about: Please report security problems privately, not in a public issue.
+  - name: Where is my data, and what leaves my computer?
+    url: https://github.com/Thander-cute/duckbook/blob/main/docs/DATA-AND-PRIVACY.md
+    about: Data locations, backups, the PIN lock and Google Drive sync.
