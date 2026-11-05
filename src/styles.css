@@ -3773,6 +3773,29 @@ details.path p {
 .update-msg {
   padding: 8px 0 0;
 }
+.update-progress {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin: 6px 0 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--rule-soft);
+  accent-color: var(--ink);
+  appearance: none;
+}
+.update-progress::-webkit-progress-bar {
+  background: var(--rule-soft);
+  border-radius: 2px;
+}
+.update-progress::-webkit-progress-value {
+  background: var(--ink);
+  border-radius: 2px;
+}
+.update-notes strong {
+  font-weight: 600;
+  color: var(--ink);
+}
 .update-setting {
   padding-bottom: 6px;
   border-bottom: 1px solid var(--rule-soft);

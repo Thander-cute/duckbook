@@ -324,7 +324,7 @@ function UpdateBanner({ onOpenSettings }: { onOpenSettings: () => void }) {
   }
   return (
     <div className="banner" role="status">
-      <span>Duckbook {u.version} is available.</span>
+      <span>{u.status === 'ready' ? `Duckbook ${u.version} is downloaded and ready to install.` : `Duckbook ${u.version} is available.`}</span>
       <button className="text-btn" onClick={onOpenSettings}>
         See what’s new
       </button>

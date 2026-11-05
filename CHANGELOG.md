@@ -2,6 +2,12 @@
 
 Notable changes per release. Full notes, including how to update, are in [docs/releases](docs/releases).
 
+## 0.1.0-beta.4 (unreleased)
+
+- App updates show the new version's notes and a progress bar, explain failures plainly with Try again, and are checked again every few hours while Duckbook is open.
+
+[Release notes](docs/releases/0.1.0-beta.4.md)
+
 ## 0.1.0-beta.3 (2026-11-05)
 
 - The Windows app checks GitHub releases for a new version and installs it when you choose, after saving every page.

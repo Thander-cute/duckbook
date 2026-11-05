@@ -29,7 +29,7 @@ Check that the log says `Google Drive sync: built in from google-client.json` an
 
 ## 3. Check
 
-Install or run `release/win-unpacked/Duckbook.exe` with a synthetic data folder (`DUCKBOOK_DESKTOP_DATA_DIR`, `DUCKBOOK_WEB_DATA_DIR`, `DUCKBOOK_WEB_PORT`, `DUCKBOOK_DESKTOP_PORT`). To try the updater before publishing, serve a folder holding a `latest.yml` and installer of a higher version on `http://127.0.0.1:<port>/` and start the app with `DUCKBOOK_UPDATE_URL` pointing at it.
+Install or run `release/win-unpacked/Duckbook.exe` with a synthetic data folder (`DUCKBOOK_DESKTOP_DATA_DIR`, `DUCKBOOK_WEB_DATA_DIR`, `DUCKBOOK_WEB_PORT`, `DUCKBOOK_DESKTOP_PORT`). To try the updater before publishing, serve a folder holding a `latest.yml` and installer of a higher version on `http://127.0.0.1:<port>/` and start the app with `DUCKBOOK_UPDATE_URL` pointing at it. Adding `DUCKBOOK_UPDATE_DRY_INSTALL=1` (only accepted with a loopback feed and `DUCKBOOK_DESKTOP_DATA_DIR`) runs Install and restart up to the quit, but writes `dry-install.json` in that data folder instead of running the installer. It checks saving, the clean stop and the quit, not the installer itself or the restart.
 
 ## 4. Publish
 

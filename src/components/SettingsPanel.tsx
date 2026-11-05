@@ -375,14 +375,20 @@ function UpdatesSection() {
   else if (u.status === 'downloading') [help, control] = [`Downloading Duckbook ${u.version}… ${u.percent ?? 0}%`, null]
   else if (u.status === 'ready') [help, control] = [`Duckbook ${u.version} is ready. Installing saves your pages, closes Duckbook and opens the new version.`, btn('Install and restart', 'install')]
   else if (u.status === 'installing') [help, control] = ['Saving your pages and closing…', null]
-  else if (u.status === 'error') [help, control] = [`Duckbook ${u.current}`, btn('Try again', u.version ? 'download' : 'check')]
+  else if (u.status === 'error') [help, control] = [u.version ? `Duckbook ${u.version} is available. You have ${u.current}.` : `Duckbook ${u.current}`, btn('Try again', u.version ? 'download' : 'check')]
 
   return (
     <div className="update-setting">
       <Row title="App updates" help={help}>
         {control}
       </Row>
-      {u.notes && ['available', 'downloading', 'ready'].includes(u.status) && <p className="small update-notes">{u.notes}</p>}
+      {u.status === 'downloading' && <progress className="update-progress" max={100} value={u.percent ?? 0} aria-label="Download progress" />}
+      {u.notes && ['available', 'downloading', 'ready', 'error'].includes(u.status) && u.version && (
+        <div className="small update-notes">
+          <strong>What’s new in {u.version}</strong>
+          {'\n' + u.notes}
+        </div>
+      )}
       {u.error && (
         <p className="small setting-msg update-msg" role="alert">
           {u.error}
