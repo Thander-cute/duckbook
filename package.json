@@ -47,7 +47,7 @@
     "@fontsource/dancing-script": "^5.3.0",
     "@fontsource/newsreader": "^5.3.0",
     "electron-updater": "6.8.11",
-    "immer": "^11.1.21",
+    "immer": "^11.2.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "yjs": "^13.6.33"
