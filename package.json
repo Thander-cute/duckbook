@@ -30,8 +30,7 @@
     "desktop:dev": "npm run build && npm run desktop:bundle && electron .",
     "desktop:build": "npm run build && npm run desktop:bundle && electron-builder --win nsis --x64 --publish never",
     "desktop:pack": "npm run build && npm run desktop:bundle && electron-builder --win --x64 --dir",
-    "desktop:test": "node test/desktop.e2e.ts",
-    "screenshots": "node scripts/screenshots.ts"
+    "desktop:test": "node test/desktop.e2e.ts"
   },
   "dependencies": {
     "@fontsource/dancing-script": "^5.3.0",
