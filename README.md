@@ -1,3 +1,5 @@
+<img src="build/icon.png" alt="Duckbook logo" width="96" height="96">
+
 # Duckbook
 
 [![CI](https://github.com/Thander-cute/duckbook/actions/workflows/ci.yml/badge.svg)](https://github.com/Thander-cute/duckbook/actions/workflows/ci.yml)
