@@ -1,6 +1,6 @@
-Duckbook was published under the MIT licence below until the commit that added this file:
-releases up to and including 0.1.0-beta.3, and the source in this repository before that commit.
-Copies obtained under it keep this licence. Later versions are licensed under the terms in LICENSE.
+Duckbook was published under the MIT licence below until the commit that added this file.
+Everything published before that commit (releases and source) keeps this licence.
+Later versions are licensed under the terms in LICENSE.
 
 MIT License
 

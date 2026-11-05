@@ -87,8 +87,8 @@ Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.
 
 ## Licence
 
-[PolyForm Noncommercial 1.0.0](LICENSE): you may use, change and share Duckbook for any noncommercial purpose, but not sell it or use it commercially (the licence text has the exact terms). Duckbook's source is public, but this is not an OSI open-source licence. Releases up to and including 0.1.0-beta.3, and the source published here before the licence change, were under the MIT licence; copies obtained under it keep that licence ([LICENSE-MIT-PRIOR.txt](LICENSE-MIT-PRIOR.txt)).
+[PolyForm Noncommercial 1.0.0](LICENSE): you may use, change and share Duckbook for any noncommercial purpose, but not sell it or use it commercially (the licence text has the exact terms). Duckbook's source is public, but this is not an OSI open-source licence. The change applies from now on: releases and source already published under the MIT licence keep it ([LICENSE-MIT-PRIOR.txt](LICENSE-MIT-PRIOR.txt)).
 
-The Windows app ships `THIRD_PARTY_NOTICES.txt` with the licences of the libraries and fonts it includes.
+Third-party licences are unchanged; the Windows app ships `THIRD_PARTY_NOTICES.txt` with the licences of the libraries and fonts it includes.
 
 Duckbook is an independent project, inspired by *The Present Day Planner* by The Present Writer. It is not affiliated with or endorsed by them, or by Google.
