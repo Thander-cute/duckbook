@@ -39,6 +39,7 @@ npm run test:browser   # puppeteer-core + local Chrome, throwaway server on :539
 
 ## Conventions
 
+- Develop and complete new features in the local web app first, including focused browser verification and maintainer review. Adapt a completed feature to desktop or other platforms afterward; do not build installers or port an unfinished feature unless explicitly requested. A web-first delivery does not authorize mobile work.
 - TypeScript + React 19 + Vite for the UI. The Node 24 server runs `.ts` directly (type stripping, erasable syntax only) with built-in `node:sqlite`.
 - `src/lib/schema.ts` is shared by browser and server (no DOM/Node imports). Client state and saving live in `src/lib/store.ts`; views in `src/views/`; shared pieces in `src/components/`.
 - Match the surrounding code: small files, few comments, no new dependency without a reason.
