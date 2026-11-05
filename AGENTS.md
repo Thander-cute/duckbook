@@ -4,7 +4,7 @@ A single-user planner after *The Present Day Planner*. The notebook UI in `src/`
 
 ## Before changing anything
 
-- Agree non-trivial changes before writing code: open an issue, or plan a slice with `docs/templates/slice-plan.md`.
+- Agree non-trivial changes before writing code: open an issue or agree a plan with the maintainer.
 - Keep what was asked for separate from what you recommend. Never present a recommendation as something the maintainer or a user asked for.
 - Maintainers may keep local notes in `docs/internal/` (ignored by git). If `docs/internal/DECISIONS.md` exists, only items marked **Decided** there are approved; items under **Open** are not.
 

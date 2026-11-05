@@ -8,10 +8,10 @@ const client = ['google-client.json', 'google_client.json'].find((f) => fs.exist
 const googleClient = client ? fs.readFileSync(client, 'utf8') : 'null'
 console.log(client ? `Google Drive sync: built in from ${client}` : 'Google Drive sync: no google-client.json, so this build cannot connect to Google')
 
-// "What's new" from docs/releases/<version>.md becomes the release notes shown before an update.
+// This version's CHANGELOG.md section becomes the release notes shown before an update.
 const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version as string
-const notes = fs.existsSync(`docs/releases/${version}.md`) ? fs.readFileSync(`docs/releases/${version}.md`, 'utf8') : ''
-const whatsNew = /## What's new[^\n]*\n([\s\S]*?)(?=\n## |$)/.exec(notes)?.[1]?.trim() ?? ''
+const section = fs.readFileSync('CHANGELOG.md', 'utf8').split(/^## /m).find((s) => s.split(/\s/, 1)[0] === version)
+const whatsNew = section?.slice(section.indexOf('\n')).trim()
 fs.writeFileSync('build/release-notes.md', whatsNew ? `${whatsNew}\n` : `Duckbook ${version}\n`)
 
 const define = { DESKTOP_CODE: JSON.stringify(codeFingerprint()), BUNDLED_GOOGLE_CLIENT: JSON.stringify(googleClient) }

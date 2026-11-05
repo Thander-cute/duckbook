@@ -1,7 +1,7 @@
 ## What & why
 
-## Decision / slice
-<!-- Link the issue or slice plan where this was agreed -->
+## Decision
+<!-- Link the issue where this was agreed -->
 
 ## Checks
 - [ ] `npm run typecheck` and `npm run build`
