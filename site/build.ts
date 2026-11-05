@@ -22,7 +22,7 @@ const TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 }
 
-/** Public support and privacy contact, approved by the owner (2026-11-03). */
+/** Public support and privacy contact. */
 const CONTACT = 'ndkhoa1000@gmail.com'
 const contactHtml = `<a href="mailto:${CONTACT}">${CONTACT}</a>`
 

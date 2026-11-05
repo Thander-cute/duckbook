@@ -1,10 +1,10 @@
 # Slice: <name>
 
 **Status:** draft / agreed / done
-**Decision link:** <row in docs/DECISIONS.md, or "needs decision">
+**Agreed in:** <issue link, or "needs agreement">
 
 ## Why
-What the owner wants, in their words. Keep this separate from our recommendation.
+What was asked for, in the asker's words. Keep this separate from our recommendation.
 
 ## Scope
 - In:

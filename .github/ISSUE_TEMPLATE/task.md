@@ -7,6 +7,6 @@ about: Something to build, fix, or decide
 
 **What happens / what's wanted:**
 
-**Owner wish or our proposal?**
+**Requested by someone, or a proposal?**
 
 **Done when:**

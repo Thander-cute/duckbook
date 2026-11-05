@@ -1,12 +1,12 @@
-# duckbook: working agreement
+# duckbook: guidelines for coding agents and contributors
 
-A personal, single-user planner after *The Present Day Planner*. The notebook UI in `src/` is the product core; keep its look and behaviour unless a change is explicitly agreed.
+A single-user planner after *The Present Day Planner*. The notebook UI in `src/` is the product core; keep its look and behaviour unless a change is explicitly agreed.
 
 ## Before changing anything
 
-- Read `docs/DECISIONS.md`. Only items marked **Decided** are approved. Everything under **Open** is still being discussed, so don't implement it.
-- Owner wishes and agent recommendations are recorded separately. Never present a recommendation as something the owner asked for.
-- Plan a non-trivial change as a slice (`docs/templates/slice-plan.md`) and get agreement before writing code.
+- Agree non-trivial changes before writing code: open an issue, or plan a slice with `docs/templates/slice-plan.md`.
+- Keep what was asked for separate from what you recommend. Never present a recommendation as something the maintainer or a user asked for.
+- Maintainers may keep local notes in `docs/internal/` (ignored by git). If `docs/internal/DECISIONS.md` exists, only items marked **Decided** there are approved; items under **Open** are not.
 
 ## Private data
 
@@ -35,4 +35,5 @@ npm run test:browser   # puppeteer-core + local Chrome, throwaway server on :539
 - Match the surrounding code: small files, few comments, no new dependency without a reason.
 - Commits are small and imperative ("Add focus map grid"). Use branches for anything larger than one sitting. `main` must always build.
 - Verify UI changes in a browser, not just with a typecheck.
-- Keep your own test runs focused on what you changed. Broad regression and packaged-app checks go to a separate test agent (owner, 2026-11-03).
+- Keep your own test runs focused on what you changed. Broad regression and packaged-app checks can be left to a separate test pass.
+- Public docs describe the product and how to work on it. Keep conversations, personal details, account or infrastructure IDs and machine-specific paths out of tracked files; put maintainer notes in `docs/internal/`.

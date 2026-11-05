@@ -34,3 +34,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 build/release-notes.md
+
+# Maintainer notes kept on this computer only (decisions, plans, release records)
+docs/internal/
+docs/BACKLOG.md

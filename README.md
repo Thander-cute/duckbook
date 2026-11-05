@@ -1,88 +1,76 @@
-# duckbook
+# Duckbook
 
-A minimalist paper-style planner after *The Present Day Planner* (The Present Writer): Month, Week, Day and Reflect pages, an optional Focus Map, day photos and a focus timer. Your pages stay on your own computer, in SQLite; optional sync goes to a folder in your own Google Drive. There are no accounts, no Duckbook server, no analytics and no AI.
+A quiet, paper-style planner for Windows and your browser, after *The Present Day Planner*.
+Month, week and day pages in pale-blue ink, a weekly look back, and an optional focus map, kept on your own computer.
 
-- **Windows app:** download `Duckbook-Setup-<version>.exe` from [Releases](https://github.com/Thander-cute/duckbook/releases). Current beta: **0.1.0-beta.3** ([notes](docs/releases/0.1.0-beta.3.md)). The installer is not code-signed, so Windows SmartScreen warns; choose *More info → Run anyway* if you trust this repository. Beta 1 and 2 can't update themselves: install 0.1.0-beta.3 by hand once, then Duckbook offers new versions itself.
-- **Browser version:** run it from source with Node.js 24+ (below).
-- **Your data:** [docs/DATA-AND-PRIVACY.md](docs/DATA-AND-PRIVACY.md) says where everything lives, what leaves your computer (Google Drive sync, update checks) and what the PIN lock does and doesn't do. Keep your own copy of the data folder; this is beta software.
-- **Project:** [IDEA.md](IDEA.md) for the idea, [docs/DECISIONS.md](docs/DECISIONS.md) for what is decided, [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [docs/RELEASING.md](docs/RELEASING.md). Licensed under [MIT](LICENSE); third-party licences are listed in the app's `THIRD_PARTY_NOTICES.txt`.
+[Download for Windows](https://github.com/Thander-cute/duckbook/releases/latest) · [Website](https://duckbook.khoadev.id.vn) · [Privacy](docs/DATA-AND-PRIVACY.md) · [MIT licence](LICENSE)
 
-## Use
+> Duckbook is in beta. Keep your own copy of your data folder.
 
-Double-click **`Duckbook.cmd`**. It starts a small background server (once) and opens **http://localhost:5317** in your default browser.
+## Features
 
-- First time: run `Duckbook.cmd --shortcut` to put a **Duckbook** shortcut on the desktop.
-- Stop the background server: `Duckbook.cmd --stop`.
-- Requires Node.js 24+. The first launch installs and builds automatically.
+- **Month:** a theme, goals, a calendar with notes per day and notes that span several days.
+- **Week:** tasks of the week on an urgent/important grid, and a habit tracker.
+- **Day:** tasks with pomodoro estimates, gratitude, your day in one sentence, up to three photos, and a focus timer.
+- **Reflect:** the week in seven sentences, and a look back on the month.
+- **Focus Map** (optional): sticky-note ideas on an impact × difficulty map, planned into weeks.
+- **Yours, on your computer:** pages in a local SQLite database with automatic verified backups, an optional PIN lock, and JSON export and import.
+- **Optional Google Drive sync** between your computers, into a folder in your own Drive. No Duckbook account or server.
 
-### Updating
+No analytics, no ads, no AI. See [docs/GUIDE.md](docs/GUIDE.md) for how the pages work.
 
-The background server keeps running the code it started with. After pulling or building a new version:
+## Install
 
-1. Let open duckbook tabs finish saving (no "Saving…" or "Not saved" in the top bar).
-2. Double-click **Duckbook** again. If the server is from an older version, the launcher builds, asks **"Restart the server now?"**, and restarts it. Answer `Y`.
-3. Reload any duckbook tab that was open from before.
+### Windows app
 
-If a page loads before the server is restarted, it shows **"duckbook was updated, but its background server is still running the old version"** and allows no editing until the restart. The page then continues by itself. Manual alternative: `Duckbook.cmd --stop`, then `Duckbook.cmd`.
+1. Download `Duckbook-Setup-<version>.exe` from [Releases](https://github.com/Thander-cute/duckbook/releases/latest).
+2. Run it. The installer is per-user and **not code-signed**, so Windows SmartScreen warns: choose *More info → Run anyway* if you trust this repository.
 
-Your pages are stored in `%LOCALAPPDATA%\Duckbook\duckbook.sqlite`, with automatic verified backups in `backups\` beside it. Copy that folder elsewhere now and then: backups on the same disk don't survive a lost disk.
+Duckbook checks for a new version when it opens and when you press *Check now* in **Settings → Data → App updates**. You choose when to download and when to install. *Install and restart* saves every page first, and won't install if anything is unsaved. Versions before 0.1.0-beta.3 can't update themselves: install a newer version by hand once.
 
-**Pages from the earlier version** (kept in your browser) are offered for moving the first time you open the new duckbook, in the same browser you used before at `http://localhost:5317`. Moving is verified, and the browser copy is kept until you remove it in Settings.
+### Browser version (from source)
 
-## Desktop app (Windows)
+Requires [Node.js](https://nodejs.org/) 24 or later, on Windows.
 
-A desktop window with the same notebook, no browser and no Node install needed.
+1. Clone this repository and double-click **`Duckbook.cmd`**. The first launch installs and builds, then opens `http://localhost:5317`.
+2. `Duckbook.cmd --shortcut` puts a shortcut on the desktop; `Duckbook.cmd --stop` stops the background server.
+3. After pulling a new version, let open tabs finish saving, run `Duckbook.cmd` again and accept the server restart, then reload the tab.
 
-- **Install:** the installer from Releases is per-user and unsigned. `npm run desktop:build` builds it yourself: `release\Duckbook-Setup-<version>.exe` and the ready-to-run folder `release\win-unpacked\Duckbook.exe` (`npm run desktop:pack` builds only the folder).
-- **Its own pages:** the desktop app keeps a separate notebook in `%APPDATA%\duckbook\notebook` (Settings → Data shows the exact folder; it has its own `backups\` and `photos\`). It never opens the browser version's database by itself.
-- **Bringing pages over:** on first run with an empty notebook, or later in Settings → Data, choose to look for the browser version's pages. Close the browser version's server window first (`Duckbook.cmd --stop`). Pages and photos are copied and checked, the desktop pages are backed up before being replaced, and the browser version is only read. Paper and habit-mark choices are per app; set them again.
-- **Closing:** the window saves pending edits before it closes. If something can't be saved, it asks: Keep open, or Close anyway.
-- **Updates:** Duckbook checks this repository's latest release when it opens and when you press *Check now* (Settings → Data → App updates). A note says when a new version is out; you choose when to download it and when to install. *Install and restart* saves every page and stops the notebook first, and refuses (no "close anyway") if anything isn't saved. The download is checked against the SHA-512 in the release's `latest.yml`; there is no publisher signature.
-- **Safety:** each launch makes a fresh token and API calls without it are refused; the window can't navigate elsewhere or open other sites, and has no Node access. Only Google sign-in and Duckbook's privacy pages open, in your browser. This is not encryption: software running as your Windows user can read the files. The PIN is an access lock, as in the browser version.
-- **Sync:** Settings → Data → Sync with Google Drive, as in the browser version. Builds made from source have no Google client unless you add your own `google-client.json` ([setup](docs/GOOGLE-DRIVE-SYNC-SETUP.md)). Synced files are not encrypted.
-- **Not yet:** code signing, a run of the installer on a clean Windows machine, and encrypted sync.
+The Windows app and the browser version each keep their own notebook. The app can copy in the browser version's pages (Settings → Data), or both can sync through the same Google Drive.
+
+## Your data
+
+Your pages, photos and backups stay in a folder on your computer; [docs/DATA-AND-PRIVACY.md](docs/DATA-AND-PRIVACY.md) says exactly where, and what leaves your computer:
+
+- **Google Drive sync**, only if you turn it on. Synced files are **not encrypted**: anyone with access to that Google account can read them.
+- **Update checks** to GitHub from the Windows app. Nothing about your notebook is sent.
+
+The PIN is an access lock, not encryption. Backups sit on the same disk as your notebook, so copy the data folder elsewhere now and then.
 
 ## Develop
 
 ```bash
 npm install
 npm run typecheck
-npm test                 # server, storage, PIN, crash-safety tests
+npm test                 # server, storage, PIN and crash-safety tests
 npm run build
-npm run test:browser     # browser checks on a throwaway server (port 5399, synthetic data)
-npm run desktop:pack     # Windows desktop folder build
-npm run desktop:test     # drives release/win-unpacked with synthetic source and target folders
+npm run test:browser     # browser checks on a throwaway server with synthetic data
+npm run desktop:build    # Windows installer in release/
 ```
 
-Desktop development (`npm run desktop:dev`) refuses to start unless `DUCKBOOK_DESKTOP_DATA_DIR`, `DUCKBOOK_WEB_DATA_DIR` and `DUCKBOOK_WEB_PORT` point at synthetic folders and a spare port; also set `DUCKBOOK_DESKTOP_PORT`.
-
-`npm run dev` runs the Vite UI alone, without a server, so it only shows the "server isn't running" screen. Test UI changes with `npm run build` plus a server on a spare port and a temp data dir:
+Run a development server on a spare port with a temporary data folder, never against your own notebook:
 
 ```bash
+npm run build
 DUCKBOOK_PORT=5398 DUCKBOOK_DATA_DIR=/tmp/duckbook-dev node server/main.ts
 ```
 
-Never point development at port 5317 or at the real data directory.
+Desktop development (`npm run desktop:dev`) likewise needs `DUCKBOOK_DESKTOP_DATA_DIR`, `DUCKBOOK_WEB_DATA_DIR`, `DUCKBOOK_WEB_PORT` and `DUCKBOOK_DESKTOP_PORT`. Builds from source have no Google Drive sync unless you add your own OAuth client ([docs/GOOGLE-DRIVE-SYNC-SETUP.md](docs/GOOGLE-DRIVE-SYNC-SETUP.md)).
 
-Working agreement for contributors and coding agents: [AGENTS.md](AGENTS.md). Plan larger changes with [docs/templates/slice-plan.md](docs/templates/slice-plan.md).
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [docs/RELEASING.md](docs/RELEASING.md) · [AGENTS.md](AGENTS.md) (guidelines for coding agents)
 
-Keys: `← →` previous/next · `T` today · `M W D R` Month/Week/Day/Reflect · `F` Focus Map (when turned on) · `L` lock (when a PIN is set) · `Esc` leave Settings.
+## Licence
 
-**Month: weeks.** Month notes sit in the left column, as in the paper planner. Each week row has its number in the left margin, outside the table: the number (W43) opens the week, the target shows the week's goal, the look-back clock shows its reflection. The week strips are pale blue; the current week's is left white. A mark appears only when there is something written to show. Mood tracking is gone from the page; moods saved earlier stay in your data.
+[MIT](LICENSE). The Windows app ships `THIRD_PARTY_NOTICES.txt` with the licences of the libraries and fonts it includes.
 
-**Month: notes for a stretch of days.** Press a day number and drag to another day to draw a line, then write on it. Drag the words along the line to move them. Click the words or the line to change the text or the From/To days (a stretch may run into the next month) or to remove it.
-
-**Day photos.** The right page of a Day keeps up to 3 photos: click "Add a photo", drop files on it, or paste. On the Month page a day with photos shows a small picture mark in its corner; click it to view them over the page (← → to step through the month's photos, Esc to close). Photos are stored as JPEG files in the data folder's `photos` folder, not inside the JSON export.
-
-**Settings** (⚙) is its own page with paper tabs: Notebook, Focus timer, Privacy, Data (backups, export/import), Add-ons. Back or Esc returns to where you were.
-
-**Paper** (Settings → Notebook): White with blue ink, or Cream paper on a linen desk. The choice is kept by this browser (not in your notebook data), so the lock screen uses it too.
-
-**Habit marks** (Settings → Notebook): a done habit day shows as an ink dot, the circle shaded with separate pen lines, or a handwritten tick over it; days not done are empty circles. Kept by this browser, like Paper.
-
-**Focus Map** (optional, Settings → Add-ons) is a board of sticky notes on an impact × difficulty map (left hard, right easy; top high impact, bottom low).
-- **Write and place:** write on the blank note at the top of the pad and press Enter; it drops into the Tray. Drag a note by its top edge onto the map. You can also focus a note and use the arrow keys, or use Place in its bar.
-- **States:** each note has a state (Idea, In progress, Completed) and an optional planned date. Click a note to show its bar: Start, Complete, Reopen, the date, Plan, Place, remove. A note in progress is pale blue, a completed one grey with a ✓; its date and week are written at the foot. Esc or a click on the empty map puts the bar away.
-- **Planning:** Plan puts the idea once into the week of its date, or the week shown in the top bar, ready for the matrix. It stays one piece of work: rename it, tick it done, or change its date from Week, Day, or the note, and every place agrees. Changing the date moves it to that week.
-- **Day page:** ideas planned for a day show up in that day's "Pick from your plan".
-- **Turning it off:** hides the board and its marks; your notes and links are kept.
+Duckbook is an independent project, inspired by *The Present Day Planner* by The Present Writer. It is not affiliated with or endorsed by them, or by Google.

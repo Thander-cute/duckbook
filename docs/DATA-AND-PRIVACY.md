@@ -1,71 +1,66 @@
-# Dữ liệu và quyền riêng tư
+# Your data and privacy
 
-## Dữ liệu nằm ở đâu
+Duckbook keeps your notebook on your computer. Nothing you write is sent to the Duckbook project or to anyone else. There is no account, no telemetry, no analytics and no AI; fonts are built in. Only two things use the network, both described below: **Google Drive sync** (only if you turn it on) and the Windows app's **update checks** with GitHub.
 
-| Thứ | Vị trí |
-|---|---|
-| Các trang sổ | `%LOCALAPPDATA%\Duckbook\duckbook.sqlite` (ví dụ `C:\Users\<bạn>\AppData\Local\Duckbook`) |
-| Bản sao lưu | `%LOCALAPPDATA%\Duckbook\backups\*.sqlite` |
-| Ảnh của ngày | `%LOCALAPPDATA%\Duckbook\photos\*.jpg`. Mỗi ảnh là một file JPEG đã thu nhỏ, tên file là mã băm nội dung. Trang ngày chỉ ghi tên file. |
-| Nhật ký server | `%LOCALAPPDATA%\Duckbook\logs\server.log`. Chỉ ghi sự kiện (khởi động, backup, import), không ghi nội dung sổ. |
-| Bản cũ trong trình duyệt | `localStorage['duckbook:v1']` của `http://localhost:5317`. Chỉ đọc. Bản này chỉ bị xóa khi bạn tự bấm "Remove old copy", và nút đó chỉ hiện ra sau khi dữ liệu đã chuyển sang database và được xác minh khớp. |
+## Where your data is
 
-Nội dung sổ không bao giờ được gửi cho Duckbook hay bên thứ ba nào. Server chỉ nghe trên `127.0.0.1` và `::1`. Không có tài khoản, không telemetry, không AI. Font chữ được đóng gói sẵn trong app, không tải từ mạng. Chỉ có hai thứ đi ra mạng: đồng bộ Google Drive (chỉ khi bạn bật, xem bên dưới) và việc app desktop kiểm tra bản mới trên GitHub (xem mục cập nhật).
+| What | Windows app | Browser version |
+|---|---|---|
+| Pages (SQLite) | `%APPDATA%\duckbook\notebook\duckbook.sqlite` | `%LOCALAPPDATA%\Duckbook\duckbook.sqlite` |
+| Backups | `…\backups\*.sqlite` beside it | same |
+| Day photos | `…\photos\*.jpg` beside it: downsized JPEGs named by content hash; pages store only the name | same |
+| Event log | `…\logs\server.log`: start-up, backups, imports; never notebook text | same |
+| Google sign-in | `…\sync-google.json`, only while sync is connected | same |
 
-## Ghi dữ liệu
+Settings → Data shows the exact folder. The two versions keep separate notebooks. Uninstalling the Windows app does not delete its data folder.
 
-- Mỗi trang (tháng, tuần, ngày, cài đặt) là một dòng trong SQLite. Dòng nào cũng có số revision tăng dần, không bao giờ dùng lại.
-- Lúc lưu, server kiểm tra revision. Nếu tab khác đã sửa cùng trang thì server từ chối và báo xung đột. Không có chuyện ghi đè trong im lặng.
-- SQLite chạy chế độ WAL với `synchronous=FULL`: lần lưu nào đã được xác nhận thì vẫn còn sau khi mất điện hoặc tắt ngang tiến trình. Test đã kiểm tra bằng cách giết server giữa lúc đang ghi.
-- Lưu thất bại thì app báo rõ ("Not saved…") và tự thử lại.
+The browser version's local server listens only on `127.0.0.1` and `::1`, and refuses requests whose Host or Origin isn't its own or that lack its own header. The Windows app adds a fresh token per launch and lets its window open nothing but Google sign-in and Duckbook's privacy pages, in your browser.
 
-## Sao lưu
+The very first duckbook kept pages in the browser's `localStorage['duckbook:v1']` at `http://localhost:5317`. Duckbook only reads that copy, offers to move it, and removes it only when you press *Remove old copy* after a verified move.
 
-- Tự động sao lưu mỗi khoảng 4 giờ nếu có thay đổi, lúc khởi động, và luôn sao lưu trước khi import hoặc restore.
-- Mỗi bản sao lưu được kiểm tra ngay sau khi tạo: chạy `integrity_check` của SQLite và so mã băm nội dung. Bản nào không đạt sẽ bị bỏ, không lưu lại.
-- Giữ 30 bản tự động và 20 bản thủ công hoặc trước thao tác. Restore nằm trong Settings → Backups. Trước khi restore, app sao lưu trang hiện tại, và sau khi restore thì xác minh lại nội dung.
-- **Ảnh không nằm trong file sao lưu `.sqlite`.** File ảnh chỉ có một bản trong thư mục `photos` và được giữ lại chừng nào trang hiện tại *hoặc* bất kỳ bản sao lưu nào còn trỏ tới nó. Vì vậy restore bản nào cũng có đủ ảnh. Gỡ ảnh khỏi một ngày không xóa file ngay; server chỉ dọn file khi không còn trang hay bản sao lưu nào cần tới (và file đã cũ hơn một ngày).
-- **Giới hạn:** bản sao lưu nằm trên cùng ổ đĩa với dữ liệu. Nếu hỏng hoặc mất ổ, mất máy, thì mất cả hai. Hãy thỉnh thoảng chép thư mục `backups` **và** `photos` ra nơi khác (USB, ổ ngoài). App chưa tự làm việc này.
+## Saving
 
-## Khóa PIN: làm được gì và không làm được gì
+- Each page (month, week, day, settings) is a row in SQLite with a revision number that only goes up.
+- A save from a tab that missed someone else's change is merged into the newer page; if that isn't possible, the page shows a conflict instead of overwriting.
+- SQLite runs in WAL mode with `synchronous=FULL`: a confirmed save survives a power cut or a killed process. A failed save shows *Not saved* and is retried.
 
-Khóa PIN là tùy chọn, bật trong Settings → Privacy lock: 6 chữ số, tự khóa sau một khoảng không dùng, hoặc bấm biểu tượng ổ khóa, hoặc phím `L`.
+## Backups
 
-**Làm được:**
-- Che toàn bộ nội dung: khi khóa, app gỡ hẳn các trang khỏi trang web, không chỉ phủ lớp mờ lên trên. Tiêu đề tab cũng không còn tên task.
-- Server từ chối mọi yêu cầu đọc, ghi, sao lưu hoặc xuất dữ liệu khi chưa nhập đúng PIN, kể cả ảnh.
-- Ảnh được tab giữ trong bộ nhớ (không lưu vào cache của trình duyệt), và bị xóa khỏi bộ nhớ ngay khi khóa.
-- Sai 5 lần thì phải chờ, thời gian chờ tăng dần đến 15 phút.
-- Khởi động lại server thì app khóa lại.
-- Trang web khác mở trong trình duyệt không gửi được yêu cầu tới server này: server kiểm tra Host, Origin và một header riêng của app.
+- Automatic about every 4 hours while pages change, at start-up, and always before an import or restore.
+- Each backup is checked right after it is made (SQLite `integrity_check` and a content hash); one that fails is discarded.
+- 30 automatic and 20 manual or pre-operation backups are kept. Restore is in Settings → Data; the current pages are backed up first and the result is verified.
+- Photos are not inside the `.sqlite` backups. Each photo file is kept while the current pages *or* any backup refers to it, so every restore has its photos.
+- **Limit:** backups are on the same disk. Copy the whole data folder (including `backups` and `photos`) elsewhere now and then.
 
-**Không làm được:**
-- **Không mã hóa.** Người hoặc chương trình nào mở được file trong tài khoản Windows của bạn vẫn đọc được `duckbook.sqlite`, các bản sao lưu, thư mục ảnh và file export. Điều này bao gồm cả các AI agent có quyền đọc ổ đĩa.
-- Không chống được ai đó đang dùng chính tab đã mở khóa, hoặc người có toàn quyền trên máy.
-- Mã PIN 6 số chỉ là khóa nhanh, không thay được mật khẩu Windows hay mã hóa ổ đĩa (BitLocker hoặc Device Encryption). Muốn bảo vệ khi mất máy thì nên bật mã hóa ổ đĩa của Windows.
+## The PIN lock
 
-Mã hóa dữ liệu trên ổ đĩa đang được để ngỏ, chưa làm (xem `docs/DECISIONS.md`).
+An optional 6-digit PIN (Settings → Privacy). It locks after a chosen idle time, from the lock icon, or with `L`.
 
-## Export và import
+**It does:** remove the pages from the window while locked (not just blur them) and drop photos from memory; refuse every read, write, backup and export until unlocked; slow down guessing (after 5 wrong tries, waits growing to 15 minutes); lock again when the server restarts.
 
-- **Export JSON** tạo một file văn bản đọc được, không mã hóa. Hãy cất ở nơi riêng tư.
-- File export **không chứa ảnh**, chỉ chứa tên file ảnh. Nhập file đó trên máy khác thì ô ảnh hiện "Not on this computer". Muốn mang ảnh theo thì chép cả thư mục `photos`.
-- **Import** kiểm tra dữ liệu trước khi nhập. File không phải dữ liệu duckbook bị từ chối. Giá trị nào lạ sẽ được để riêng, không bị bỏ đi. Trước khi thay thế trang hiện tại, app luôn sao lưu.
+**It does not:** encrypt anything. Anyone or any program that can open files in your Windows account can read the notebook, backups, photos, exports and `sync-google.json`. It doesn't protect an unlocked window or someone with full control of the computer. To protect a lost or stolen computer, turn on Windows device encryption (BitLocker).
 
-## Đồng bộ qua Google Drive (không mã hóa)
+## Export and import
 
-- Chỉ chạy khi bạn kết nối trong Settings → Data. OAuth client được nhúng trong app ([cách tạo](GOOGLE-DRIVE-SYNC-SETUP.md)). Không có server Duckbook: mỗi máy nói chuyện thẳng với Google Drive.
-- **Không mã hóa.** Mọi trang (nhật ký, task, reflection…) và ảnh của ngày được lưu thành file đọc được trong thư mục **"Duckbook Sync"** trên Drive của bạn. Google và bất kỳ ai vào được tài khoản Google đó đọc được chúng. Bản có mã hóa (mã khôi phục) sẽ làm sau.
-- Quyền xin là `drive.file`: app chỉ thấy các file chính nó tạo, không đọc phần còn lại của Drive.
-- Mỗi máy chỉ tạo file của riêng nó (`ops-<máy>-<số>.json`, `photo-<hash>.jpg`) và không sửa hay xóa file của máy khác. File SQLite đang dùng không bao giờ được đặt lên Drive.
-- Token nằm trong **`sync-google.json`** cạnh notebook, dạng văn bản rõ, không nằm trong `duckbook.sqlite` hay các bản sao lưu. Khóa PIN không mã hóa file này.
-- Lưu trên máy không chờ mạng. Sync chạy nền: vài giây sau khi lưu, khi quay lại cửa sổ, và mỗi phút. Lỗi (mất mạng, hết quyền, file hỏng) hiện trong Settings → Data; file hỏng không được áp dụng.
-- **Dùng notebook từ Drive** thay toàn bộ trang trên máy này, sau một bản sao lưu đã kiểm tra ("Before taking the Drive notebook"). **Gộp cả hai** giữ trang của cả hai bên; ô nào hai bên có chữ khác nhau thì giữ cả hai đoạn, nối tiếp nhau.
-- **Stop syncing** giữ nguyên trang trên máy và file trên Drive. **Sign out** thu hồi token tại Google rồi xóa `sync-google.json`. Không có gì trên Drive bị xóa; muốn xóa thì tự xóa thư mục "Duckbook Sync".
+- **Export JSON** writes readable, unencrypted text. Keep it somewhere private. It contains photo names, not photo files; copy the `photos` folder to move photos.
+- **Import** checks the file first and refuses anything that isn't duckbook data. Unknown values are set aside, not dropped. The current pages are always backed up before being replaced.
 
-## Cập nhật app desktop
+## Google Drive sync (not encrypted)
 
-- App desktop hỏi GitHub bản phát hành mới nhất của `Thander-cute/duckbook` (file `latest.yml`) mỗi khi mở app và khi bạn bấm **Check now** trong Settings → Data → App updates. GitHub thấy địa chỉ IP và yêu cầu tải file, như mọi lượt tải. Không có gì về sổ được gửi đi.
-- Không tự tải, không tự cài. Bạn bấm **Download** thì app mới tải bản cài về thư mục tạm, rồi so kích thước và SHA-512 với `latest.yml`. Bạn bấm **Install and restart** thì app lưu mọi trang, dừng server của sổ, rồi mới chạy bản cài. Nếu còn chỗ chưa lưu, app không cài, và không có lựa chọn "Close anyway".
-- Bản cài không có chữ ký số (code signing). SHA-512 chỉ chứng minh file khớp với `latest.yml` của cùng bản phát hành trên GitHub, không chứng minh ai là người phát hành.
-- Sổ, bản sao lưu, ảnh và token Google nằm trong thư mục dữ liệu, ngoài thư mục cài đặt, nên cập nhật không đụng tới chúng.
+- Off until you connect a Google account in Settings → Data. Each computer talks to Google Drive directly; there is no Duckbook server.
+- Duckbook asks only for `drive.file`: it can see and change only files it created, not the rest of your Drive. It doesn't ask for your name or email.
+- Your pages (journal, tasks, reflections…) and day photos are stored as readable files in a **Duckbook Sync** folder in your Drive. **They are not encrypted:** Google and anyone with access to that Google account can read them.
+- Each computer only adds its own files (`ops-<device>-<n>.json`, `photo-<hash>.jpg`) and never changes another's. The live SQLite file is never uploaded.
+- The Google tokens are kept in `sync-google.json`, in plain text, outside `duckbook.sqlite` and its backups.
+- Saving never waits for the network. Sync runs a few seconds after a save, when you return to the window, and every minute. Problems (offline, access ended, damaged file) show in Settings → Data; damaged files are not applied.
+- **Use Drive's notebook** replaces this computer's pages after a verified backup. **Merge both** keeps both sides; where the same box differs, both texts are kept.
+- **Stop syncing** leaves your pages here and in Drive. **Sign out** asks Google to revoke access and deletes `sync-google.json` (if you're offline, remove Duckbook at <https://myaccount.google.com/permissions>). Nothing in Drive is deleted; delete the Duckbook Sync folder yourself if you want it gone.
+
+## Updates (Windows app)
+
+- Duckbook asks GitHub for the latest release of this repository (`latest.yml`) when it opens and when you press *Check now* in Settings → Data → App updates. Like any download, GitHub sees your IP address and the request. Nothing about your notebook is sent.
+- Nothing downloads or installs on its own. *Download* fetches the installer and checks its size and SHA-512 against `latest.yml`. *Install and restart* saves every page and stops the notebook first, and won't install if anything is unsaved.
+- The installer is not code-signed: the SHA-512 shows the file matches the release's `latest.yml`, not who published it.
+- Your data folder is outside the install folder, so updates don't touch it.
+
+Questions: see [SECURITY.md](../SECURITY.md) for contact.
