@@ -5,7 +5,7 @@
   "description": "A quiet, paper-style planner for Windows and the browser. Your pages stay on your computer.",
   "license": "MIT",
   "author": "Thander-cute",
-  "homepage": "https://duckbook.khoadev.id.vn",
+  "homepage": "https://github.com/Thander-cute/duckbook",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Thander-cute/duckbook.git"

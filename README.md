@@ -9,7 +9,7 @@
 A quiet, paper-style planner for Windows and your browser, after *The Present Day Planner*.
 Month, week and day pages in pale-blue ink, a weekly look back, and an optional focus map, kept on your own computer.
 
-[Download for Windows](https://github.com/Thander-cute/duckbook/releases/latest) · [Website](https://duckbook.khoadev.id.vn) · [Privacy](docs/DATA-AND-PRIVACY.md) · [Changelog](CHANGELOG.md)
+[Download for Windows](https://github.com/Thander-cute/duckbook/releases/latest) · [Privacy](docs/DATA-AND-PRIVACY.md) · [Changelog](CHANGELOG.md)
 
 ![The day page: tasks with pomodoro marks, gratitude, notes and the week's plan](docs/images/day.png)
 
