@@ -1,19 +1,18 @@
 // Takes the README screenshots from a throwaway server filled with made-up pages.
-// Never points at a real notebook: temp data dir, port 5398.
+// Never points at a real notebook: the server runs in this process on a fresh temp folder and a
+// free port it bound itself, so no request can reach another Duckbook server.
 //
 //   npm run build && node scripts/screenshots.ts
 //
 // Output: docs/images/{month,week,day,focus}.png
 
-import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import puppeteer from 'puppeteer-core'
+import puppeteer, { type Browser } from 'puppeteer-core'
 import { API_LEVEL } from '../src/lib/schema.ts'
+import { start } from '../server/main.ts'
 
-const PORT = 5398
-const BASE = `http://localhost:${PORT}`
 const OUT = 'docs/images'
 const browserPath = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -95,22 +94,22 @@ const sample = {
 }
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-shots-'))
-const server = spawn(process.execPath, ['server/main.ts'], { env: { ...process.env, DUCKBOOK_DATA_DIR: dataDir, DUCKBOOK_PORT: String(PORT) }, stdio: 'ignore' })
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const headers = { 'X-Duckbook': '1', 'X-Duckbook-Api': String(API_LEVEL), 'Content-Type': 'application/json' }
+let server: Awaited<ReturnType<typeof start>> | undefined
+let browser: Browser | undefined
 
 try {
-  for (let i = 0; ; i++) {
-    try {
-      if ((await fetch(`${BASE}/api/health`, { headers })).ok) break
-    } catch {}
-    if (i > 50) throw new Error('server did not start')
-    await sleep(100)
-  }
+  // Throws if it can't bind, so there is nothing else to fall back to.
+  server = await start({ port: 0, dataDir, quiet: true })
+  const BASE = `http://localhost:${server.port}`
+  const health = await (await fetch(`${BASE}/api/health`, { headers })).json()
+  if (health.pid !== process.pid) throw new Error('health check answered by another process')
+  // No `replace`: the import refuses if the notebook already has pages.
   const res = await fetch(`${BASE}/api/import`, { method: 'POST', headers, body: JSON.stringify({ data: sample, source: 'file' }) })
   if (!res.ok) throw new Error(`import failed: ${res.status} ${await res.text()}`)
 
-  const browser = await puppeteer.launch({ executablePath: browserPath, headless: true, args: ['--no-first-run'] })
+  browser = await puppeteer.launch({ executablePath: browserPath, headless: true, args: ['--no-first-run'] })
   const page = await browser.newPage()
   await page.setViewport({ width: 1280, height: 860, deviceScaleFactor: 1 })
   await page.goto(BASE)
@@ -125,9 +124,8 @@ try {
     await page.screenshot({ path: path.join(OUT, `${view}.png`) as `${string}.png` })
     console.log(`${OUT}/${view}.png`)
   }
-  await browser.close()
 } finally {
-  server.kill()
-  await sleep(300)
+  await browser?.close().catch(() => {})
+  await server?.stop()
   fs.rmSync(dataDir, { recursive: true, force: true })
 }
