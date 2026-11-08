@@ -1,6 +1,6 @@
 # Releasing the Windows app
 
-The updater reads `https://github.com/Thander-cute/duckbook/releases/latest/download/latest.yml`, so every installed app is offered the newest **non-pre-release** GitHub release. Publish betas as normal releases with "beta" in the title.
+The updater reads `https://github.com/Thander-cute/duckbook/releases/latest/download/latest.yml`, so every installed app is offered the newest **non-pre-release** GitHub release. Publish every version as a normal release.
 
 ## Steps
 

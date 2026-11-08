@@ -2,6 +2,15 @@
 
 Each version's section is its release notes: the build shows it in the app before an update, and the GitHub release uses the same text.
 
+## 0.1.1 (2026-11-09)
+
+- Contacts, an add-on page: name, gender, birthday and notes, laid out as an address book with an A–Z index. Birthdays show on the Month and Day pages.
+- DISC colours for each person, an option under Contacts: pick a main and a second colour and drag the line between them to set the shares.
+- Vietnamese holidays on the calendar, an add-on that works offline, including lunar dates such as Tết. Add your own yearly days from the Month page.
+- Month words shrink to fit their square. Set the default size on the Month page; Ctrl+[ and Ctrl+] size one day.
+- Windows app: choose the interface size in Settings. Ctrl with + or − no longer changes it, which fixes the app getting stuck at the wrong size.
+- If you sync between devices, update them all: an older version stops syncing, with an error, once it receives Contacts or your own days.
+
 ## 0.1.0-beta.4 (2026-11-05)
 
 - From the licence change on, Duckbook is licensed under PolyForm Noncommercial 1.0.0. Everything already published under MIT (releases and source) keeps the MIT licence. Third-party licences are unchanged.
