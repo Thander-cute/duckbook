@@ -439,3 +439,60 @@ test('photos go up before the pages that show them; a photo Drive lacks is repor
     fs.rmSync(folder, { recursive: true, force: true })
   }
 })
+
+test('contacts and days to remember sync: two devices add at once, edits merge, and the last one can be removed', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-contacts-'))
+  const remote = new FolderRemote(dir)
+  const a = device()
+  const b = device()
+  const [ra, rb] = [a, b].map((d) => new SyncRunner(d.store, async () => remote))
+  const person = (id: string, name: string, over = {}) => ({ id, name, gender: '', day: null, month: null, year: null, disc: {}, notes: '', ...over })
+  const people = (d: Device) => (d.get('contacts')?.value as { people: { id: string; name: string; notes: string; day: number | null }[] }).people
+  const both = async () => {
+    await ra.syncNow()
+    await rb.syncNow()
+    await ra.syncNow()
+  }
+  try {
+    a.save('contacts', { people: [person('c1', 'Synthetic Anna', { day: 3, month: 4 })] })
+    a.save('occasions', { days: [{ id: 'o1', name: 'Synthetic day', day: 15, month: 8 }] })
+    await ra.join('start')
+    await rb.join('replace')
+    assert.deepEqual(people(b).map((x) => [x.id, x.day]), [['c1', 3]])
+    assert.deepEqual((b.get('occasions')?.value as { days: unknown[] }).days.length, 1)
+
+    a.save('contacts', { people: [...people(a), person('c2', 'Synthetic Ben')] })
+    b.save('contacts', { people: [{ ...people(b)[0], notes: 'from b' }, person('c3', 'Synthetic Chi')] })
+    await both()
+    for (const d of [a, b]) {
+      assert.deepEqual(people(d).map((x) => x.id).sort(), ['c1', 'c2', 'c3'], 'both additions kept')
+      assert.equal(people(d).find((x) => x.id === 'c1')!.notes, 'from b')
+    }
+    assertReplays(a)
+    assertReplays(b)
+
+    // Each device resizes the same person's mix: both land, even if the shares no longer add to 100.
+    const withDisc = (d: Device, disc: object) => d.save('contacts', { people: people(d).map((x) => (x.id === 'c1' ? { ...x, disc } : x)) })
+    withDisc(a, { D: 50, S: 50 })
+    await both()
+    withDisc(a, { D: 70, S: 30 })
+    withDisc(b, { D: 50, S: 50, C: 25 })
+    await both()
+    const mixes = [a, b].map((d) => (people(d).find((x) => x.id === 'c1') as unknown as { disc: object }).disc)
+    assert.deepEqual(mixes[0], mixes[1], 'both devices agree')
+    assertReplays(a)
+    assertReplays(b)
+
+    a.save('contacts', { people: [] })
+    await both()
+    assert.deepEqual(people(b), [], 'removing the last person reaches the other device')
+    assert.equal(rb.state().error, null, 'and sync keeps going')
+    b.save('contacts', { people: [person('c4', 'Synthetic Dao')] })
+    await both()
+    assert.deepEqual(people(a).map((x) => x.id), ['c4'], 'a person can be added after the list emptied')
+  } finally {
+    a.close()
+    b.close()
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})

@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { PhotoMark, PhotoViewer, type Shown } from '../components/Photos'
 import { LANE, SpanEditor, placeSpans, rangeLabel } from '../components/Spans'
 import { Popover } from '../components/Popover'
-import { Check, Page, Spread, Write } from '../components/ui'
+import { CellOccasions, DayCard } from '../components/Occasions'
+import { useOccasionsOf } from '../lib/occasions'
+import { Check, Page, Spread, Stepper, Write } from '../components/ui'
 import { PROMPTS } from './ReflectView'
 import { MONTHS_SHORT, WEEKDAYS, addDays, daysInMonth, fmtShort, isoWeek, monthGrid, monthKeyOf, pad, todayKey, weekStart } from '../lib/date'
 import { go, href } from '../lib/router'
-import { editMonth, editSpans, uid, useMonth, useSpans, useStore } from '../lib/store'
+import { MONTH_SIZE_MAX, MONTH_SIZE_MIN, editMonth, editSpans, uid, update, useMonth, useSettings, useSpans, useStore } from '../lib/store'
 
 /** Where a line starts in the cycle of three hand-drawn strokes; stable per line. */
 const pen = (id: string) => [...id].reduce((h, c) => h + c.charCodeAt(0), 0) % 3
@@ -57,6 +59,18 @@ export function MonthView({ date }: { date: string }) {
   const setSlide = (s: Slide | null) => setSlideState((live.current.slide = s))
   const swallowClick = useRef(false)
   const days = useStore((s) => s.days)
+  const occasionsOf = useOccasionsOf()
+  const { monthSize, modules } = useSettings()
+  const [dayCard, setDayCard] = useState<{ key: string; at: HTMLElement } | null>(null)
+  // Ctrl+[ and Ctrl+] set one day's word size; back at the page's default it stops being special.
+  const resize = (key: string, by: number) =>
+    editMonth(mk, (m) => {
+      const next = Math.min(MONTH_SIZE_MAX, Math.max(MONTH_SIZE_MIN, (m.sizes?.[key] ?? monthSize) + by))
+      if (next === monthSize) {
+        if (m.sizes) delete m.sizes[key]
+        if (m.sizes && !Object.keys(m.sizes).length) delete m.sizes
+      } else (m.sizes ??= {})[key] = next
+    })
   // Every photo of the month in day order, so the viewer can step from one day to the next.
   const shown: Shown[] = Object.keys(days)
     .filter((k) => k >= first && k <= last)
@@ -154,8 +168,17 @@ export function MonthView({ date }: { date: string }) {
         >
           {Number(key.slice(8))}
         </a>
+        <CellOccasions items={occasionsOf(key)} nudge={!!days[key]?.photos?.length} canAdd={modules.holidays} onOpen={(at) => setDayCard({ key, at })} />
         {days[key]?.photos?.length ? <PhotoMark count={days[key].photos!.length} day={key} onOpen={() => setViewing(shown.findIndex((s) => s.day === key))} /> : null}
-        <Write value={month.cells[key] ?? ''} onChange={(v) => editMonth(mk, (m) => void (m.cells[key] = v))} ariaLabel={`Notes for ${fmtShort(key)}`} />
+        <Write value={month.cells[key] ?? ''} onChange={(v) => editMonth(mk, (m) => void (m.cells[key] = v))} ariaLabel={`Notes for ${fmtShort(key)}`}
+          // Words start at the chosen size and shrink as they fill the cell, like a Focus note.
+          fit={{ min: MONTH_SIZE_MIN, max: month.sizes?.[key] ?? monthSize }}
+          onKeyDown={(e) => {
+            if (!e.ctrlKey || e.altKey || (e.code !== 'BracketLeft' && e.code !== 'BracketRight')) return
+            e.preventDefault()
+            resize(key, e.code === 'BracketLeft' ? -1 : 1)
+          }}
+        />
         {here.map(({ span, lane }) => {
           const at = slide?.id === span.id ? slide.at : span.at
           const anchor = at < first ? first : at > last ? last : at
@@ -242,6 +265,8 @@ export function MonthView({ date }: { date: string }) {
         </div>
       </Page>
 
+      {dayCard && <DayCard date={dayCard.key} items={occasionsOf(dayCard.key)} canAdd={modules.holidays} anchor={dayCard.at} onClose={() => setDayCard(null)} />}
+
       {viewing !== null && shown.length > 0 && <PhotoViewer items={shown} start={viewing} onClose={() => setViewing(null)} showDayLink />}
 
       <Page side="right" className="month-right">
@@ -272,6 +297,10 @@ export function MonthView({ date }: { date: string }) {
             ))}
             {rows.flatMap((r, ri) => r.slice(3).map((k, ci) => cell(k, ri * 7 + ci + 3)))}
           </div>
+        </div>
+        <div className="month-foot" title="Change one day with Ctrl+[ and Ctrl+]">
+          <span className="line-label">Day notes</span>
+          <Stepper label="word size of day notes" unit="px" value={monthSize} min={MONTH_SIZE_MIN} max={MONTH_SIZE_MAX} onChange={(v) => update((s) => void (s.settings.monthSize = v))} />
         </div>
       </Page>
     </Spread>

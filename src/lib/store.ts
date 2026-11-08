@@ -3,7 +3,7 @@ import { produce, type Draft } from 'immer'
 import { weekStart } from './date'
 import { api, ApiError, OfflineError, setLockedHandler } from './api'
 import { rebaseDoc } from './tree'
-import { API_LEVEL, SINGLETONS, validDayKey, docsToState, stateToDocs, emptyDay, emptyFocus, emptyMonth, emptySpans, emptyState, emptyWeek, type DayData, type FocusData, type SpansData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
+import { API_LEVEL, SINGLETONS, validDayKey, docsToState, stateToDocs, emptyDay, emptyFocus, emptyMonth, emptySpans, emptyContacts, emptyOccasions, emptyState, emptyWeek, type DayData, type FocusData, type SpansData, type ContactsData, type OccasionsData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
 
 export * from './schema'
 
@@ -86,6 +86,8 @@ function docRef(s: State, key: string): unknown {
   if (key === 'settings') return s.settings
   if (key === 'focus') return s.focus
   if (key === 'spans') return s.spans
+  if (key === 'contacts') return s.contacts
+  if (key === 'occasions') return s.occasions
   const [kind, id] = key.split(':')
   return kind === 'month' ? s.months[id] : kind === 'week' ? s.weeks[id] : s.days[id]
 }
@@ -144,6 +146,8 @@ function adoptDocs(docs: ServerDoc[], mode: 'merge' | 'replace') {
         else if (kind === 'day') delete d.days[id]
         else if (kind === 'focus') d.focus = emptyFocus()
         else if (kind === 'spans') d.spans = emptySpans()
+        else if (kind === 'contacts') d.contacts = emptyContacts()
+        else if (kind === 'occasions') d.occasions = emptyOccasions()
         else d.settings = emptyState().settings
       }
     }
@@ -154,6 +158,8 @@ function adoptDocs(docs: ServerDoc[], mode: 'merge' | 'replace') {
       else if (kind === 'day') d.days[id] = fresh.days[id] as Draft<DayData>
       else if (kind === 'focus') d.focus = fresh.focus as Draft<FocusData>
       else if (kind === 'spans') d.spans = fresh.spans as Draft<SpansData>
+      else if (kind === 'contacts') d.contacts = fresh.contacts as Draft<ContactsData>
+      else if (kind === 'occasions') d.occasions = fresh.occasions as Draft<OccasionsData>
       else if (kind === 'settings') d.settings = fresh.settings
     }
   })
@@ -179,6 +185,8 @@ function setPage(d: Draft<State>, key: string, value: unknown) {
   else if (kind === 'day') d.days[id] = fresh.days[id] as Draft<DayData>
   else if (kind === 'focus') d.focus = fresh.focus as Draft<FocusData>
   else if (kind === 'spans') d.spans = fresh.spans as Draft<SpansData>
+      else if (kind === 'contacts') d.contacts = fresh.contacts as Draft<ContactsData>
+      else if (kind === 'occasions') d.occasions = fresh.occasions as Draft<OccasionsData>
   else if (kind === 'settings') d.settings = fresh.settings
 }
 
@@ -358,6 +366,8 @@ async function enter(status: Status) {
         else if (kind === 'day') d.days[id] = p.value as Draft<DayData>
         else if (kind === 'focus') d.focus = p.value as Draft<FocusData>
         else if (kind === 'spans') d.spans = p.value as Draft<SpansData>
+        else if (kind === 'contacts') d.contacts = p.value as Draft<ContactsData>
+        else if (kind === 'occasions') d.occasions = p.value as Draft<OccasionsData>
         else d.settings = p.value as State['settings']
       }
     })
@@ -471,6 +481,10 @@ export const useFocus = () => useStore((s) => s.focus)
 export const editFocus = (fn: (f: Draft<FocusData>) => void) => update((s) => fn(s.focus))
 export const useSpans = () => useStore((s) => s.spans.spans)
 export const editSpans = (fn: (f: Draft<SpansData>) => void) => update((s) => fn(s.spans))
+export const useContacts = () => useStore((s) => s.contacts.people)
+export const editContacts = (fn: (f: Draft<ContactsData>) => void) => update((s) => fn(s.contacts))
+export const useOccasions = () => useStore((s) => s.occasions.days)
+export const editOccasions = (fn: (f: Draft<OccasionsData>) => void) => update((s) => fn(s.occasions))
 
 /** Habits carry over: a new week starts with the habit names of the latest earlier week. */
 function carriedHabits(weeks: Record<string, WeekData>, mondayKey: string): Habit[] {

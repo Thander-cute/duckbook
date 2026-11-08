@@ -1,4 +1,4 @@
-// The only bridge from the page to the desktop shell: app updates. No Node, no other IPC.
+// The only bridges from the page to the desktop shell: app updates and text size. No Node, no other IPC.
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('duckbookUpdates', {
@@ -8,4 +8,8 @@ contextBridge.exposeInMainWorld('duckbookUpdates', {
     ipcRenderer.on('duckbook:update-state', handler)
     return () => void ipcRenderer.removeListener('duckbook:update-state', handler)
   },
+})
+
+contextBridge.exposeInMainWorld('duckbookView', {
+  setTextSize: (factor: number) => ipcRenderer.invoke('duckbook:text-size', factor),
 })

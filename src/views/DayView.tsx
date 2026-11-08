@@ -2,6 +2,8 @@ import { DayPhotos } from '../components/Photos'
 import { useState } from 'react'
 import { Check, Label, Line, Page, PageTitle, Spread, Write } from '../components/ui'
 import { InkDot } from '../components/InkDot'
+import { DayOccasions } from '../components/Occasions'
+import { useOccasionsOf } from '../lib/occasions'
 import { HabitMark } from '../components/HabitMark'
 import { WEEKDAYS_MIN, fmtShort, monthKeyOf, weekDays, weekStart, weekdayIndex } from '../lib/date'
 import { href } from '../lib/router'
@@ -17,6 +19,7 @@ export function DayView({ date }: { date: string }) {
   const { focusMin } = useSettings()
   const [draft, setDraft] = useState('')
   const wd = weekdayIndex(date)
+  const occasions = useOccasionsOf()(date)
 
   const add = (text: string, weekTaskId?: string) => {
     if (!text.trim()) return
@@ -44,6 +47,7 @@ export function DayView({ date }: { date: string }) {
 
         <PageTitle step="4" caps="DAILY" italic="planning" />
         <p className="day-note">{noteFor(date)}</p>
+        <DayOccasions items={occasions} />
 
         <Line label="Today I am grateful for:" value={day.grateful} onChange={(v) => editDay(date, (d) => void (d.grateful = v))} />
 

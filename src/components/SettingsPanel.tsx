@@ -8,6 +8,7 @@ import { describe } from './Gates'
 import { Menu } from './Menu'
 import { getPaper, setPaper } from '../lib/paper'
 import { setHabitMark, useHabitMark } from '../lib/habitMark'
+import { TEXT_SIZES, canSetTextSize, setTextSize, useTextSize } from '../lib/textSize'
 import { resetTour } from '../lib/tour'
 import { HabitMark } from './HabitMark'
 import { Stepper } from './ui'
@@ -84,6 +85,7 @@ export function SettingsPage({
   const [tourMsg, setTourMsg] = useState('')
   const [paper, setPaperState] = useState(getPaper)
   const habitMark = useHabitMark()
+  const textSize = useTextSize()
   const timerView = useDefaultView()
   const { status } = useSession()
   const current = LABEL[section] ? section : 'notebook'
@@ -140,6 +142,17 @@ export function SettingsPage({
                   ))}
                 </div>
               </Row>
+              {canSetTextSize && (
+                <Row title="Size" help="How big words and pages are drawn in this app.">
+                  <div className="seg">
+                    {TEXT_SIZES.map((t) => (
+                      <button key={t.factor} className={textSize === t.factor ? 'is-on' : ''} onClick={() => setTextSize(t.factor)}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </Row>
+              )}
               <Row title="Habit marks" help="How a done day looks in the habit tracker.">
                 <div className="seg seg-marks">
                   {(['dot', 'hatch', 'tick'] as const).map((m) => (
@@ -192,12 +205,20 @@ export function SettingsPage({
                   <dd>Focus Map</dd>
                 </>
               )}
+              {s.modules.contacts && (
+                <>
+                  <dt>C</dt>
+                  <dd>Contacts</dd>
+                </>
+              )}
               {status?.pinEnabled && (
                 <>
                   <dt>L</dt>
                   <dd>Lock now</dd>
                 </>
               )}
+              <dt>Ctrl [ ]</dt>
+              <dd>Smaller / larger words in a Month day</dd>
               <dt>Space</dt>
               <dd>Pause or resume the timer</dd>
               <dt>Esc</dt>
@@ -219,12 +240,34 @@ export function SettingsPage({
           )}
 
           {current === 'addons' && (
-            <Row title="Focus Map" help="Sticky notes on an impact × difficulty map; plan the good ones into a week. Turning it off hides it and keeps your ideas.">
-              <label className="module-toggle switch">
-                <input type="checkbox" role="switch" checked={s.modules.focusMap} onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))} aria-label="Focus Map" />
-                <span className="switch-track" aria-hidden />
-              </label>
-            </Row>
+            <>
+              <Row title="Focus Map" help="Sticky notes on an impact × difficulty map; plan the good ones into a week. Turning it off hides it and keeps your ideas.">
+                <label className="module-toggle switch">
+                  <input type="checkbox" role="switch" checked={s.modules.focusMap} onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))} aria-label="Focus Map" />
+                  <span className="switch-track" aria-hidden />
+                </label>
+              </Row>
+              <Row title="Contacts" help="People with their birthdays and notes, on a page of their own. Birthdays show on Month and Day. Turning it off hides them and keeps everyone.">
+                <label className="module-toggle switch">
+                  <input type="checkbox" role="switch" checked={s.modules.contacts} onChange={(e) => update((st) => void (st.settings.modules.contacts = e.target.checked))} aria-label="Contacts" />
+                  <span className="switch-track" aria-hidden />
+                </label>
+              </Row>
+              {s.modules.contacts && (
+                <Row title="DISC colours" help="Mark each person's DISC types in colour, on their card and in the list. Turning it off hides the colours and keeps them.">
+                  <label className="module-toggle switch">
+                    <input type="checkbox" role="switch" checked={s.modules.disc} onChange={(e) => update((st) => void (st.settings.modules.disc = e.target.checked))} aria-label="DISC colours" />
+                    <span className="switch-track" aria-hidden />
+                  </label>
+                </Row>
+              )}
+              <Row title="Holidays" help="Vietnamese holidays on Month and Day, built in, no network needed. Press + on any Month day to add your own yearly day.">
+                <label className="module-toggle switch">
+                  <input type="checkbox" role="switch" checked={s.modules.holidays} onChange={(e) => update((st) => void (st.settings.modules.holidays = e.target.checked))} aria-label="Holidays" />
+                  <span className="switch-track" aria-hidden />
+                </label>
+              </Row>
+            </>
           )}
         </div>
       </section>

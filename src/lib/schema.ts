@@ -11,6 +11,8 @@ export interface MonthData {
   cells: Record<string, string>
   moods: Record<string, number>
   notes: string
+  /** A day's own word size, where it differs from settings.monthSize. Absent when there are none. */
+  sizes?: Record<string, number>
 }
 
 /** `ideaId` links a task back to the Focus Map idea it came from. */
@@ -48,7 +50,9 @@ export interface Settings {
   focusMin: number
   breakMin: number
   /** Optional modules. Turning one off hides it; its data is kept. */
-  modules: { focusMap: boolean }
+  modules: { focusMap: boolean; contacts: boolean; holidays: boolean; disc: boolean }
+  /** The word size Month day cells start at, before they shrink to fit. */
+  monthSize: number
 }
 
 export type IdeaStatus = 'idea' | 'doing' | 'done'
@@ -68,6 +72,23 @@ export interface FocusData { ideas: Idea[] }
 export interface Span { id: string; start: string; end: string; text: string; at: string }
 export interface SpansData { spans: Span[] }
 
+export type Gender = 'female' | 'male' | 'other' | ''
+
+export type DiscType = 'D' | 'I' | 'S' | 'C'
+export type DiscMix = Partial<Record<DiscType, number>>
+
+/**
+ * A person in the Contacts add-on. A birthday may be partial: day and month without a year, or none.
+ * `disc` holds the share of each DISC type picked for them; the largest is their main one. Shares add
+ * to 100 when written here, but edits merged from two devices may not, so they are read as proportions.
+ */
+export interface Contact { id: string; name: string; gender: Gender; day: number | null; month: number | null; year: number | null; disc: DiscMix; notes: string }
+export interface ContactsData { people: Contact[] }
+
+/** A day to remember every year (an anniversary, a family day). */
+export interface Occasion { id: string; name: string; day: number; month: number }
+export interface OccasionsData { days: Occasion[] }
+
 export interface State {
   version: 1
   months: Record<string, MonthData>
@@ -75,6 +96,8 @@ export interface State {
   days: Record<string, DayData>
   focus: FocusData
   spans: SpansData
+  contacts: ContactsData
+  occasions: OccasionsData
   settings: Settings
 }
 
@@ -86,8 +109,9 @@ export const SCHEMA_VERSION = 1
  * reject or silently drop new fields). 2 = Focus Map page, settings.modules, WeekTask.ideaId.
  * 3 = idea status and planned date. 4 = spans page (notes for a range of days). 5 = day photos.
  * 6 = a save of a page that moved on is merged and returned (`merged`), which the page must show.
+ * 7 = contacts and occasions pages, settings.modules.contacts, .holidays and .disc, settings.monthSize, MonthData.sizes.
  */
-export const API_LEVEL = 6
+export const API_LEVEL = 7
 
 export const emptyMonth = (): MonthData => ({
   theme: '',
@@ -108,20 +132,28 @@ export const emptyWeek = (): WeekData => ({
 
 export const emptyDay = (): DayData => ({ grateful: '', tasks: [], notes: '', sentence: '' })
 
-export const defaultSettings = (): Settings => ({ ink: 'serif', focusMin: 25, breakMin: 5, modules: { focusMap: false } })
+export const MONTH_SIZE = 15
+export const MONTH_SIZE_MIN = 11
+export const MONTH_SIZE_MAX = 28
+
+export const defaultSettings = (): Settings => ({ ink: 'serif', focusMin: 25, breakMin: 5, modules: { focusMap: false, contacts: false, holidays: false, disc: false }, monthSize: MONTH_SIZE })
 
 export const emptyFocus = (): FocusData => ({ ideas: [] })
 
 export const emptySpans = (): SpansData => ({ spans: [] })
 
-export const emptyState = (): State => ({ version: 1, months: {}, weeks: {}, days: {}, focus: emptyFocus(), spans: emptySpans(), settings: defaultSettings() })
+export const emptyContacts = (): ContactsData => ({ people: [] })
+
+export const emptyOccasions = (): OccasionsData => ({ days: [] })
+
+export const emptyState = (): State => ({ version: 1, months: {}, weeks: {}, days: {}, focus: emptyFocus(), spans: emptySpans(), contacts: emptyContacts(), occasions: emptyOccasions(), settings: defaultSettings() })
 
 // ───────── documents: how State is stored, one row per page ─────────
 
-export type DocKind = 'month' | 'week' | 'day' | 'settings' | 'focus' | 'spans'
+export type DocKind = 'month' | 'week' | 'day' | 'settings' | 'focus' | 'spans' | 'contacts' | 'occasions'
 
 /** Pages that always exist in State with a default value, whether or not they were ever saved. */
-export const SINGLETONS = ['settings', 'focus', 'spans'] as const
+export const SINGLETONS = ['settings', 'focus', 'spans', 'contacts', 'occasions'] as const
 export interface Doc { key: string; value: unknown }
 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
@@ -138,7 +170,7 @@ export const validDayKey = (k: string) => {
 
 /** "month:2026-10" → ['month', '2026-10']; null if the key is not a valid document key. */
 export function parseDocKey(key: string): [DocKind, string] | null {
-  if (key === 'settings' || key === 'focus' || key === 'spans') return [key, '']
+  if ((SINGLETONS as readonly string[]).includes(key)) return [key as DocKind, '']
   const [kind, id] = key.split(':')
   if (kind === 'month' && MONTH_KEY.test(id ?? '')) return ['month', id]
   if ((kind === 'week' || kind === 'day') && validDayKey(id ?? '')) return [kind, id]
@@ -154,6 +186,8 @@ export function stateToDocs(s: State): Doc[] {
     // Only written once used, so older backups and exports stay identical.
     ...(s.focus.ideas.length ? [{ key: 'focus', value: s.focus }] : []),
     ...(s.spans.spans.length ? [{ key: 'spans', value: s.spans }] : []),
+    ...(s.contacts.people.length ? [{ key: 'contacts', value: s.contacts }] : []),
+    ...(s.occasions.days.length ? [{ key: 'occasions', value: s.occasions }] : []),
   ]
 }
 
@@ -212,6 +246,8 @@ export function docsToState(docs: Doc[]): State {
     else if (kind === 'day') s.days[id] = value as DayData
     else if (kind === 'focus') s.focus = value as FocusData
     else if (kind === 'spans') s.spans = value as SpansData
+    else if (kind === 'contacts') s.contacts = value as ContactsData
+    else if (kind === 'occasions') s.occasions = value as OccasionsData
     // Settings saved by older versions lack newer fields; fill them with defaults.
     else s.settings = settings(isObj(value) ? value : {})
   }
@@ -284,7 +320,12 @@ function month(c: Ctx, m: Record<string, unknown>, p: string): MonthData {
     if (typeof v === 'number' && v >= 1 && v <= 5) moods[d] = Math.round(v)
     else c.park(`${p}.moods.${d}`, v, 'mood out of range')
   }
-  return { theme: c.str(m.theme, `${p}.theme`), goals, cells, moods, notes: c.str(m.notes, `${p}.notes`) }
+  const sizes: Record<string, number> = {}
+  for (const [d, v] of Object.entries(c.record(m.sizes, `${p}.sizes`))) {
+    if (typeof v === 'number' && Number.isInteger(v) && v >= MONTH_SIZE_MIN && v <= MONTH_SIZE_MAX) sizes[d] = v
+    else c.park(`${p}.sizes.${d}`, v, 'size out of range')
+  }
+  return { theme: c.str(m.theme, `${p}.theme`), goals, cells, moods, notes: c.str(m.notes, `${p}.notes`), ...(Object.keys(sizes).length ? { sizes } : {}) }
 }
 
 function week(c: Ctx, w: Record<string, unknown>, p: string): WeekData {
@@ -375,7 +416,8 @@ function settings(s: Record<string, unknown>): Settings {
     ink: s.ink === 'hand' ? 'hand' : 'serif',
     focusMin: num(s.focusMin, 1, 120, d.focusMin),
     breakMin: num(s.breakMin, 1, 60, d.breakMin),
-    modules: { focusMap: bool(m.focusMap) },
+    modules: { focusMap: bool(m.focusMap), contacts: bool(m.contacts), holidays: bool(m.holidays), disc: bool(m.disc) },
+    monthSize: num(s.monthSize, MONTH_SIZE_MIN, MONTH_SIZE_MAX, d.monthSize),
   }
 }
 
@@ -438,6 +480,69 @@ function spans(c: Ctx, f: Record<string, unknown>, p: string): SpansData {
   }
 }
 
+const GENDERS: Gender[] = ['female', 'male', 'other', '']
+
+/** A day of a month, or null. Checked against a leap year, so 29 Feb is a real birthday. */
+function dayOfMonth(day: unknown, month: unknown): [number, number] | null {
+  if (!Number.isInteger(day) || !Number.isInteger(month)) return null
+  const d = day as number
+  const m = month as number
+  if (m < 1 || m > 12 || d < 1) return null
+  return d <= new Date(2000, m, 0).getDate() ? [d, m] : null
+}
+
+const absent = (v: unknown) => v === null || v === undefined
+
+function contacts(c: Ctx, f: Record<string, unknown>, p: string): ContactsData {
+  return {
+    people: c.list(f.people, `${p}.people`).flatMap((it, i) => {
+      const q = `${p}.people.${i}`
+      if (!isObj(it)) {
+        c.park(q, it, 'unrecognized person')
+        return []
+      }
+      const gender = GENDERS.includes(it.gender as Gender) ? (it.gender as Gender) : ''
+      if (gender !== it.gender && !absent(it.gender)) c.park(`${q}.gender`, it.gender, 'unknown gender')
+      const none = absent(it.day) && absent(it.month)
+      const dm = none ? null : dayOfMonth(it.day, it.month)
+      if (!none && !dm) c.park(`${q}.day`, { day: it.day, month: it.month }, 'not a day of the year')
+      const yearOk = dm && Number.isInteger(it.year) && (it.year as number) >= 1800 && (it.year as number) <= 2999
+      if (!yearOk && !absent(it.year)) c.park(`${q}.year`, it.year, 'not a birth year')
+      const disc: DiscMix = {}
+      for (const [k, v] of Object.entries(c.record(it.disc, `${q}.disc`))) {
+        if ((k === 'D' || k === 'I' || k === 'S' || k === 'C') && Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 100) disc[k] = v as number
+        else c.park(`${q}.disc.${k}`, v, 'not a DISC share')
+      }
+      return [
+        {
+          id: id(it.id, q),
+          name: c.str(it.name, `${q}.name`),
+          gender,
+          day: dm ? dm[0] : null,
+          month: dm ? dm[1] : null,
+          year: yearOk ? (it.year as number) : null,
+          disc,
+          notes: c.str(it.notes, `${q}.notes`),
+        },
+      ]
+    }),
+  }
+}
+
+function occasions(c: Ctx, f: Record<string, unknown>, p: string): OccasionsData {
+  return {
+    days: c.list(f.days, `${p}.days`).flatMap((it, i) => {
+      const q = `${p}.days.${i}`
+      const dm = isObj(it) ? dayOfMonth(it.day, it.month) : null
+      if (!isObj(it) || !dm) {
+        c.park(q, it, 'not a day of the year')
+        return []
+      }
+      return [{ id: id(it.id, q), name: c.str(it.name, `${q}.name`), day: dm[0], month: dm[1] }]
+    }),
+  }
+}
+
 /** Validate one stored page. Strict: throws SchemaError instead of repairing. Used for every save. */
 export function normalizeDoc(key: string, value: unknown): unknown {
   const p = parseDocKey(key)
@@ -450,6 +555,8 @@ export function normalizeDoc(key: string, value: unknown): unknown {
   if (kind === 'day') return day(c, value, key)
   if (kind === 'focus') return focus(c, value, key)
   if (kind === 'spans') return spans(c, value, key)
+  if (kind === 'contacts') return contacts(c, value, key)
+  if (kind === 'occasions') return occasions(c, value, key)
   return settings(value)
 }
 
@@ -461,7 +568,14 @@ export function repairDoc(key: string, value: unknown): { value: unknown; quaran
   const v = isObj(value) ? value : {}
   const [kind] = p
   const out =
-    kind === 'month' ? month(c, v, key) : kind === 'week' ? week(c, v, key) : kind === 'day' ? day(c, v, key) : kind === 'focus' ? focus(c, v, key) : kind === 'spans' ? spans(c, v, key) : settings(v)
+    kind === 'month' ? month(c, v, key)
+    : kind === 'week' ? week(c, v, key)
+    : kind === 'day' ? day(c, v, key)
+    : kind === 'focus' ? focus(c, v, key)
+    : kind === 'spans' ? spans(c, v, key)
+    : kind === 'contacts' ? contacts(c, v, key)
+    : kind === 'occasions' ? occasions(c, v, key)
+    : settings(v)
   return { value: out, quarantine: c.quarantine }
 }
 
@@ -502,6 +616,8 @@ export function normalizeState(raw: unknown): NormalizeResult {
   s.settings = settings(c.record(raw.settings, 'settings'))
   s.focus = focus(c, c.record(raw.focus, 'focus'), 'focus')
   s.spans = spans(c, c.record(raw.spans, 'spans'), 'spans')
+  s.contacts = contacts(c, c.record(raw.contacts, 'contacts'), 'contacts')
+  s.occasions = occasions(c, c.record(raw.occasions, 'occasions'), 'occasions')
   // Imported state is written as-is, so keep stored ideas without a status as they were.
   return { state: s, issues: c.issues, quarantine: c.quarantine }
 }

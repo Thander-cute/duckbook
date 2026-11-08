@@ -50,8 +50,18 @@ export function Write({
       el.style.fontSize = `${lo}px`
     }
     run()
-    // The handwriting font may arrive after the first measure.
+    // The handwriting font may arrive after the first measure, and the box may change size later.
     void document.fonts?.ready.then(run)
+    let w = el.clientWidth
+    let h = el.clientHeight
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth === w && el.clientHeight === h) return
+      w = el.clientWidth
+      h = el.clientHeight
+      run()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [value, fitMin, fitMax])
   return (
     <textarea

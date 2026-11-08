@@ -9,8 +9,10 @@ import '@fontsource/dancing-script/400.css'
 import './styles.css'
 import { App } from './App'
 import { applyPaper } from './lib/paper'
+import { applyTextSize } from './lib/textSize'
 
 applyPaper()
+applyTextSize()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

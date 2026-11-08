@@ -252,7 +252,7 @@ test('Focus Map page: strict saves, idea links on tasks, backup round trip, olde
     assert.equal(r.status, 200)
     assert.ok(!r.json.docs.some((d: { key: string }) => d.key === 'focus'), 'no focus page until used')
     const settings = r.json.docs.find((d: { key: string }) => d.key === 'settings')
-    assert.deepEqual(settings.value.modules, { focusMap: false }, 'module defaults to off')
+    assert.deepEqual(settings.value.modules, { focusMap: false, contacts: false, holidays: false, disc: false }, 'modules default to off')
 
     const focus = { ideas: [{ id: 'i1', text: 'synthetic idea', x: 0.8, y: 1.7, createdAt: '2026-10-22T00:00:00Z' }, { id: 'i2', text: 'unplaced', x: null, y: null, createdAt: '' }] }
     r = await s.call('PUT', '/api/docs', { changes: [{ key: 'focus', baseRev: 0, value: focus }] })

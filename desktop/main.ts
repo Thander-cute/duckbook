@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, session, shell, utilityProcess } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, session, shell, utilityProcess } from 'electron'
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -111,6 +111,7 @@ async function boot() {
     void closeWindow()
   })
   window.on('closed', () => { window = null })
+  setupTextSize(window)
   setupUpdates({ origin, window: () => window, prepareInstall, installFailed })
   await window.loadURL(origin)
 
@@ -173,4 +174,29 @@ async function boot() {
     keepWindowState()
     window!.destroy()
   }
+}
+
+/**
+ * Size is chosen in Settings, not with the browser's zoom keys: Chromium keeps a key zoom per site,
+ * so a stray Ctrl − used to stay for good. The page asks for one of a few sizes on every load.
+ */
+const TEXT_SIZES = [0.9, 1, 1.15, 1.3]
+function setupTextSize(w: BrowserWindow) {
+  const contents = w.webContents
+  void contents.setVisualZoomLevelLimits(1, 1)
+  let factor = 1
+  contents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && (input.control || input.meta) && ['+', '-', '=', '_', '0'].includes(input.key)) event.preventDefault()
+  })
+  // Ctrl + wheel, or anything else that zooms, goes back to the chosen size.
+  contents.on('zoom-changed', () => contents.setZoomFactor(factor))
+  contents.on('did-finish-load', () => contents.setZoomFactor(factor))
+  ipcMain.handle('duckbook:text-size', (e, value: unknown) => {
+    const frame = e.senderFrame
+    if (e.sender !== contents || !frame || frame !== contents.mainFrame || new URL(frame.url).origin !== origin) return false
+    if (typeof value !== 'number' || !TEXT_SIZES.includes(value)) return false
+    factor = value
+    contents.setZoomFactor(factor)
+    return true
+  })
 }

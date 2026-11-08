@@ -12,6 +12,7 @@ import { WeekView } from './views/WeekView'
 import { DayView } from './views/DayView'
 import { ReflectView } from './views/ReflectView'
 import { FocusView } from './views/FocusView'
+import { ContactsView } from './views/ContactsView'
 import { FocusTimer } from './components/FocusTimer'
 import { Tour } from './components/Tour'
 import { SettingsPage, type SettingsSection } from './components/SettingsPanel'
@@ -25,6 +26,7 @@ const TABS: { view: View; step: string; label: string; key: string }[] = [
 
 /** Optional module tabs, shown only when turned on in Settings. */
 const FOCUS_TAB = { view: 'focus' as View, step: '◎', label: 'Focus', key: 'F' }
+const CONTACTS_TAB = { view: 'contacts' as View, step: '♡', label: 'Contacts', key: 'C' }
 
 function periodLabel(view: View, date: string) {
   if (view === 'month') return fmtMonth(monthKeyOf(date))
@@ -84,12 +86,16 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
   }, [inSettings])
   const pinEnabled = !!status?.pinEnabled
   const focusOn = settings.modules.focusMap
-  const tabs = focusOn ? [...TABS, FOCUS_TAB] : TABS
+  const contactsOn = settings.modules.contacts
+  const tabs = [...TABS, ...(focusOn ? [FOCUS_TAB] : []), ...(contactsOn ? [CONTACTS_TAB] : [])]
+  // Contacts isn't tied to a date, so it has nothing to step through.
+  const dated = !inSettings && view !== 'contacts'
 
   // A turned-off module's page isn't reachable; its data stays untouched.
   useEffect(() => {
     if (view === 'focus' && !focusOn) go('week', date)
-  }, [view, focusOn, date])
+    if (view === 'contacts' && !contactsOn) go('month', date)
+  }, [view, focusOn, contactsOn, date])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -99,9 +105,9 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         if (e.key === 'Escape') leaveSettings(date)
         return
       }
-      if (e.key === 'ArrowLeft') go(view, step(view, date, -1))
-      else if (e.key === 'ArrowRight') go(view, step(view, date, 1))
-      else if (e.key.toLowerCase() === 't') go(view, todayKey())
+      if (e.key === 'ArrowLeft' && dated) go(view, step(view, date, -1))
+      else if (e.key === 'ArrowRight' && dated) go(view, step(view, date, 1))
+      else if (e.key.toLowerCase() === 't' && dated) go(view, todayKey())
       else if (e.key.toLowerCase() === 'l' && pinEnabled) void lock()
       else {
         const tab = tabs.find((t) => t.key === e.key.toUpperCase())
@@ -110,7 +116,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [view, date, pinEnabled, focusOn, inSettings])
+  }, [view, date, pinEnabled, focusOn, contactsOn, inSettings])
 
   useEffect(() => {
     document.documentElement.dataset.ink = settings.ink
@@ -129,7 +135,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
               key={t.view}
               role="tab"
               aria-selected={shown.view === t.view}
-              className={`tab ${shown.view === t.view ? 'is-active' : ''} ${t.view === 'focus' ? 'tab-module' : ''}`}
+              className={`tab ${shown.view === t.view ? 'is-active' : ''} ${t.view === 'focus' || t.view === 'contacts' ? 'tab-module' : ''}`}
               onClick={() => go(t.view, date)}
               title={`${t.label} (${t.key})`}
             >
@@ -141,7 +147,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
 
         <div className="period">
           <SaveIndicator />
-          {!inSettings && (
+          {dated && (
             <>
               <button className="icon-btn" onClick={() => go(view, step(view, date, -1))} aria-label="Previous" title="Previous (←)">
                 ‹
@@ -192,6 +198,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         {shown.view === 'day' && <DayView date={shown.date} />}
         {shown.view === 'reflect' && <ReflectView date={shown.date} />}
         {shown.view === 'focus' && focusOn && <FocusView date={shown.date} />}
+        {shown.view === 'contacts' && contactsOn && <ContactsView />}
       </main>
 
       {inSettings && (

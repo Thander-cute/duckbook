@@ -30,7 +30,8 @@ const validSeg = (s: unknown) =>
 
 /** A leaf value the page shapes can hold at this path: markers where structure goes, plain values elsewhere. */
 function validValue(path: unknown[], v: unknown) {
-  if (path[path.length - 1] === '@order') return Array.isArray(v) && v.length <= 1000 && v.every((x) => typeof x === 'string' && x.length <= 100)
+  // A list emptied of its last entry retires its order.
+  if (path[path.length - 1] === '@order') return (isObj(v) && v.$ === 'del' && Object.keys(v).length === 1) || (Array.isArray(v) && v.length <= 1000 && v.every((x) => typeof x === 'string' && x.length <= 100))
   if (isObj(v)) {
     const keys = Object.keys(v).length
     if (v.$ === 'arr') return keys === 2 && Number.isInteger(v.n) && (v.n as number) >= 0 && (v.n as number) <= 1000 && path.length > 0
