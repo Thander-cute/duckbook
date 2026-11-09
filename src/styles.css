@@ -335,7 +335,8 @@ button {
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  /* The side columns may not push the tabs: they stay put on every page. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   height: 60px;
   padding: 0 32px;
@@ -384,17 +385,12 @@ button {
   color: var(--paper);
 }
 
-.period {
+.topbar-end {
   justify-self: end;
   display: flex;
   align-items: center;
   gap: 4px;
-}
-.period-label {
-  min-width: 200px;
-  text-align: center;
-  font-style: italic;
-  font-size: 15px;
+  white-space: nowrap;
 }
 .icon-btn {
   display: inline-flex;
@@ -411,21 +407,79 @@ button {
   background: var(--paper);
   color: var(--ink);
 }
+/* The date on a page, with small arrows; quiet until you reach for them. */
+.date-stepper {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  align-self: center;
+}
+.date-stepper .icon-btn {
+  flex: none;
+  width: 18px;
+  height: 22px;
+  font-size: 16px;
+  color: var(--muted);
+}
+.date-stepper .icon-btn:last-of-type {
+  margin-right: 6px;
+}
+.date-stepper .tip {
+  position: relative;
+}
+.date-stepper .tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  translate: -50% -3px;
+  padding: 4px 9px;
+  white-space: nowrap;
+  background: var(--ink);
+  color: #e9edf8;
+  border-radius: 6px;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, translate 0.12s;
+  z-index: 20;
+}
+.date-stepper .tip:hover::after,
+.date-stepper .tip:focus-visible::after {
+  opacity: 1;
+  translate: -50% 0;
+}
+.date-stepper .icon-btn:hover,
+.today-btn:hover {
+  background: var(--tint);
+  color: var(--ink);
+}
 .today-btn {
-  margin: 0 6px;
-  padding: 4px 12px;
-  font-size: 13px;
-  border: 1px solid var(--rule);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
   border-radius: 999px;
   color: var(--ink-soft);
 }
-.today-btn:hover:not(:disabled) {
-  background: var(--paper);
-  color: var(--ink);
-}
 .today-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
+  visibility: hidden;
+}
+.today-btn svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+.today-btn .today-dot {
+  fill: currentColor;
+  stroke: none;
 }
 
 .desk {
@@ -523,7 +577,8 @@ button {
   font-size: 14px;
   color: var(--ink-soft);
   border-bottom: 1px solid var(--rule);
-  min-width: 160px;
+  /* Wide enough for any date, so the arrows stay under the pointer. */
+  min-width: 112px;
   padding-bottom: 2px;
 }
 .day-note {
@@ -947,6 +1002,10 @@ button {
 }
 
 .from-to {
+  /* Wide enough for any week, and flush with the page's edge, so the arrows stay under the pointer. */
+  min-width: 164px;
+  text-align: right;
+  white-space: nowrap;
   font-size: 13.5px;
   color: var(--ink-soft);
 }
@@ -1090,18 +1149,23 @@ button {
 }
 .month-picker {
   display: grid;
-  grid-template-columns: repeat(3, 34px);
+  grid-template-columns: repeat(3, minmax(34px, 1fr));
   gap: 2px 2px;
   font-size: 10.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.picker-year {
+.month-stepper {
   grid-column: 1 / -1;
-  font-size: 11px;
-  color: var(--ink-soft);
-  margin-bottom: 2px;
-  letter-spacing: 0.12em;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+.month-stepper .from-to {
+  min-width: 0;
+  letter-spacing: 0;
+  text-transform: none;
+  margin-left: 2px;
 }
 .picker-m {
   height: 20px;
@@ -2366,23 +2430,32 @@ details.path p {
     border-top: 1px dashed var(--rule);
   }
   .topbar {
-    grid-template-columns: auto 1fr;
-    height: auto;
-    padding: 10px 20px;
-    row-gap: 6px;
-  }
-  .tabs {
-    justify-self: end;
-  }
-  .period {
-    grid-column: 1 / -1;
-    justify-self: center;
+    padding: 0 20px;
   }
   .desk {
     padding: 8px 16px 96px;
   }
   .page {
     padding: 28px 28px 36px;
+  }
+}
+
+@media (max-width: 860px) {
+  .topbar {
+    grid-template-columns: 1fr auto;
+    height: auto;
+    padding: 10px 20px;
+    row-gap: 6px;
+  }
+  .tabs {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-self: center;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .topbar-end {
+    grid-column: 2;
   }
 }
 
@@ -3768,6 +3841,7 @@ details.path p {
   margin: 0;
   padding: 6px 0 0;
   white-space: pre-wrap;
+  line-height: 1.45;
   color: var(--ink-soft);
 }
 .update-msg {
@@ -3796,10 +3870,44 @@ details.path p {
   font-weight: 600;
   color: var(--ink);
 }
-.update-setting {
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--rule-soft);
-  margin-bottom: 6px;
+.addon-version {
+  margin-top: 4px;
+  max-width: 420px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.addon-version summary {
+  width: fit-content;
+  font-style: italic;
+  cursor: pointer;
+  list-style: none;
+}
+.addon-version summary::-webkit-details-marker {
+  display: none;
+}
+.addon-version summary::after {
+  content: ' ›';
+  display: inline-block;
+  margin-left: 4px;
+  transition: rotate 0.12s;
+}
+.addon-version[open] summary::after {
+  rotate: 90deg;
+}
+.addon-version summary:hover {
+  color: var(--ink-soft);
+}
+.addon-version ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+.addon-version-num {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
 }
 
 /* Holidays, birthdays and days to remember: a quiet line on the calendar, never over the writing. */

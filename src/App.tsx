@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSyncWatch } from './lib/sync'
 import { useRoute, go, type View } from './lib/router'
-import { addDays, addMonths, fmtLong, fmtMonth, fmtShort, isoWeek, monthKeyOf, todayKey, weekStart } from './lib/date'
+import { todayKey } from './lib/date'
 import { boot, getSession, lock, useSaveStatus, useSession, useSettings } from './lib/store'
 import { api } from './lib/api'
 import { LEGACY_KEY, readLegacy, type LegacyInfo } from './lib/legacy'
@@ -13,6 +13,7 @@ import { DayView } from './views/DayView'
 import { ReflectView } from './views/ReflectView'
 import { FocusView } from './views/FocusView'
 import { ContactsView } from './views/ContactsView'
+import { stepDate } from './components/DateStepper'
 import { FocusTimer } from './components/FocusTimer'
 import { Tour } from './components/Tour'
 import { SettingsPage, type SettingsSection } from './components/SettingsPanel'
@@ -27,28 +28,6 @@ const TABS: { view: View; step: string; label: string; key: string }[] = [
 /** Optional module tabs, shown only when turned on in Settings. */
 const FOCUS_TAB = { view: 'focus' as View, step: '◎', label: 'Focus', key: 'F' }
 const CONTACTS_TAB = { view: 'contacts' as View, step: '♡', label: 'Contacts', key: 'C' }
-
-function periodLabel(view: View, date: string) {
-  if (view === 'month') return fmtMonth(monthKeyOf(date))
-  if (view === 'day') return fmtLong(date)
-  const mon = weekStart(date)
-  const sun = addDays(mon, 6)
-  const end = monthKeyOf(sun) === monthKeyOf(mon) ? sun.slice(8).replace(/^0/, '') : fmtShort(sun)
-  return `Week ${isoWeek(mon)} · ${fmtShort(mon)} – ${end}`
-}
-
-function step(view: View, date: string, dir: 1 | -1) {
-  if (view === 'month') return addMonths(date, dir)
-  if (view === 'day') return addDays(date, dir)
-  return addDays(date, 7 * dir)
-}
-
-function isCurrent(view: View, date: string) {
-  const t = todayKey()
-  if (view === 'month') return monthKeyOf(date) === monthKeyOf(t)
-  if (view === 'day') return date === t
-  return weekStart(date) === weekStart(t)
-}
 
 // Settings is a page you step into; remember where you came from (survives a reload of the tab).
 const RETURN_KEY = 'duckbook:settings-return'
@@ -105,8 +84,8 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         if (e.key === 'Escape') leaveSettings(date)
         return
       }
-      if (e.key === 'ArrowLeft' && dated) go(view, step(view, date, -1))
-      else if (e.key === 'ArrowRight' && dated) go(view, step(view, date, 1))
+      if (e.key === 'ArrowLeft' && dated) go(view, stepDate(view, date, -1))
+      else if (e.key === 'ArrowRight' && dated) go(view, stepDate(view, date, 1))
       else if (e.key.toLowerCase() === 't' && dated) go(view, todayKey())
       else if (e.key.toLowerCase() === 'l' && pinEnabled) void lock()
       else {
@@ -145,22 +124,8 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
           ))}
         </div>
 
-        <div className="period">
+        <div className="topbar-end">
           <SaveIndicator />
-          {dated && (
-            <>
-              <button className="icon-btn" onClick={() => go(view, step(view, date, -1))} aria-label="Previous" title="Previous (←)">
-                ‹
-              </button>
-              <span className="period-label">{periodLabel(view, date)}</span>
-              <button className="icon-btn" onClick={() => go(view, step(view, date, 1))} aria-label="Next" title="Next (→)">
-                ›
-              </button>
-              <button className="today-btn" disabled={isCurrent(view, date)} onClick={() => go(view, todayKey())} title="Today (T)">
-                Today
-              </button>
-            </>
-          )}
           {pinEnabled && (
             <button className="icon-btn" onClick={() => void lock()} aria-label="Lock" title="Lock (L)">
               <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden>
@@ -190,7 +155,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
         </div>
       </nav>
 
-      <Banners legacy={legacy} onOpenSettings={() => openSettings({ view, date }, 'data')} />
+      <Banners legacy={legacy} onOpenSettings={(s) => openSettings({ view, date }, s)} />
 
       <main className={`desk view-${shown.view}`} key={`${shown.view}`} inert={inSettings}>
         {shown.view === 'month' && <MonthView date={shown.date} />}

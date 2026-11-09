@@ -8,6 +8,7 @@ import { describe } from './Gates'
 import { Menu } from './Menu'
 import { getPaper, setPaper } from '../lib/paper'
 import { setHabitMark, useHabitMark } from '../lib/habitMark'
+import { ADD_ONS, type AddOnId } from '../lib/addons'
 import { TEXT_SIZES, canSetTextSize, setTextSize, useTextSize } from '../lib/textSize'
 import { resetTour } from '../lib/tour'
 import { HabitMark } from './HabitMark'
@@ -29,7 +30,7 @@ const KIND: Record<string, string> = {
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-export type SettingsSection = 'notebook' | 'timer' | 'keys' | 'privacy' | 'data' | 'addons'
+export type SettingsSection = 'notebook' | 'timer' | 'keys' | 'privacy' | 'data' | 'updates' | 'addons'
 
 const TIMER_VIEWS: { key: TimerView; label: string }[] = [
   { key: 'overlay', label: 'Over the page' },
@@ -44,23 +45,27 @@ const ICONS: Record<SettingsSection, string> = {
   keys: 'M3 6.5h14v8H3zM6 9.5h.01M9 9.5h.01M12 9.5h.01M14.5 9.5h.01M7 12h6',
   privacy: 'M5.5 9h9v7.5h-9zM7.5 9V6.8a2.5 2.5 0 0 1 5 0V9',
   data: 'M10 3.5c3.3 0 6 1 6 2.2v8.6c0 1.2-2.7 2.2-6 2.2s-6-1-6-2.2V5.7c0-1.2 2.7-2.2 6-2.2zM4 5.7c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2M4 10c0 1.2 2.7 2.2 6 2.2s6-1 6-2.2',
+  updates: 'M10 3.5v9M6.5 9l3.5 3.5L13.5 9M4 16.5h12',
   addons: 'M10 3.5l1.6 4.4 4.4 1.6-4.4 1.6L10 15.5l-1.6-4.4L4 9.5l4.4-1.6z',
 }
 
 const GROUPS: { title: string; items: { key: SettingsSection; label: string }[] }[] = [
   { title: 'Notebook', items: [{ key: 'notebook', label: 'Look & feel' }, { key: 'timer', label: 'Focus timer' }, { key: 'keys', label: 'Shortcuts' }] },
-  { title: 'This computer', items: [{ key: 'privacy', label: 'Privacy' }, { key: 'data', label: 'Data' }] },
+  { title: 'This computer', items: [{ key: 'privacy', label: 'Privacy' }, { key: 'data', label: 'Data' }, { key: 'updates', label: 'Updates' }] },
   { title: 'Extras', items: [{ key: 'addons', label: 'Add-ons' }] },
 ]
 const LABEL = Object.fromEntries(GROUPS.flatMap((g) => g.items.map((x) => [x.key, x.label]))) as Record<SettingsSection, string>
 
+const canUpdate = (u: ReturnType<typeof useUpdates>) => !!u && u.status !== 'off'
+
 /** One setting: what it is on the left, the control on the right. */
-function Row({ title, help, children }: { title: string; help?: ReactNode; children: ReactNode }) {
+function Row({ title, help, below, children }: { title: string; help?: ReactNode; below?: ReactNode; children: ReactNode }) {
   return (
     <div className="sd-row">
       <div className="sd-row-text">
         <div className="sd-row-title">{title}</div>
         {help && <p className="sd-row-help">{help}</p>}
+        {below}
       </div>
       <div className="sd-row-control">{children}</div>
     </div>
@@ -88,7 +93,9 @@ export function SettingsPage({
   const textSize = useTextSize()
   const timerView = useDefaultView()
   const { status } = useSession()
-  const current = LABEL[section] ? section : 'notebook'
+  // Only the installed desktop app updates itself; elsewhere the section isn't there.
+  const updatable = canUpdate(useUpdates())
+  const current = LABEL[section] && (section !== 'updates' || updatable) ? section : 'notebook'
 
   return (
     <div className="settings-dialog">
@@ -99,7 +106,7 @@ export function SettingsPage({
           {GROUPS.map((g) => (
             <div key={g.title} className="sd-group">
               <div className="sd-group-title">{g.title}</div>
-              {g.items.map((x) => (
+              {g.items.filter((x) => x.key !== 'updates' || updatable).map((x) => (
                 <button key={x.key} className={`sd-tab ${current === x.key ? 'is-on' : ''}`} aria-current={current === x.key ? 'page' : undefined} onClick={() => onSection(x.key)}>
                   <svg viewBox="0 0 20 20" aria-hidden>
                     <path d={ICONS[x.key]} />
@@ -230,7 +237,6 @@ export function SettingsPage({
 
           {current === 'data' && (
             <>
-              <UpdatesSection />
               <SyncSection />
               <Backups />
               <DataSection dataDir={status?.dataDir} quarantineCount={status?.quarantineCount ?? 0} />
@@ -239,29 +245,31 @@ export function SettingsPage({
             </>
           )}
 
+          {current === 'updates' && <UpdatesSection />}
+
           {current === 'addons' && (
             <>
-              <Row title="Focus Map" help="Sticky notes on an impact × difficulty map; plan the good ones into a week. Turning it off hides it and keeps your ideas.">
+              <Row title="Focus Map" help="Sticky notes on an impact × difficulty map; plan the good ones into a week. Turning it off hides it and keeps your ideas." below={<AddOnVersion id="focusMap" />}>
                 <label className="module-toggle switch">
                   <input type="checkbox" role="switch" checked={s.modules.focusMap} onChange={(e) => update((st) => void (st.settings.modules.focusMap = e.target.checked))} aria-label="Focus Map" />
                   <span className="switch-track" aria-hidden />
                 </label>
               </Row>
-              <Row title="Contacts" help="People with their birthdays and notes, on a page of their own. Birthdays show on Month and Day. Turning it off hides them and keeps everyone.">
+              <Row title="Contacts" help="People with their birthdays and notes, on a page of their own. Birthdays show on Month and Day. Turning it off hides them and keeps everyone." below={<AddOnVersion id="contacts" />}>
                 <label className="module-toggle switch">
                   <input type="checkbox" role="switch" checked={s.modules.contacts} onChange={(e) => update((st) => void (st.settings.modules.contacts = e.target.checked))} aria-label="Contacts" />
                   <span className="switch-track" aria-hidden />
                 </label>
               </Row>
               {s.modules.contacts && (
-                <Row title="DISC colours" help="Mark each person's DISC types in colour, on their card and in the list. Turning it off hides the colours and keeps them.">
+                <Row title="DISC colours" help="Mark each person's DISC types in colour, on their card and in the list. Turning it off hides the colours and keeps them." below={<AddOnVersion id="disc" />}>
                   <label className="module-toggle switch">
                     <input type="checkbox" role="switch" checked={s.modules.disc} onChange={(e) => update((st) => void (st.settings.modules.disc = e.target.checked))} aria-label="DISC colours" />
                     <span className="switch-track" aria-hidden />
                   </label>
                 </Row>
               )}
-              <Row title="Holidays" help="Vietnamese holidays on Month and Day, built in, no network needed. Press + on any Month day to add your own yearly day.">
+              <Row title="Holidays" help="Vietnamese holidays on Month and Day, built in, no network needed. Press + on any Month day to add your own yearly day." below={<AddOnVersion id="holidays" />}>
                 <label className="module-toggle switch">
                   <input type="checkbox" role="switch" checked={s.modules.holidays} onChange={(e) => update((st) => void (st.settings.modules.holidays = e.target.checked))} aria-label="Holidays" />
                   <span className="switch-track" aria-hidden />
@@ -272,6 +280,23 @@ export function SettingsPage({
         </div>
       </section>
     </div>
+  )
+}
+
+/** An add-on's own version; its history folds out. */
+function AddOnVersion({ id }: { id: AddOnId }) {
+  const { version, history } = ADD_ONS[id]
+  return (
+    <details className="addon-version">
+      <summary>Version {version}</summary>
+      <ul>
+        {history.map((h) => (
+          <li key={h.version}>
+            <span className="addon-version-num">{h.version}</span> {h.note}
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }
 

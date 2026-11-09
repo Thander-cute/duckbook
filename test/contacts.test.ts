@@ -4,6 +4,7 @@ import { startTestServer } from './helpers.ts'
 import { fromLunar, toLunar } from '../src/lib/lunar.ts'
 import { normalizeState } from '../src/lib/schema.ts'
 import { moveLine, segments, withType, withoutType } from '../src/lib/disc.ts'
+import { ADD_ONS } from '../src/lib/addons.ts'
 
 test('lunar calendar agrees with published Vietnamese dates', () => {
   // Tết, in both directions.
@@ -127,4 +128,15 @@ test('DISC mix: picks share evenly, dropping keeps proportions, the largest come
   assert.deepEqual(moveLine(bar, 0, 62), [['S', 60], ['D', 20], ['C', 20]], 'snaps to a step')
   assert.deepEqual(moveLine(bar, 0, 99), [['S', 75], ['D', 5], ['C', 20]], 'a neighbour keeps one step')
   assert.deepEqual(moveLine(bar, 1, 0), [['S', 50], ['D', 5], ['C', 45]], 'other colours stay put')
+})
+
+test('Each add-on has a plain version, and it is the top of its history', () => {
+  const ids = Object.keys(ADD_ONS) as (keyof typeof ADD_ONS)[]
+  assert.deepEqual(ids.sort(), ['contacts', 'disc', 'focusMap', 'holidays'])
+  for (const id of ids) {
+    const a = ADD_ONS[id]
+    assert.match(a.version, /^\d+\.\d+\.\d+$/, id)
+    assert.equal(a.version, a.history[0].version, id)
+    assert.ok(a.history.every((h) => h.note.length > 0), id)
+  }
 })

@@ -1,3 +1,4 @@
+import { DateStepper } from '../components/DateStepper'
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { PhotoMark, PhotoViewer, type Shown } from '../components/Photos'
 import { LANE, SpanEditor, placeSpans, rangeLabel } from '../components/Spans'
@@ -232,7 +233,13 @@ export function MonthView({ date }: { date: string }) {
       <Page side="left" className="month-left">
         <div className="month-head">
           <div className="month-picker" aria-label="Choose month">
-            <span className="picker-year">{year}</span>
+            <div className="month-stepper">
+              <DateStepper view="month" date={date}>
+                <div className="from-to">
+                  <span className="ink">{MONTHS_SHORT[mon - 1]} {year}</span>
+                </div>
+              </DateStepper>
+            </div>
             {MONTHS_SHORT.map((m, i) => (
               <button
                 key={m}

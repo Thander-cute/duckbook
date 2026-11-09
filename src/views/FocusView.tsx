@@ -1,3 +1,4 @@
+import { WeekStepper } from '../components/DateStepper'
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { ConfirmRemove, PageTitle, Write } from '../components/ui'
@@ -195,6 +196,7 @@ export function FocusView({ date }: { date: string }) {
       <header className="focus-head">
         <div>
           <PageTitle caps="FOCUS" italic="map" />
+          <WeekStepper view="focus" date={date} />
         </div>
         <div className="filters" role="radiogroup" aria-label="Show">
           {FILTERS.map((f) => (

@@ -1,3 +1,4 @@
+import type { SettingsSection } from './SettingsPanel'
 import { useEffect, useState } from 'react'
 import { API_LEVEL, boot, reloadAll, useSaveStatus, useSession, useStore, resolveConflict } from '../lib/store'
 import { migrateLegacy, type LegacyInfo } from '../lib/legacy'
@@ -268,7 +269,7 @@ export function MigrationScreen({ legacy, onDone, onSkip }: { legacy: LegacyInfo
   )
 }
 
-export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null; onOpenSettings: () => void }) {
+export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null; onOpenSettings: (section: SettingsSection) => void }) {
   const save = useSaveStatus()
   const { status } = useSession()
   const empty = useStore((s) => !Object.keys(s.days).length && !Object.keys(s.weeks).length && !Object.keys(s.months).length)
@@ -298,11 +299,11 @@ export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null;
           <span>{save.message}</span>
         </div>
       )}
-      <UpdateBanner onOpenSettings={onOpenSettings} />
+      <UpdateBanner onOpenSettings={() => onOpenSettings('updates')} />
       {legacy && !legacy.migrated && !legacy.error && (
         <div className="banner">
           <span>This browser still holds pages from the earlier version that differ from your database.</span>
-          <button className="text-btn" onClick={onOpenSettings}>
+          <button className="text-btn" onClick={() => onOpenSettings('data')}>
             Review in Settings
           </button>
         </div>

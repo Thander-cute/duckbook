@@ -1,7 +1,8 @@
+import { WeekStepper } from '../components/DateStepper'
 import { useState, type DragEvent, type ReactNode } from 'react'
 import { Check, Label, Line, Page, PageTitle, Spread, Write } from '../components/ui'
 import { HabitMark } from '../components/HabitMark'
-import { WEEKDAYS_MIN, addDays, fmtShort, todayKey, weekDays, weekStart } from '../lib/date'
+import { WEEKDAYS_MIN, todayKey, weekDays, weekStart } from '../lib/date'
 import { href } from '../lib/router'
 import { WorkMeta } from '../components/WorkMeta'
 import { editWeek, ideaOfWeekTask, renameWeekTask, setWeekTaskDone, uid, useStore, useWeekWithSeed, type Quadrant, type WeekTask } from '../lib/store'
@@ -43,9 +44,7 @@ export function WeekView({ date }: { date: string }) {
 
       <Page side="right" className="week-plan">
         <PageTitle step="3" caps="WEEKLY" italic="planning">
-          <div className="from-to">
-            From: <span className="ink">{fmtShort(monday)}</span> &nbsp; To: <span className="ink">{fmtShort(addDays(monday, 6))}</span>
-          </div>
+          <WeekStepper view="week" date={date} />
         </PageTitle>
 
         <div className="matrix">

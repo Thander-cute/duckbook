@@ -4,7 +4,7 @@ The updater reads `https://github.com/Thander-cute/duckbook/releases/latest/down
 
 ## Steps
 
-1. Add a `## <version> (<date>)` section to `CHANGELOG.md`. The build turns it into the notes shown in the app before updating.
+1. Add a `## <version> (<date>)` section to `CHANGELOG.md`. The build turns it into the notes shown in the app before updating. If an add-on changed, add a line at the top of its history in `src/lib/addons.ts`.
 2. Set `version` in `package.json` and run `npm install --package-lock-only`. Versions only go up: the app never offers a lower one.
 3. Put the Google OAuth client at the repo root as `google-client.json` (see below). Without it the build has no Google Drive sync.
 4. Commit, then `git tag v<version>`.

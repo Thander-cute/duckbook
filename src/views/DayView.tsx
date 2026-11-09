@@ -1,3 +1,4 @@
+import { DateStepper } from '../components/DateStepper'
 import { DayPhotos } from '../components/Photos'
 import { useState } from 'react'
 import { Check, Label, Line, Page, PageTitle, Spread, Write } from '../components/ui'
@@ -40,9 +41,11 @@ export function DayView({ date }: { date: string }) {
               </a>
             ))}
           </div>
-          <div className="date-field">
-            Date: <span className="ink">{fmtShort(date)}</span>
-          </div>
+          <DateStepper view="day" date={date}>
+            <div className="date-field">
+              Date: <span className="ink">{fmtShort(date)}</span>
+            </div>
+          </DateStepper>
         </div>
 
         <PageTitle step="4" caps="DAILY" italic="planning" />

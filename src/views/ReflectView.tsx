@@ -1,3 +1,4 @@
+import { WeekStepper } from '../components/DateStepper'
 import type { ReactNode } from 'react'
 import { Check, Info, Label, Page, PageTitle, Spread, Write } from '../components/ui'
 import { HabitMark } from '../components/HabitMark'
@@ -52,7 +53,9 @@ export function ReflectView({ date }: { date: string }) {
   return (
     <Spread>
       <Page side="left" className="reflect">
-        <PageTitle step="5" caps="WEEKLY" italic="reflection" />
+        <PageTitle step="5" caps="WEEKLY" italic="reflection">
+          <WeekStepper view="reflect" date={date} />
+        </PageTitle>
 
         {PROMPTS.map((p) => (
           <fieldset key={p.key} className="prompt">
