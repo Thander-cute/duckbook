@@ -1,5 +1,6 @@
 import { DateStepper } from '../components/DateStepper'
 import { DayPhotos } from '../components/Photos'
+import { Note } from '../components/Note'
 import { useState } from 'react'
 import { Check, Label, Line, Page, PageTitle, Spread, Write } from '../components/ui'
 import { InkDot } from '../components/InkDot'
@@ -98,7 +99,7 @@ export function DayView({ date }: { date: string }) {
         </div>
 
         <Label>Notes</Label>
-        <Write className="dotgrid notes" value={day.notes} onChange={(v) => editDay(date, (d) => void (d.notes = v))} rows={6} ariaLabel="Notes" />
+        <Note key={date} className="dotgrid notes" value={day.notes} onChange={(v) => editDay(date, (d) => void (d.notes = v))} ariaLabel="Notes" />
 
         <div className="page-foot">
           <Line label="My day in one sentence:" value={day.sentence} onChange={(v) => editDay(date, (d) => void (d.sentence = v))} />

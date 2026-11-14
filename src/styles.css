@@ -456,6 +456,12 @@ button {
   background: var(--tint);
   color: var(--ink);
 }
+.title-tools {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  align-self: center;
+}
 .today-btn {
   flex: none;
   display: inline-flex;
@@ -777,6 +783,9 @@ button {
     animation: none;
     stroke-dashoffset: 0;
   }
+  .pencil-keep {
+    transition: none;
+  }
 }
 .habit-print {
   fill: none;
@@ -999,6 +1008,136 @@ button {
 }
 .week-free {
   flex: 1;
+}
+
+/* Pencil lines: last week's work, written faintly in the box until someone keeps it. */
+.pencil-task {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  border-bottom: 1px dashed var(--rule-soft);
+}
+.quad .pencil-task {
+  border-bottom-color: rgba(255, 255, 255, 0.7);
+}
+.pencil-keep {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--ink-font);
+  font-size: 15.5px;
+  text-align: left;
+  opacity: 0.78;
+  cursor: pointer;
+  /* The strike is drawn over the text when the line is dropped, so nothing moves. */
+  text-decoration: line-through;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  touch-action: pan-y;
+  user-select: none;
+  transition: opacity 0.15s, text-decoration-color 0.14s;
+}
+.pencil-keep:hover {
+  opacity: 1;
+}
+/* The × is drawn in pencil at the end of the line: faint at rest, a little darker when the line is hovered. */
+.pencil-drop {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  opacity: 0.34;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.pencil-task:hover .pencil-drop,
+.pencil-drop:focus-visible {
+  opacity: 0.8;
+}
+.pencil-task .pencil-drop:hover {
+  opacity: 1;
+}
+/* Dropping: the strike darkens, then the line fades. Colour and opacity only, so nothing shifts. */
+.pencil-task.is-dropping {
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.24s ease 0.16s;
+}
+.pencil-task.is-dropping .pencil-keep {
+  opacity: 1;
+  text-decoration-color: var(--ink-soft);
+}
+.pencil-keep:focus-visible,
+.pencil-drop:focus-visible,
+.pencil-all:focus-visible,
+.pencil-care:focus-visible {
+  outline: 2px solid var(--ink-soft);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.line-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.pencil-care {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  translate: 0 -50%;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-family: var(--ink-font);
+  font-size: 15.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.pencil-care:hover {
+  opacity: 1;
+}
+.pencil-all-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.pencil-all {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-style: italic;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.pencil-all:hover {
+  color: var(--ink);
+}
+.pencil-wait {
+  font-style: italic;
 }
 
 .from-to {
@@ -3477,6 +3616,59 @@ details.path p {
   object-fit: cover;
   display: block;
 }
+/* The white strip under the picture: a title written on the print, blank until hovered or focused. */
+.polaroid-title {
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 5px;
+  height: 21px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--hand);
+  font-size: 14px;
+  line-height: 21px;
+  text-align: center;
+  outline: none;
+}
+div.polaroid-title {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+.polaroid-title.is-long {
+  font-size: 12px;
+}
+div.polaroid-title:focus-visible {
+  background: var(--tint);
+}
+.polaroid-title-hint {
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 11.5px;
+  font-style: italic;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.polaroid:hover .polaroid-title-hint,
+.polaroid-title:focus .polaroid-title-hint {
+  opacity: 0.85;
+}
+input.polaroid-title::placeholder {
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 11.5px;
+  font-style: italic;
+  opacity: 0.85;
+}
+input.polaroid-title:focus {
+  background: var(--tint);
+}
 .polaroid-x {
   position: absolute;
   top: -9px;
@@ -3587,15 +3779,33 @@ details.path p {
   color: var(--ink);
 }
 
-/* The viewer: the photo on a paper mount over a dimmed notebook */
+/* The viewer: the print on its own, its caption written straight beneath, over a dimmed notebook */
 .viewer {
+  /* The top row of controls sits in this space, so the print never runs under it. */
+  --v-top: 66px;
+  --v-pad: 24px;
+  --v-nav: 46px;
+  --v-gap: 18px;
+  /* The print's white strip, where its title is written. */
+  --v-strip: 46px;
+  /* Room kept for the caption, so the print never moves when the text appears or grows. */
+  --v-caption: 180px;
+  --v-row-gap: 20px;
   position: fixed;
   inset: 0;
   z-index: 300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
+  /* Sizes below use the space inside the overlay's padding (cqw/cqh), which leaves out any page scrollbar. */
+  container-type: size;
+  display: grid;
+  grid-template-columns: var(--v-nav) auto var(--v-nav);
+  grid-template-rows: auto var(--v-caption);
+  grid-template-areas:
+    'prev print next'
+    '. caption .';
+  place-content: safe center;
+  column-gap: var(--v-gap);
+  row-gap: var(--v-row-gap);
+  padding: var(--v-top) var(--v-pad) var(--v-pad);
   background: rgba(24, 32, 66, 0.72);
   backdrop-filter: blur(3px);
   animation: viewer-in 0.16s ease-out;
@@ -3606,8 +3816,11 @@ details.path p {
   }
 }
 .viewer-mount {
+  grid-area: print;
+  justify-self: center;
+  position: relative;
   margin: 0;
-  padding: 14px 14px 12px;
+  padding: 14px 14px var(--v-strip);
   background: var(--paper);
   border-radius: 3px;
   box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
@@ -3621,34 +3834,159 @@ details.path p {
 .viewer-mount img,
 .viewer-missing {
   display: block;
-  max-width: min(84vw, 1400px);
-  max-height: calc(100vh - 150px);
-  width: auto;
+  /* As big as the window allows beside the arrows and above the caption, never past the photo's own size. */
+  --fit-h: calc(100cqh - 14px - var(--v-strip) - var(--v-row-gap) - var(--v-caption));
+  width: min(100cqw - 2 * (var(--v-nav) + var(--v-gap)) - 28px, var(--fit-h) * var(--ar), var(--w));
   height: auto;
 }
 .viewer-missing {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 320px;
-  min-height: 220px;
-  height: 60vh;
+  padding: 16px;
   background: var(--desk);
   font-style: italic;
+  text-align: center;
   color: var(--muted);
 }
-.viewer-mount figcaption {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding-top: 10px;
-  font-size: 15px;
+.viewer-title {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: var(--v-strip);
+  padding: 0 8px;
+  overflow: hidden;
+  font-family: var(--hand);
+  font-size: 22px;
+  line-height: var(--v-strip);
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
 }
-.viewer-mount figcaption .text-link {
-  margin-left: auto;
-  font-size: 14px;
+
+/* The caption: plain light text under the print, no panel, with its room kept so nothing moves. */
+.viewer-caption {
+  grid-area: caption;
+  align-self: start;
+  justify-self: center;
+  position: relative;
+  width: 100%;
+  min-width: min(480px, 100cqw - 28px);
+  max-width: 680px;
+  max-height: var(--v-caption);
+  color: #eef1f8;
+}
+.viewer-text {
+  margin: 0;
+  max-height: var(--v-caption);
+  overflow-y: auto;
+  font-family: var(--ink-font);
+  font-size: 17px;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  scrollbar-gutter: stable;
+}
+/* While editing: the same place and the same light ink, with the limit counted quietly below. */
+.viewer-caption .viewer-note {
+  max-height: calc(var(--v-caption) - 22px);
+  padding: 0;
+  color: #eef1f8;
+  font-size: 17px;
+  line-height: 1.5;
+  text-align: center;
+  overflow-y: auto;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  scrollbar-gutter: stable;
+}
+[data-ink='hand'] .viewer-text,
+[data-ink='hand'] .viewer-caption .viewer-note {
+  font-size: 19px;
+}
+.viewer-caption .viewer-note::placeholder {
+  color: rgba(238, 241, 248, 0.55);
+  font-size: 15px;
+  opacity: 1;
+}
+.viewer-limit {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-align: right;
+  color: rgba(238, 241, 248, 0.5);
+}
+.viewer-text::-webkit-scrollbar,
+.viewer-note::-webkit-scrollbar {
+  width: 5px;
+}
+.viewer-text::-webkit-scrollbar-track,
+.viewer-note::-webkit-scrollbar-track {
+  background: transparent;
+}
+.viewer-text::-webkit-scrollbar-thumb,
+.viewer-note::-webkit-scrollbar-thumb {
+  background: rgba(238, 241, 248, 0.35);
+  border-radius: 999px;
+}
+.viewer-text::-webkit-scrollbar-button,
+.viewer-note::-webkit-scrollbar-button {
+  display: none;
+}
+@supports not selector(::-webkit-scrollbar) {
+  .viewer-text,
+  .viewer-note {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(238, 241, 248, 0.35) transparent;
+  }
+}
+
+/* The top row: the date, the count, the day link, the pencil and the close, all light on the dim page. */
+.viewer-controls {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 44px);
+  color: #eef1f8;
+}
+.viewer-date {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-style: italic;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.viewer-count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  color: rgba(238, 241, 248, 0.65);
+  white-space: nowrap;
+}
+.viewer-link {
+  font-size: 13px;
+  font-style: italic;
+  white-space: nowrap;
+  color: #eef1f8;
+  text-decoration: underline;
+  text-decoration-color: rgba(238, 241, 248, 0.45);
+  text-underline-offset: 3px;
+}
+.viewer-link:hover {
+  text-decoration-color: #eef1f8;
 }
 .viewer-nav,
+.viewer-pencil,
 .viewer-close {
   display: grid;
   place-items: center;
@@ -3658,23 +3996,106 @@ details.path p {
   transition: background 0.12s;
 }
 .viewer-nav {
-  flex: none;
-  width: 46px;
-  height: 46px;
+  align-self: center;
+  width: var(--v-nav);
+  height: var(--v-nav);
   font-size: 28px;
   line-height: 1;
 }
+.viewer-nav.prev {
+  grid-area: prev;
+}
+.viewer-nav.next {
+  grid-area: next;
+}
+.viewer-pencil,
 .viewer-close {
-  position: absolute;
-  top: 18px;
-  right: 22px;
+  flex: none;
   width: 38px;
   height: 38px;
+}
+.viewer-pencil svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.viewer-close {
   font-size: 15px;
 }
 .viewer-nav:hover,
-.viewer-close:hover {
+.viewer-pencil:hover,
+.viewer-close:hover,
+.viewer-pencil[aria-pressed='true'] {
   background: rgba(255, 255, 255, 0.2);
+}
+.viewer button:focus-visible,
+.viewer a:focus-visible {
+  outline-color: #eef1f8;
+}
+/* A narrow window: the print takes the width, the arrows sit over its edges, the controls above. */
+@media (max-width: 700px) {
+  .viewer {
+    --v-top: 66px;
+    --v-pad: 14px;
+    --v-caption: 220px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'print'
+      'caption';
+  }
+  .viewer-mount img,
+  .viewer-missing {
+    width: min(100cqw - 28px, var(--fit-h) * var(--ar), var(--w));
+  }
+  .viewer-nav {
+    grid-area: print;
+    z-index: 1;
+    width: 40px;
+    height: 40px;
+    background: rgba(24, 32, 66, 0.55);
+  }
+  .viewer-nav.prev {
+    grid-area: print;
+    justify-self: start;
+    margin-left: -6px;
+  }
+  .viewer-nav.next {
+    grid-area: print;
+    justify-self: end;
+    margin-right: -6px;
+  }
+  .viewer-nav:hover {
+    background: rgba(24, 32, 66, 0.75);
+  }
+  .viewer-controls {
+    top: 14px;
+    right: 14px;
+    gap: 8px;
+    max-width: calc(100% - 28px);
+  }
+  .viewer-caption {
+    min-width: 0;
+  }
+  .viewer-text,
+  .viewer-caption .viewer-note {
+    font-size: 16px;
+  }
+  [data-ink='hand'] .viewer-text,
+  [data-ink='hand'] .viewer-caption .viewer-note {
+    font-size: 18px;
+  }
+}
+/* A short window keeps less room for the caption; a long one scrolls inside it. */
+@media (max-height: 640px) {
+  .viewer {
+    --v-caption: 168px;
+    --v-strip: 40px;
+    --v-row-gap: 18px;
+  }
 }
 
 /* ───────── Tour: first-visit tips, one page at a time ───────── */
@@ -4156,6 +4577,83 @@ details.path p {
   min-height: 240px;
 }
 
+/* Notes and DISC stay grey and blurred until asked for; a click on the blur reveals, the eye toggles. */
+.contact-private {
+  position: relative;
+}
+.contact-private.is-hidden .contact-private-body {
+  filter: grayscale(1) blur(7px);
+  opacity: 0.6;
+  user-select: none;
+}
+.contact-private-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.contact-notes-label {
+  position: relative;
+  padding-right: 22px;
+}
+.contact-notes-label .contact-eye {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  translate: 0 -50%;
+}
+.contact-eye {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  color: var(--muted);
+}
+.contact-eye:hover {
+  color: var(--ink);
+  background: var(--tint);
+}
+.contact-eye svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.contact-eye::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 7px);
+  translate: 0 3px;
+  padding: 4px 9px;
+  white-space: nowrap;
+  background: var(--ink);
+  color: #e9edf8;
+  border-radius: 6px;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, translate 0.12s;
+  z-index: 20;
+}
+.contact-eye:hover::after,
+.contact-eye:focus-visible::after {
+  opacity: 1;
+  translate: 0 0;
+}
+.disc-head .contact-eye {
+  margin-left: auto;
+}
+
 /* DISC: the one place in the notebook that uses colour, so it stays small and soft, and only what's picked has any. */
 .disc-d {
   --disc: #bd6a58;
@@ -4380,4 +4878,45 @@ details.path p {
   gap: 10px;
   margin-top: 12px;
   font-size: 13px;
+}
+
+/* ───────── Formatted notes ───────── */
+
+.note-editor {
+  min-height: calc(6 * var(--dot));
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  cursor: text;
+}
+.note-editor p {
+  margin: 0;
+  min-height: var(--dot);
+}
+.note-editor strong {
+  font-weight: 700;
+}
+.note-editor u {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+/* A section line sits on one row of dots, so the rows below stay on the grid. It is drawn with the
+   Month page's three hand-drawn pens, stretched across the note; a line keeps its pen each time. */
+.note-editor hr {
+  --line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 18 3.0, 34 5.0, 55 4.3 S 92 3.1, 118 4.6 S 148 4.4, 160 4' fill='none' stroke='%2355628f' stroke-width='1.5' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  height: var(--dot);
+  margin: 0;
+  border: 0;
+  background: var(--line) center / 100% 8px no-repeat;
+  opacity: 0.85;
+}
+.note-editor hr:nth-of-type(3n + 2) {
+  --line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 24 5.0, 46 2.9, 79 3.9 S 128 5.1, 160 4' fill='none' stroke='%2355628f' stroke-width='1.5' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+}
+.note-editor hr:nth-of-type(3n) {
+  --line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 C 14 3.3, 47 3.2, 70 4.6 S 116 4.9, 136 3.7 S 154 3.8, 160 4' fill='none' stroke='%2355628f' stroke-width='1.5' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+}
+.note-editor hr.ProseMirror-selectednode {
+  outline: 0;
+  background-color: var(--tint-2);
+  opacity: 1;
 }

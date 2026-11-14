@@ -1,5 +1,5 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react'
-import { Info } from './ui'
+import { EyeToggle, Info, Private } from './ui'
 import { DISC_STEP, moveLine, segments, toMix, withType, withoutType, type Segment } from '../lib/disc'
 import type { DiscMix, DiscType } from '../lib/schema'
 
@@ -30,7 +30,23 @@ export function DiscDots({ mix }: { mix: DiscMix }) {
 }
 
 /** Pick colours above; only picked ones appear in the bar below, and the lines between them drag. */
-export function DiscEditor({ mix, onChange }: { mix: DiscMix; onChange: (next: DiscMix) => void }) {
+export function DiscEditor({
+  mix,
+  onChange,
+  hidden = false,
+  onReveal = () => {},
+  showEye = false,
+  shown = false,
+  onToggleEye = () => {},
+}: {
+  mix: DiscMix
+  onChange: (next: DiscMix) => void
+  hidden?: boolean
+  onReveal?: () => void
+  showEye?: boolean
+  shown?: boolean
+  onToggleEye?: () => void
+}) {
   const bar = useRef<HTMLDivElement>(null)
   // While a line is held the bar keeps its order; it sorts itself on release.
   const [held, setHeld] = useState<Segment[] | null>(null)
@@ -63,57 +79,60 @@ export function DiscEditor({ mix, onChange }: { mix: DiscMix; onChange: (next: D
       <div className="disc-head">
         <span className="line-label">DISC</span>
         <Info text={ABOUT} />
+        {showEye && <EyeToggle shown={shown} what="DISC" onClick={onToggleEye} />}
       </div>
-      <div className={`disc-chips ${items.length >= 2 ? 'has-main-and-second' : ''}`}>
-        {TYPES.map((t) => {
-          const on = t in mix
-          return (
-            <button key={t} className={`disc-chip disc-${t.toLowerCase()} ${on ? 'is-on' : ''}`} aria-pressed={on} title={`${DISC[t].name}: ${DISC[t].line}`} onClick={() => onChange(on ? withoutType(mix, t) : withType(mix, t))}>
-              <i aria-hidden />
-              {DISC[t].name}
-              {on && <span className="disc-chip-share">{shareOf(t)}%</span>}
-            </button>
-          )
-        })}
-      </div>
-      {items.length > 0 && (
-        <>
-          <div className={`disc-bar ${held ? 'is-held' : ''}`} ref={bar}>
-            {items.map(([k, v]) => (
-              <div key={k} className={`disc-seg disc-${k.toLowerCase()}`} style={{ width: `${v}%` }} title={`${DISC[k].name} ${v}%`} />
-            ))}
-            {lines.map((pos, i) => (
-              <div
-                key={items[i][0]}
-                className="disc-line-grip"
-                style={{ left: `${pos}%` }}
-                role="separator"
-                aria-orientation="vertical"
-                tabIndex={0}
-                aria-label={`Between ${DISC[items[i][0]].name} and ${DISC[items[i + 1][0]].name}`}
-                aria-valuenow={items[i][1]}
-                aria-valuemin={DISC_STEP}
-                aria-valuemax={100}
-                onPointerDown={(e) => {
-                  if (e.button !== 0) return
-                  e.preventDefault()
-                  e.currentTarget.setPointerCapture(e.pointerId)
-                  setHeld(items)
-                }}
-                onPointerMove={(e) => held && setHeld(moveLine(held, i, at(e)))}
-                onPointerUp={commit}
-                onPointerCancel={() => setHeld(null)}
-                onKeyDown={(e) => onKey(e, i)}
-                onKeyUp={commit}
-                onBlur={commit}
-              />
-            ))}
-          </div>
-          <p className="muted small disc-summary">
-            Mostly {DISC[main[0]].name}: {DISC[main[0]].line}.
-          </p>
-        </>
-      )}
+      <Private hidden={hidden} onReveal={onReveal}>
+        <div className={`disc-chips ${items.length >= 2 ? 'has-main-and-second' : ''}`}>
+          {TYPES.map((t) => {
+            const on = t in mix
+            return (
+              <button key={t} className={`disc-chip disc-${t.toLowerCase()} ${on ? 'is-on' : ''}`} aria-pressed={on} title={`${DISC[t].name}: ${DISC[t].line}`} onClick={() => onChange(on ? withoutType(mix, t) : withType(mix, t))}>
+                <i aria-hidden />
+                {DISC[t].name}
+                {on && <span className="disc-chip-share">{shareOf(t)}%</span>}
+              </button>
+            )
+          })}
+        </div>
+        {items.length > 0 && (
+          <>
+            <div className={`disc-bar ${held ? 'is-held' : ''}`} ref={bar}>
+              {items.map(([k, v]) => (
+                <div key={k} className={`disc-seg disc-${k.toLowerCase()}`} style={{ width: `${v}%` }} title={`${DISC[k].name} ${v}%`} />
+              ))}
+              {lines.map((pos, i) => (
+                <div
+                  key={items[i][0]}
+                  className="disc-line-grip"
+                  style={{ left: `${pos}%` }}
+                  role="separator"
+                  aria-orientation="vertical"
+                  tabIndex={0}
+                  aria-label={`Between ${DISC[items[i][0]].name} and ${DISC[items[i + 1][0]].name}`}
+                  aria-valuenow={items[i][1]}
+                  aria-valuemin={DISC_STEP}
+                  aria-valuemax={100}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return
+                    e.preventDefault()
+                    e.currentTarget.setPointerCapture(e.pointerId)
+                    setHeld(items)
+                  }}
+                  onPointerMove={(e) => held && setHeld(moveLine(held, i, at(e)))}
+                  onPointerUp={commit}
+                  onPointerCancel={() => setHeld(null)}
+                  onKeyDown={(e) => onKey(e, i)}
+                  onKeyUp={commit}
+                  onBlur={commit}
+                />
+              ))}
+            </div>
+            <p className="muted small disc-summary">
+              Mostly {DISC[main[0]].name}: {DISC[main[0]].line}.
+            </p>
+          </>
+        )}
+      </Private>
     </div>
   )
 }

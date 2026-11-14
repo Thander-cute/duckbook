@@ -91,3 +91,41 @@ test('sync API is locked behind the PIN like everything else', async () => {
     await s.cleanup()
   }
 })
+
+test('asking for a sync now: success says synced, a failed sync is 503 with the status, so a copy that waits cannot take it for success', async () => {
+  const google = await startFakeGoogle()
+  const saved = { ...process.env }
+  Object.assign(process.env, google.env)
+  const a = await startTestServer()
+  try {
+    // Not joined: there is nothing to wait for.
+    let r = await a.call('POST', '/api/sync/now')
+    assert.equal(r.status, 200)
+    assert.equal(r.json.synced, false)
+
+    const { authUrl } = (await a.call('POST', '/api/sync/connect')).json
+    assert.equal(await google.approve(authUrl), 200)
+    r = await a.call('POST', '/api/sync/join', { mode: 'start' })
+    assert.equal(r.status, 200, JSON.stringify(r.json))
+
+    r = await a.call('POST', '/api/sync/now')
+    assert.equal(r.status, 200)
+    assert.equal(r.json.synced, true)
+
+    google.setDown(true)
+    r = await a.call('POST', '/api/sync/now')
+    assert.equal(r.status, 503)
+    assert.equal(r.json.synced, false)
+    assert.ok(r.json.joined, 'still joined')
+    assert.ok(r.json.error, 'the reason is in the status')
+
+    google.setDown(false)
+    r = await a.call('POST', '/api/sync/now')
+    assert.equal(r.status, 200)
+    assert.equal(r.json.synced, true)
+  } finally {
+    await a.cleanup()
+    await google.stop()
+    process.env = saved
+  }
+})

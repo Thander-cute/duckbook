@@ -1,6 +1,6 @@
 import type { SettingsSection } from './SettingsPanel'
 import { useEffect, useState } from 'react'
-import { API_LEVEL, boot, reloadAll, useSaveStatus, useSession, useStore, resolveConflict } from '../lib/store'
+import { API_LEVEL, boot, reloadAll, useAutoCopyNote, useSaveStatus, useSession, useStore, resolveConflict } from '../lib/store'
 import { migrateLegacy, type LegacyInfo } from '../lib/legacy'
 import type { Summary } from '../lib/schema'
 import { api } from '../lib/api'
@@ -271,6 +271,7 @@ export function MigrationScreen({ legacy, onDone, onSkip }: { legacy: LegacyInfo
 
 export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null; onOpenSettings: (section: SettingsSection) => void }) {
   const save = useSaveStatus()
+  const copyNote = useAutoCopyNote()
   const { status } = useSession()
   const empty = useStore((s) => !Object.keys(s.days).length && !Object.keys(s.weeks).length && !Object.keys(s.months).length)
   return (
@@ -297,6 +298,11 @@ export function Banners({ legacy, onOpenSettings }: { legacy: LegacyInfo | null;
       {save.kind === 'error' && (
         <div className="banner is-warn" role="alert">
           <span>{save.message}</span>
+        </div>
+      )}
+      {copyNote?.kind === 'failed' && (
+        <div className="banner is-warn" role="alert">
+          <span>{copyNote.message}</span>
         </div>
       )}
       <UpdateBanner onOpenSettings={() => onOpenSettings('updates')} />

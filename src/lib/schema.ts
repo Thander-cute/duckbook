@@ -31,10 +31,36 @@ export interface WeekData {
 
 export interface DayTask { id: string; text: string; estimate: number; pomos: number; done: boolean; weekTaskId?: string }
 
-/** A kept photo: sha256 names of its full-size and thumbnail JPEG files, and the full size in pixels. */
-export interface DayPhoto { full: string; thumb: string; w: number; h: number }
+/**
+ * A kept photo: sha256 names of its full-size and thumbnail JPEG files, and the full size in pixels.
+ * `title` is written on the white strip under the polaroid; `description` is a caption shown under
+ * the photo in the viewer. Both are absent when empty, so photos without them are stored as before.
+ */
+export interface DayPhoto { full: string; thumb: string; w: number; h: number; title?: string; description?: string }
 export const MAX_DAY_PHOTOS = 3
+export const MAX_PHOTO_TITLE = 30
+export const MAX_PHOTO_DESCRIPTION = 280
+/** A caption may be written on at most four lines; later lines are folded into the fourth. */
+export const MAX_PHOTO_LINES = 4
 export const PHOTO_ID = /^[0-9a-f]{64}$/
+
+/** A title is one line: whitespace runs become one space, the ends are trimmed, then it is cut. */
+export const photoTitle = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, MAX_PHOTO_TITLE)
+
+/** Normalise line endings and fold anything past the fourth line into it, joined with a space. */
+export const foldPhotoLines = (text: string) => {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  if (lines.length <= MAX_PHOTO_LINES) return lines.join('\n')
+  const tail = lines
+    .slice(MAX_PHOTO_LINES - 1)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' ')
+  return [...lines.slice(0, MAX_PHOTO_LINES - 1), tail].join('\n')
+}
+
+/** A description keeps its lines (up to four); only the ends are trimmed, then it is cut. */
+export const photoDescription = (text: string) => foldPhotoLines(text.trim()).slice(0, MAX_PHOTO_DESCRIPTION)
 
 export interface DayData {
   grateful: string
@@ -53,6 +79,10 @@ export interface Settings {
   modules: { focusMap: boolean; contacts: boolean; holidays: boolean; disc: boolean }
   /** The word size Month day cells start at, before they shrink to fit. */
   monthSize: number
+  /** Copy the plan from the last week that has one when a new week begins. */
+  autoCopyWeek: boolean
+  /** Monday of the latest week the automatic copy is finished with, so it runs once per week on any device. */
+  autoCopiedWeek: string | null
 }
 
 export type IdeaStatus = 'idea' | 'doing' | 'done'
@@ -110,8 +140,11 @@ export const SCHEMA_VERSION = 1
  * 3 = idea status and planned date. 4 = spans page (notes for a range of days). 5 = day photos.
  * 6 = a save of a page that moved on is merged and returned (`merged`), which the page must show.
  * 7 = contacts and occasions pages, settings.modules.contacts, .holidays and .disc, settings.monthSize, MonthData.sizes.
+ * 9 = settings.autoCopyWeek and .autoCopiedWeek, day photo title and description. 8 is skipped: another
+ * branch's build uses it, and equal levels would pass the handshake while that server dropped these fields.
+ * 9 is not released (0.1.1 is 7), so the photo fields join it rather than taking a new level.
  */
-export const API_LEVEL = 7
+export const API_LEVEL = 9
 
 export const emptyMonth = (): MonthData => ({
   theme: '',
@@ -136,7 +169,7 @@ export const MONTH_SIZE = 15
 export const MONTH_SIZE_MIN = 11
 export const MONTH_SIZE_MAX = 28
 
-export const defaultSettings = (): Settings => ({ ink: 'serif', focusMin: 25, breakMin: 5, modules: { focusMap: false, contacts: false, holidays: false, disc: false }, monthSize: MONTH_SIZE })
+export const defaultSettings = (): Settings => ({ ink: 'serif', focusMin: 25, breakMin: 5, modules: { focusMap: false, contacts: false, holidays: false, disc: false }, monthSize: MONTH_SIZE, autoCopyWeek: false, autoCopiedWeek: null })
 
 export const emptyFocus = (): FocusData => ({ ideas: [] })
 
@@ -394,7 +427,15 @@ function dayPhotos(c: Ctx, v: unknown, p: string): { photos?: DayPhoto[] } {
       c.park(`${p}.${i}`, ph, 'not a photo reference')
     } else if (photos.length >= MAX_DAY_PHOTOS) {
       c.park(`${p}.${i}`, ph, `more than ${MAX_DAY_PHOTOS} photos`)
-    } else photos.push({ full: ph.full, thumb: ph.thumb, w: num(ph.w, 1, 100_000, 1), h: num(ph.h, 1, 100_000, 1) })
+    } else {
+      const photo: DayPhoto = { full: ph.full, thumb: ph.thumb, w: num(ph.w, 1, 100_000, 1), h: num(ph.h, 1, 100_000, 1) }
+      // A title or description that is only space is empty, and empty fields are not stored.
+      const title = photoTitle(c.str(ph.title, `${p}.${i}.title`))
+      const description = photoDescription(c.str(ph.description, `${p}.${i}.description`))
+      if (title) photo.title = title
+      if (description) photo.description = description
+      photos.push(photo)
+    }
   })
   return photos.length ? { photos } : {}
 }
@@ -418,6 +459,8 @@ function settings(s: Record<string, unknown>): Settings {
     breakMin: num(s.breakMin, 1, 60, d.breakMin),
     modules: { focusMap: bool(m.focusMap), contacts: bool(m.contacts), holidays: bool(m.holidays), disc: bool(m.disc) },
     monthSize: num(s.monthSize, MONTH_SIZE_MIN, MONTH_SIZE_MAX, d.monthSize),
+    autoCopyWeek: bool(s.autoCopyWeek),
+    autoCopiedWeek: typeof s.autoCopiedWeek === 'string' && validDayKey(s.autoCopiedWeek) ? s.autoCopiedWeek : null,
   }
 }
 

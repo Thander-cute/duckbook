@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { ConfirmRemove, Label, Page, PageTitle, Spread, Write } from '../components/ui'
+import { ConfirmRemove, EyeToggle, Label, Page, PageTitle, Private, Spread, Write } from '../components/ui'
 import { DiscDots, DiscEditor } from '../components/Disc'
 import { OccasionIcon } from '../components/Occasions'
+import { useBlur } from '../lib/contactBlur'
 import { MONTHS_SHORT, addDays, fmtShort, todayKey } from '../lib/date'
+import { segments } from '../lib/disc'
 import { href } from '../lib/router'
 import { occasionsOn } from '../lib/occasions'
 import { editContacts, getState, uid, useContacts, useSettings, type Contact, type Gender } from '../lib/store'
@@ -204,6 +206,14 @@ const fits = (day: number | null, month: number | null) => day === null || month
 
 function ContactCard({ c, isNew, showDisc, onGone }: { c: Contact; isNew: boolean; showDisc: boolean; onGone: () => void }) {
   const [confirm, setConfirm] = useState(false)
+  const [notesShown, setNotesShown] = useState(false)
+  const [discShown, setDiscShown] = useState(false)
+  const blurNotes = useBlur('notes')
+  const blurDisc = useBlur('disc')
+  const notesContent = c.notes.trim() !== ''
+  const discContent = segments(c.disc).length > 0
+  const notesHidden = blurNotes && !notesShown && notesContent
+  const discHidden = blurDisc && !discShown && discContent
   // Day and month are typed one at a time; hold the first until the pair makes a day.
   const [pending, setPending] = useState<{ day: number | null; month: number | null }>({ day: c.day, month: c.month })
   useEffect(() => setPending({ day: c.day, month: c.month }), [c.day, c.month])
@@ -283,10 +293,37 @@ function ContactCard({ c, isNew, showDisc, onGone }: { c: Contact; isNew: boolea
           </div>
           {half && <p className="muted small contact-hint">Add the {pending.day === null ? 'day' : 'month'} too.</p>}
 
-          {showDisc && <DiscEditor mix={c.disc} onChange={(next) => edit(c.id, (x) => void (x.disc = next))} />}
+          {showDisc && (
+            <DiscEditor
+              mix={c.disc}
+              hidden={discHidden}
+              onReveal={() => setDiscShown(true)}
+              showEye={blurDisc && discContent}
+              shown={discShown}
+              onToggleEye={() => setDiscShown(!discShown)}
+              onChange={(next) => {
+                setDiscShown(true)
+                edit(c.id, (x) => void (x.disc = next))
+              }}
+            />
+          )}
 
-          <Label>Notes</Label>
-          <Write className="dotgrid notes contact-notes" value={c.notes} onChange={(v) => edit(c.id, (x) => void (x.notes = v))} rows={8} ariaLabel="Notes" />
+          <div className="label contact-notes-label">
+            <span>Notes</span>
+            {blurNotes && notesContent && <EyeToggle shown={notesShown} what="notes" onClick={() => setNotesShown(!notesShown)} />}
+          </div>
+          <Private hidden={notesHidden} onReveal={() => setNotesShown(true)}>
+            <Write
+              className="dotgrid notes contact-notes"
+              value={c.notes}
+              onChange={(v) => {
+                setNotesShown(true)
+                edit(c.id, (x) => void (x.notes = v))
+              }}
+              rows={8}
+              ariaLabel="Notes"
+            />
+          </Private>
         </>
       )}
     </div>

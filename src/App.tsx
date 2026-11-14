@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSyncWatch } from './lib/sync'
 import { useRoute, go, type View } from './lib/router'
 import { todayKey } from './lib/date'
-import { boot, getSession, lock, useSaveStatus, useSession, useSettings } from './lib/store'
+import { boot, getSession, lock, runAutoCopy, useSaveStatus, useSession, useSettings } from './lib/store'
 import { api } from './lib/api'
 import { LEGACY_KEY, readLegacy, type LegacyInfo } from './lib/legacy'
 import { LockScreen } from './components/LockScreen'
@@ -79,7 +79,7 @@ function Notebook({ legacy, onLegacyChange }: { legacy: LegacyInfo | null; onLeg
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
-      if (e.defaultPrevented || el.closest('input, textarea, select, [contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.defaultPrevented || el.closest('input, textarea, select, [contenteditable], [role="textbox"]') || e.metaKey || e.ctrlKey || e.altKey) return
       if (inSettings) {
         if (e.key === 'Escape') leaveSettings(date)
         return
@@ -230,6 +230,22 @@ function useIdleLock(enabled: boolean, minutes: number) {
   }, [enabled, minutes])
 }
 
+/** A new week can begin with the notebook open: look now and then, and on coming back to the window. */
+function useWeekRollover(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return
+    const check = () => void runAutoCopy()
+    const t = setInterval(check, 60_000)
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      clearInterval(t)
+      window.removeEventListener('focus', check)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [enabled])
+}
+
 export function App() {
   const { phase, status } = useSession()
   const [legacy, setLegacy] = useState<LegacyInfo | null | undefined>(undefined)
@@ -263,6 +279,7 @@ export function App() {
 
   useIdleLock(phase === 'unlocked' && !!status?.pinEnabled, status?.autoLockMin ?? 0)
   useSyncWatch(phase === 'unlocked')
+  useWeekRollover(phase === 'unlocked')
 
   if (phase === 'loading') return <LoadingScreen />
   if (phase === 'offline') return <OfflineScreen />

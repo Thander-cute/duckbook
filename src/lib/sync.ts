@@ -2,7 +2,7 @@
 // asks for a sync when the person comes back to the window, and picks up pages that changed.
 
 import { useEffect, useSyncExternalStore } from 'react'
-import { api } from './api'
+import { api, ApiError } from './api'
 import { refresh } from './store'
 
 /** Duckbook's public pages: homepage, privacy policy and terms for Google sign-in. */
@@ -16,6 +16,8 @@ export interface SyncStatus {
   warning: string | null
   running: boolean
   dataVersion: number
+  /** Only from asking for a sync now: a joined notebook just finished one without error. */
+  synced?: boolean
 }
 
 let status: SyncStatus | null = null
@@ -35,7 +37,14 @@ function take(next: SyncStatus) {
 }
 
 export const loadSync = async () => take(await api<SyncStatus>('GET', '/api/sync'))
-export const syncNow = async () => take(await api<SyncStatus>('POST', '/api/sync/now'))
+/** Asks for a sync now. A failed one still brings back its status, which shows the error. */
+export const syncNow = async () =>
+  take(
+    await api<SyncStatus>('POST', '/api/sync/now').catch((e) => {
+      if (e instanceof ApiError && e.status === 503) return e.body as unknown as SyncStatus
+      throw e
+    }),
+  )
 export const useSync = () => useSyncExternalStore(subscribe, () => status)
 
 export async function syncAction<T = Record<string, unknown>>(path: string, body: unknown = {}) {

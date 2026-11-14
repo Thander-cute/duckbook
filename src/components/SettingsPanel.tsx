@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../lib/api'
-import { flush, lock, reloadAll, reloadStatus, update, useSession, useSettings } from '../lib/store'
+import { flush, lock, reloadAll, reloadStatus, setAutoCopyWeek, update, useAutoCopyNote, useSession, useSettings } from '../lib/store'
 import { migrateLegacy, removeLegacy, type LegacyInfo } from '../lib/legacy'
 import { todayKey } from '../lib/date'
 import type { Summary } from '../lib/schema'
@@ -8,6 +8,7 @@ import { describe } from './Gates'
 import { Menu } from './Menu'
 import { getPaper, setPaper } from '../lib/paper'
 import { setHabitMark, useHabitMark } from '../lib/habitMark'
+import { setBlur, useBlur } from '../lib/contactBlur'
 import { ADD_ONS, type AddOnId } from '../lib/addons'
 import { TEXT_SIZES, canSetTextSize, setTextSize, useTextSize } from '../lib/textSize'
 import { resetTour } from '../lib/tour'
@@ -30,7 +31,7 @@ const KIND: Record<string, string> = {
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
-export type SettingsSection = 'notebook' | 'timer' | 'keys' | 'privacy' | 'data' | 'updates' | 'addons'
+export type SettingsSection = 'notebook' | 'planning' | 'timer' | 'keys' | 'privacy' | 'data' | 'updates' | 'addons'
 
 const TIMER_VIEWS: { key: TimerView; label: string }[] = [
   { key: 'overlay', label: 'Over the page' },
@@ -41,6 +42,7 @@ const TIMER_VIEWS: { key: TimerView; label: string }[] = [
 // Thin ink icons for the index, one per section.
 const ICONS: Record<SettingsSection, string> = {
   notebook: 'M4 3.5h8.5a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4zM4 3.5v13M7 7h4',
+  planning: 'M4 5h12v11.5H4zM4 8.5h12M7.5 3v3M12.5 3v3',
   timer: 'M10 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM10 8v3l2 1.5M8.5 3h3',
   keys: 'M3 6.5h14v8H3zM6 9.5h.01M9 9.5h.01M12 9.5h.01M14.5 9.5h.01M7 12h6',
   privacy: 'M5.5 9h9v7.5h-9zM7.5 9V6.8a2.5 2.5 0 0 1 5 0V9',
@@ -50,7 +52,7 @@ const ICONS: Record<SettingsSection, string> = {
 }
 
 const GROUPS: { title: string; items: { key: SettingsSection; label: string }[] }[] = [
-  { title: 'Notebook', items: [{ key: 'notebook', label: 'Look & feel' }, { key: 'timer', label: 'Focus timer' }, { key: 'keys', label: 'Shortcuts' }] },
+  { title: 'Notebook', items: [{ key: 'notebook', label: 'Look & feel' }, { key: 'planning', label: 'Planning' }, { key: 'timer', label: 'Focus timer' }, { key: 'keys', label: 'Shortcuts' }] },
   { title: 'This computer', items: [{ key: 'privacy', label: 'Privacy' }, { key: 'data', label: 'Data' }, { key: 'updates', label: 'Updates' }] },
   { title: 'Extras', items: [{ key: 'addons', label: 'Add-ons' }] },
 ]
@@ -90,8 +92,11 @@ export function SettingsPage({
   const [tourMsg, setTourMsg] = useState('')
   const [paper, setPaperState] = useState(getPaper)
   const habitMark = useHabitMark()
+  const blurNotes = useBlur('notes')
+  const blurDisc = useBlur('disc')
   const textSize = useTextSize()
   const timerView = useDefaultView()
+  const copyNote = useAutoCopyNote()
   const { status } = useSession()
   // Only the installed desktop app updates itself; elsewhere the section isn't there.
   const updatable = canUpdate(useUpdates())
@@ -178,6 +183,15 @@ export function SettingsPage({
             </>
           )}
 
+          {current === 'planning' && (
+            <Row title="Copy the plan into each new week" help="When a new week begins, unfinished tasks, habits, Self-care and planned Focus Map work come over from earlier weeks. Starts next week, once per week. With Drive sync on, it waits for a sync to succeed first. Lines not copied show in pencil on Weekly planning, to keep or drop." below={copyNote?.kind === 'waiting' && <p className="sd-row-help copy-waiting">This week’s copy is waiting for a sync with Drive.</p>}>
+              <label className="module-toggle switch">
+                <input type="checkbox" role="switch" checked={s.autoCopyWeek} onChange={(e) => setAutoCopyWeek(e.target.checked)} aria-label="Copy the plan into each new week" />
+                <span className="switch-track" aria-hidden />
+              </label>
+            </Row>
+          )}
+
           {current === 'timer' && (
             <>
               <Row title="Focus" help="One block fills one circle on the Day page. Changes apply to the next block.">
@@ -262,12 +276,26 @@ export function SettingsPage({
                 </label>
               </Row>
               {s.modules.contacts && (
-                <Row title="DISC colours" help="Mark each person's DISC types in colour, on their card and in the list. Turning it off hides the colours and keeps them." below={<AddOnVersion id="disc" />}>
-                  <label className="module-toggle switch">
-                    <input type="checkbox" role="switch" checked={s.modules.disc} onChange={(e) => update((st) => void (st.settings.modules.disc = e.target.checked))} aria-label="DISC colours" />
-                    <span className="switch-track" aria-hidden />
-                  </label>
-                </Row>
+                <>
+                  <Row title="DISC colours" help="Mark each person's DISC types in colour, on their card and in the list. Turning it off hides the colours and keeps them." below={<AddOnVersion id="disc" />}>
+                    <label className="module-toggle switch">
+                      <input type="checkbox" role="switch" checked={s.modules.disc} onChange={(e) => update((st) => void (st.settings.modules.disc = e.target.checked))} aria-label="DISC colours" />
+                      <span className="switch-track" aria-hidden />
+                    </label>
+                  </Row>
+                  <Row title="Blur notes" help="Notes on a person's card start blurred. Kept in this browser.">
+                    <label className="module-toggle switch">
+                      <input type="checkbox" role="switch" checked={blurNotes} onChange={(e) => setBlur('notes', e.target.checked)} aria-label="Blur notes" />
+                      <span className="switch-track" aria-hidden />
+                    </label>
+                  </Row>
+                  <Row title="Blur DISC" help="DISC colours and description start blurred. Kept in this browser.">
+                    <label className="module-toggle switch">
+                      <input type="checkbox" role="switch" checked={blurDisc} onChange={(e) => setBlur('disc', e.target.checked)} aria-label="Blur DISC" />
+                      <span className="switch-track" aria-hidden />
+                    </label>
+                  </Row>
+                </>
               )}
               <Row title="Holidays" help="Vietnamese holidays on Month and Day, built in, no network needed. Press + on any Month day to add your own yearly day." below={<AddOnVersion id="holidays" />}>
                 <label className="module-toggle switch">

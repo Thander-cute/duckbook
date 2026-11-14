@@ -10,9 +10,14 @@ export async function startFakeGoogle() {
   let tokens = 0
   const live = new Set<string>()
   let requests = 0
+  let down = false
 
   const server = http.createServer(async (req, res) => {
     requests++
+    if (down) {
+      res.writeHead(503, { 'Content-Type': 'application/json' })
+      return res.end('{}')
+    }
     const url = new URL(req.url ?? '/', 'http://127.0.0.1')
     const chunks: Buffer[] = []
     for await (const c of req) chunks.push(c as Buffer)
@@ -84,6 +89,8 @@ export async function startFakeGoogle() {
     base,
     files,
     requests: () => requests,
+    /** Every call fails until turned back on, as when the network or Drive is out. */
+    setDown: (v: boolean) => void (down = v),
     env: {
       DUCKBOOK_GOOGLE_CLIENT_ID: 'fixture-client',
       DUCKBOOK_GOOGLE_AUTH_URL: `${base}/auth`,

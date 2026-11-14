@@ -55,7 +55,7 @@ try {
     assert.equal(await page.$eval('.addon-version', (e) => (e as HTMLDetailsElement).open), false)
     await page.click('.addon-version summary')
     assert.match(await page.$eval('.addon-version ul', (e) => (e as HTMLElement).innerText), /1\.0\.0/)
-    assert.deepEqual(await page.$$eval('.sd-tab', (x) => x.map((e) => e.textContent)), ['Look & feel', 'Focus timer', 'Shortcuts', 'Privacy', 'Data', 'Add-ons'])
+    assert.deepEqual(await page.$$eval('.sd-tab', (x) => x.map((e) => e.textContent)), ['Look & feel', 'Planning', 'Focus timer', 'Shortcuts', 'Privacy', 'Data', 'Add-ons'])
     await page.keyboard.press('Escape')
     await sleep(300)
   })

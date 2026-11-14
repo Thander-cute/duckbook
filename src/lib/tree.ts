@@ -17,7 +17,7 @@ export const isDel = (v: unknown) => isMarker(v) && v.$ === 'del'
 export const pathKey = (p: Path) => JSON.stringify(p)
 export const parsePath = (s: string) => JSON.parse(s) as Path
 
-const TEXT = new Set(['theme', 'notes', 'text', 'goal', 'selfCare', 'checkin', 'success', 'lesson', 'future', 'more', 'grateful', 'sentence', 'name'])
+const TEXT = new Set(['theme', 'notes', 'text', 'goal', 'selfCare', 'checkin', 'success', 'lesson', 'future', 'more', 'grateful', 'sentence', 'name', 'title', 'description'])
 
 /** Free text merged character by character; every other value is last-writer-wins. */
 export function isTextPath(p: Path): boolean {

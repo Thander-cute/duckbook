@@ -161,8 +161,15 @@ export function createHandler({ store, auth, port, distDir, token, webDataDir, w
         return send(res, 200, { ...out, ...syncStatus() })
       }
       if (route === 'POST /api/sync/now') {
-        await runner.syncNow().catch(() => {})
-        return send(res, 200, syncStatus())
+        // The answer carries the sync status either way, so the Settings line can show what went wrong.
+        // `synced` is true only when a joined notebook has just finished a sync without error; a failed
+        // sync is 503, so nothing that waits for a sync can take it for success.
+        try {
+          await runner.syncNow()
+        } catch {
+          return send(res, 503, { ...syncStatus(), synced: false })
+        }
+        return send(res, 200, { ...syncStatus(), synced: !!runner.config() })
       }
       if (route === 'POST /api/sync/leave') {
         const signOut = (await readJson(req)).signOut === true

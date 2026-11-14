@@ -496,3 +496,115 @@ test('contacts and days to remember sync: two devices add at once, edits merge, 
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ───────── day photo titles and descriptions ─────────
+
+const photo = (full: string, thumb: string, over = {}) => ({ full: full.repeat(64), thumb: thumb.repeat(64), w: 300, h: 200, ...over })
+
+test('a photo title edited on two devices merges and keeps the photo', () => {
+  const a = device()
+  const b = device()
+  try {
+    const p = photo('a', 'b', { title: 'Summer' })
+    a.save('day:2026-11-11', day({ photos: [p] }))
+    exchange(a, b)
+    const base = b.get('day:2026-11-11')!.value as any
+    a.save('day:2026-11-11', { ...base, photos: [{ ...base.photos[0], title: 'Summer at the lake' }] })
+    b.save('day:2026-11-11', { ...base, photos: [{ ...base.photos[0], title: 'Early summer' }] })
+    exchange(a, b)
+    for (const d of [a, b]) {
+      const photos = (d.get('day:2026-11-11')!.value as any).photos
+      assert.equal(photos.length, 1, 'the photo is not lost or doubled')
+      assert.equal(photos[0].full, p.full)
+      assert.equal(photos[0].title, 'Early summer at the lake', 'both edits are kept')
+    }
+    assert.deepEqual(pages(a), pages(b))
+    assertReplays(a)
+    assertReplays(b)
+  } finally {
+    a.close()
+    b.close()
+  }
+})
+
+test('a first title written on two devices keeps both words and the photo', () => {
+  const a = device()
+  const b = device()
+  try {
+    const p = photo('c', 'd')
+    a.save('day:2026-11-12', day({ photos: [p] }))
+    exchange(a, b)
+    const base = b.get('day:2026-11-12')!.value as any
+    a.save('day:2026-11-12', { ...base, photos: [{ ...base.photos[0], title: 'Beach' }] })
+    b.save('day:2026-11-12', { ...base, photos: [{ ...base.photos[0], title: 'Sunset' }] })
+    exchange(a, b)
+    const photos = (a.get('day:2026-11-12')!.value as any).photos
+    assert.equal(photos.length, 1)
+    assert.match(photos[0].title, /Beach/)
+    assert.match(photos[0].title, /Sunset/)
+    assert.deepEqual(pages(a), pages(b))
+    assertReplays(a)
+    assertReplays(b)
+  } finally {
+    a.close()
+    b.close()
+  }
+})
+
+test('removing a photo on one device is not undone by a title edit on the other', () => {
+  const a = device()
+  const b = device()
+  try {
+    const p = photo('e', 'f', { title: 'Summer' })
+    a.save('day:2026-11-13', day({ photos: [p] }))
+    exchange(a, b)
+    const base = b.get('day:2026-11-13')!.value as any
+    a.save('day:2026-11-13', day())
+    b.save('day:2026-11-13', { ...base, photos: [{ ...base.photos[0], title: 'Summer, edited' }] })
+    exchange(a, b)
+    for (const d of [a, b]) assert.equal('photos' in (d.get('day:2026-11-13')!.value as object), false, 'the photo stays removed')
+    assert.deepEqual(pages(a), pages(b))
+    assertReplays(a)
+    assertReplays(b)
+  } finally {
+    a.close()
+    b.close()
+  }
+})
+
+test('a title and a description edited on different devices both survive; so do two photos', () => {
+  const a = device()
+  const b = device()
+  try {
+    const p = photo('1', '2', { title: 'Summer', description: 'first line' })
+    a.save('day:2026-11-14', day({ photos: [p] }))
+    exchange(a, b)
+    const base = b.get('day:2026-11-14')!.value as any
+    a.save('day:2026-11-14', { ...base, photos: [{ ...base.photos[0], title: 'Summer, day two' }] })
+    b.save('day:2026-11-14', { ...base, photos: [{ ...base.photos[0], description: 'first line\nsecond line' }] })
+    exchange(a, b)
+    for (const d of [a, b]) {
+      const merged = (d.get('day:2026-11-14')!.value as any).photos[0]
+      assert.equal(merged.title, 'Summer, day two')
+      assert.equal(merged.description, 'first line\nsecond line')
+    }
+    assert.deepEqual(pages(a), pages(b))
+
+    const two = [photo('3', '4'), photo('5', '6')]
+    a.save('day:2026-11-15', day({ photos: two }))
+    exchange(a, b)
+    const base2 = b.get('day:2026-11-15')!.value as any
+    a.save('day:2026-11-15', { ...base2, photos: [{ ...base2.photos[0], title: 'One' }, base2.photos[1]] })
+    b.save('day:2026-11-15', { ...base2, photos: [base2.photos[0], { ...base2.photos[1], title: 'Two' }] })
+    exchange(a, b)
+    for (const d of [a, b]) {
+      assert.deepEqual((d.get('day:2026-11-15')!.value as any).photos.map((x: any) => [x.full.slice(0, 1), x.title]), [['3', 'One'], ['5', 'Two']])
+    }
+    assert.deepEqual(pages(a), pages(b))
+    assertReplays(a)
+    assertReplays(b)
+  } finally {
+    a.close()
+    b.close()
+  }
+})

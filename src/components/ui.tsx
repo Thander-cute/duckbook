@@ -8,6 +8,7 @@ export function Write({
   className = '',
   rows = 1,
   onKeyDown,
+  onBlur,
   autoFocus,
   ariaLabel,
   singleLine,
@@ -20,6 +21,7 @@ export function Write({
   className?: string
   rows?: number
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
+  onBlur?: () => void
   autoFocus?: boolean
   ariaLabel?: string
   singleLine?: boolean
@@ -75,6 +77,7 @@ export function Write({
       spellCheck={false}
       maxLength={maxLength}
       onChange={(e) => onChange(singleLine ? e.target.value.replace(/\n/g, ' ') : e.target.value)}
+      onBlur={onBlur}
       onKeyDown={(e) => {
         if (singleLine && e.key === 'Enter' && !onKeyDown) {
           e.preventDefault()
@@ -134,6 +137,35 @@ export function Info({ text }: { text: string }) {
     <span className="info" tabIndex={0} role="note" aria-label={text} data-tip={text}>
       i
     </span>
+  )
+}
+
+/** A quiet eye beside a private section's heading: shows or hides it, with a short tooltip. */
+export function EyeToggle({ shown, what, onClick, className = '' }: { shown: boolean; what: string; onClick: () => void; className?: string }) {
+  const action = shown ? 'Hide' : 'Show'
+  return (
+    <button type="button" className={`contact-eye ${className}`} aria-label={`${action} ${what}`} data-tip={action} onClick={onClick}>
+      <svg viewBox="0 0 16 16" aria-hidden>
+        <path d="M1.8 8s2.3-3.7 6.2-3.7S14.2 8 14.2 8s-2.3 3.7-6.2 3.7S1.8 8 1.8 8Z" />
+        <circle cx="8" cy="8" r="1.8" />
+        {shown && <path d="M3 3l10 10" />}
+      </svg>
+    </button>
+  )
+}
+
+/**
+ * Personal writing kept out of sight until asked for: blurred, inert and hidden from assistive tech.
+ * A transparent veil catches a click on the blur; the eye in the heading is the keyboard control.
+ */
+export function Private({ hidden, onReveal, children }: { hidden: boolean; onReveal: () => void; children: ReactNode }) {
+  return (
+    <div className={`contact-private ${hidden ? 'is-hidden' : ''}`}>
+      <div className="contact-private-body" inert={hidden} aria-hidden={hidden || undefined}>
+        {children}
+      </div>
+      {hidden && <div className="contact-private-veil" aria-hidden onClick={onReveal} />}
+    </div>
   )
 }
 

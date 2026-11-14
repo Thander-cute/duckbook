@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from 'react'
 import { produce, type Draft } from 'immer'
-import { weekStart } from './date'
+import { addDays, todayKey, weekStart } from './date'
 import { api, ApiError, OfflineError, setLockedHandler } from './api'
 import { rebaseDoc } from './tree'
-import { API_LEVEL, SINGLETONS, validDayKey, docsToState, stateToDocs, emptyDay, emptyFocus, emptyMonth, emptySpans, emptyContacts, emptyOccasions, emptyState, emptyWeek, type DayData, type FocusData, type SpansData, type ContactsData, type OccasionsData, type Habit, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
+import { autoCopy, autoCopyDue, carriedHabits, carryIdea, keepSuggestions, linkedWeekTasks, suggestions, type Suggestions } from './weekCopy'
+import { API_LEVEL, SINGLETONS, validDayKey, docsToState, stateToDocs, emptyDay, emptyFocus, emptyMonth, emptySpans, emptyContacts, emptyOccasions, emptyState, emptyWeek, type DayData, type FocusData, type SpansData, type ContactsData, type OccasionsData, type IdeaStatus, type MonthData, type State, type WeekData } from './schema'
 
 export * from './schema'
 
@@ -376,6 +377,8 @@ async function enter(status: Status) {
     void flush()
   }
   applyPendingCredits()
+  // After the parked edits are back: a copy parked by a lock carries its own "done for this week".
+  void runAutoCopy()
 }
 
 export async function boot() {
@@ -432,6 +435,13 @@ export async function reloadStatus() {
 
 /** After an import or restore replaced every page on the server. */
 export async function reloadAll() {
+  // Pages were replaced, so the pencil lines this device left alone no longer describe them.
+  left.set({})
+  try {
+    localStorage.removeItem(PENCIL_KEY)
+  } catch {
+    /* nothing stored */
+  }
   await loadAll()
   await reloadStatus()
   channel?.postMessage({ type: 'replaced' })
@@ -486,15 +496,6 @@ export const editContacts = (fn: (f: Draft<ContactsData>) => void) => update((s)
 export const useOccasions = () => useStore((s) => s.occasions.days)
 export const editOccasions = (fn: (f: Draft<OccasionsData>) => void) => update((s) => fn(s.occasions))
 
-/** Habits carry over: a new week starts with the habit names of the latest earlier week. */
-function carriedHabits(weeks: Record<string, WeekData>, mondayKey: string): Habit[] {
-  const prev = Object.keys(weeks)
-    .filter((k) => k < mondayKey && weeks[k].habits.length)
-    .sort()
-    .pop()
-  return prev ? weeks[prev].habits.map((h) => ({ id: uid(), name: h.name, days: Array(7).fill(false) })) : []
-}
-
 export const editMonth = (monthKey: string, fn: (m: Draft<MonthData>) => void) =>
   update((s) => fn((s.months[monthKey] ??= emptyMonth())))
 
@@ -532,12 +533,6 @@ export type WorkPatch = Partial<{ text: string; status: IdeaStatus; date: string
 
 type S = Draft<State>
 
-function linkedWeekTasks(s: State | S, ideaId: string) {
-  const out: { monday: string; task: WeekData['tasks'][number] }[] = []
-  for (const monday of Object.keys(s.weeks).sort()) for (const task of s.weeks[monday].tasks) if (task.ideaId === ideaId) out.push({ monday, task })
-  return out
-}
-
 function findWeekTask(s: State | S, taskId: string) {
   for (const monday of Object.keys(s.weeks)) {
     const task = s.weeks[monday].tasks.find((t) => t.id === taskId)
@@ -560,14 +555,6 @@ export const plannedWeeks = (s: State, ideaId: string) => [...new Set(linkedWeek
 
 function ensureWeek(s: S, monday: string) {
   return (s.weeks[monday] ??= { ...emptyWeek(), habits: carriedHabits(s.weeks, monday) })
-}
-
-function moveWeekTask(s: S, from: string, to: string, taskId: string) {
-  const src = s.weeks[from]
-  const i = src?.tasks.findIndex((t) => t.id === taskId) ?? -1
-  if (i < 0) return
-  const [task] = src.tasks.splice(i, 1)
-  ensureWeek(s, to).tasks.push(task)
 }
 
 function applyWork(s: S, ideaId: string, patch: WorkPatch) {
@@ -595,19 +582,16 @@ function applyWork(s: S, ideaId: string, patch: WorkPatch) {
         if (retitle) t.text = idea.text
         if (restate) t.done = done
       }
-  // A new planned date carries the planned week task along to that week.
-  if (patch.date && linked.length) {
-    const target = weekStart(patch.date)
-    const latest = linked[linked.length - 1]
-    if (!linked.some((l) => l.monday === target)) moveWeekTask(s, latest.monday, target, latest.task.id)
-  }
+  // A new planned date carries the planned work along to that week (see carryIdea).
+  if (patch.date && linked.length) carryIdea(s, ideaId, weekStart(patch.date), emptyWeek)
 }
 
 export const editWork = (ideaId: string, patch: WorkPatch) => update((s) => applyWork(s, ideaId, patch))
 
 /**
  * Put an idea into a week's plan. Never creates a second task: if it is already planned elsewhere
- * its latest task moves here instead. Lands unsorted, ready for the matrix.
+ * its copies in the latest week move here as one line (see carryIdea), and earlier copies stay where they are.
+ * Lands unsorted, ready for the matrix.
  */
 export function planIdea(ideaId: string, monday: string) {
   update((s) => {
@@ -615,7 +599,7 @@ export function planIdea(ideaId: string, monday: string) {
     if (!idea || !idea.text.trim()) return
     const linked = linkedWeekTasks(s, ideaId)
     if (linked.some((l) => l.monday === monday)) return
-    if (linked.length) moveWeekTask(s, linked[linked.length - 1].monday, monday, linked[linked.length - 1].task.id)
+    if (linked.length) carryIdea(s, ideaId, monday, emptyWeek)
     else ensureWeek(s, monday).tasks.push({ id: uid(), text: idea.text.trim(), q: null, done: idea.status === 'done', ideaId })
   })
 }
@@ -673,4 +657,111 @@ export function markStarted(dayKey: string, taskId: string) {
   const dt = state.days[dayKey]?.tasks.find((x) => x.id === taskId)
   const idea = dt && ideaOfDayTask(state, dt)
   if (idea && idea.status === 'idea') editWork(idea.id, { status: 'doing' })
+}
+
+// ───────── pencil lines: last week's unfinished work, offered until someone keeps it (see weekCopy.ts) ─────────
+
+const PENCIL_KEY = 'duckbook:pencil'
+/** Per week, the pencil lines this device has kept or dropped. Kept here, not in the notebook, so no data changes. */
+type Left = Record<string, string[]>
+const readLeft = (): Left => {
+  try {
+    const v = JSON.parse(localStorage.getItem(PENCIL_KEY) ?? '{}')
+    return v && typeof v === 'object' ? v : {}
+  } catch {
+    return {}
+  }
+}
+const left = observable<Left>(readLeft())
+const prevWeek = (monday: string) => addDays(monday, -7)
+
+/** Remember these lines as left alone for this week on this device, and forget weeks already past. */
+function leave(monday: string, keys: string[]) {
+  if (!keys.length) return
+  const thisWeek = weekStart(todayKey())
+  const next: Left = {}
+  for (const [w, ks] of Object.entries(left.get())) if (w >= thisWeek) next[w] = ks
+  next[monday] = [...new Set([...(next[monday] ?? []), ...keys])]
+  try {
+    localStorage.setItem(PENCIL_KEY, JSON.stringify(next))
+  } catch {
+    /* Storage full or off: the lines come back on reload, which is harmless. */
+  }
+  left.set(next)
+}
+
+/** The pencil lines for a week. Read as JSON so the value stays the same until the lines change. */
+export function usePencil(monday: string): Suggestions {
+  const dropped = useSyncExternalStore(left.subscribe, left.get)[monday] ?? []
+  const json = useStore((s) => JSON.stringify(suggestions(s, monday, prevWeek(monday), weekStart(todayKey()), dropped)))
+  return JSON.parse(json) as Suggestions
+}
+
+export const dropPencil = (monday: string, key: string) => leave(monday, [key])
+
+/** Keep the pencil lines in `keys` as tasks of the week, and save. Only what is still offered is added. */
+export async function keepPencil(monday: string, keys: string[]): Promise<boolean> {
+  if (!isUnlocked()) return false
+  let kept: string[] = []
+  update((s) => void (kept = keepSuggestions(s, monday, prevWeek(monday), weekStart(todayKey()), new Set(keys), emptyWeek)))
+  leave(monday, kept)
+  return flush()
+}
+
+/** Turning it on starts with the next week: the one under way is already being planned by hand. */
+export function setAutoCopyWeek(on: boolean) {
+  update((s) => {
+    s.settings.autoCopyWeek = on
+    if (on) s.settings.autoCopiedWeek = weekStart(todayKey())
+  })
+}
+
+type AutoCopyNote = { kind: 'failed'; message: string } | { kind: 'waiting' } | null
+const autoCopyNote = observable<AutoCopyNote>(null)
+
+/** What to say about this week's automatic copy: nothing once it is no longer due, however that came about. */
+export function useAutoCopyNote() {
+  const note = useSyncExternalStore(autoCopyNote.subscribe, autoCopyNote.get)
+  const due = useStore((s) => autoCopyDue(s, weekStart(todayKey())))
+  return due ? note : null
+}
+
+let autoCopying = false
+
+/**
+ * The automatic copy, for the real current week only. Once for that week on any device: the "done"
+ * mark is saved with the copy, in one batch. A notebook on Drive copies only straight after a sync
+ * that succeeded, so it sees what other devices copied, deleted and marked; while no sync succeeds
+ * the copy waits, however long that takes. A notebook not on Drive copies at once. Tabs take turns,
+ * saving before letting go: two tabs creating the same new page would be a conflict to resolve.
+ */
+export async function runAutoCopy() {
+  const monday = weekStart(todayKey())
+  if (!autoCopyDue(state, monday)) return autoCopyNote.set(null)
+  if (autoCopying || !isUnlocked()) return
+  autoCopying = true
+  const copy = async () => {
+    // A joined notebook copies only after a sync that succeeded; a failed one answers 503 with the same status.
+    const sync = await api<{ joined: unknown; synced: boolean }>('POST', '/api/sync/now', {}).catch((e) => {
+      if (e instanceof ApiError && e.status === 503) return { joined: e.body.joined, synced: false }
+      throw e
+    })
+    if (sync.joined && !sync.synced) return autoCopyNote.set({ kind: 'waiting' })
+    const { docs } = await api<{ docs: ServerDoc[] }>('GET', '/api/data')
+    if (!isUnlocked()) return
+    adoptDocs(docs, 'merge')
+    autoCopyNote.set(null)
+    if (!autoCopyDue(state, monday)) return
+    update((s) => void autoCopy(s, monday, emptyWeek))
+    // Send the mark now, not a few seconds on: until it arrives another device can copy as well.
+    if ((await flush()) && sync.joined) void api('POST', '/api/sync/now', {}).catch(() => {})
+  }
+  try {
+    await (navigator.locks ? navigator.locks.request('duckbook-week-copy', copy) : copy())
+  } catch (e) {
+    // A lock is not a failure: it runs again on unlock. Anything else is said, and tried again.
+    if (isUnlocked()) autoCopyNote.set({ kind: 'failed', message: `The plan wasn’t copied into this week: ${(e as Error).message} Trying again shortly.` })
+  } finally {
+    autoCopying = false
+  }
 }
