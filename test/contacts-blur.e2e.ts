@@ -147,7 +147,8 @@ try {
     assert.deepEqual(await page.$eval('.contact-notes-label .contact-eye', (e) => [e.getAttribute('aria-label'), e.getAttribute('data-tip')]), ['Show notes', 'Show'], 'the notes eye names its section and tooltip')
     assert.deepEqual(await page.$eval('.disc-head .contact-eye', (e) => [e.getAttribute('aria-label'), e.getAttribute('data-tip')]), ['Show DISC', 'Show'], 'the DISC eye names its section and tooltip')
     await page.hover('.contact-notes-label .contact-eye')
-    await sleep(200)
+    // The tooltip fades in over 0.12s; wait for the fade to settle instead of racing it.
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('.contact-notes-label .contact-eye')!, '::after').opacity === '1', { timeout: 2000 })
     assert.deepEqual(await page.$eval('.contact-notes-label .contact-eye', (e) => { const s = getComputedStyle(e, '::after'); return [s.opacity, s.content] }), ['1', '"Show"'], 'the short tooltip shows on hover')
     await page.mouse.move(5, 5)
     assert.deepEqual(await page.$$eval('.contact-row .disc-dots', (x) => x.map((e) => getComputedStyle(e).filter)), ['none', 'none'], 'the list dots stay as they are')

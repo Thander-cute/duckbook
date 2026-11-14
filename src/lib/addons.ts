@@ -10,7 +10,13 @@ const define = (...history: AddOnRelease[]) => ({ version: history[0].version, h
 
 export const ADD_ONS: Record<AddOnId, ReturnType<typeof define>> = {
   focusMap: define({ version: '1.0.0', note: 'Sticky notes on an impact × difficulty map, planned into a week.' }),
-  contacts: define({ version: '1.0.0', note: 'An address book with an A–Z index; birthdays on Month and Day.' }),
-  disc: define({ version: '1.0.0', note: 'A main and a second colour for each person, with shares you can drag.' }),
+  contacts: define(
+    { version: '1.1.0', note: 'Notes start blurred until you open them, with a setting for each section.' },
+    { version: '1.0.0', note: 'An address book with an A–Z index; birthdays on Month and Day.' },
+  ),
+  disc: define(
+    { version: '1.1.0', note: 'Starts blurred until you open it.' },
+    { version: '1.0.0', note: 'A main and a second colour for each person, with shares you can drag.' },
+  ),
   holidays: define({ version: '1.0.0', note: 'Vietnamese holidays offline, and your own yearly days on Month.' }),
 }

@@ -2,6 +2,15 @@
 
 Each version's section is its release notes: the build shows it in the app before an update, and the GitHub release uses the same text.
 
+## 0.1.2 (2026-11-14)
+
+- Week shows last week's unfinished plan as faint pencil lines: click one to keep it, or drop it with the ×, by crossing it out, or with Delete. A new week can copy the plan automatically (Settings › Planning).
+- Date controls moved onto each page, next to its date; the top bar has the tabs and Settings only.
+- Contacts: notes and DISC start blurred in grey until you open them, with a setting for each under Add-ons.
+- Day photos: a short handwritten title on the strip, and a caption of up to four lines under the photo.
+- Day notes: bold, italic and underline (Ctrl+B/I/U or Markdown-style typing), and a hand-drawn section line from `---`.
+- If you sync between devices, update them all: an older version stops syncing, with an update message, once a 0.1.2 device has synced.
+
 ## 0.1.1 (2026-11-09)
 
 - Contacts, an add-on page: name, gender, birthday and notes, laid out as an address book with an A–Z index. Birthdays show on the Month and Day pages.
