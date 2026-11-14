@@ -113,13 +113,8 @@ export const noteText = (lines: NoteLine[]) => lines.map((l) => (l.rule ? l.text
 const MARK: Record<keyof Style, string> = { b: '**', i: '//', u: '__' }
 const ORDER: (keyof Style)[] = ['u', 'b', 'i']
 
-/**
- * One line of styled characters as text, marks nested so they stay open longest, and the formatting
- * that text really holds. A delimiter must touch the text it wraps, so a space keeps only what both
- * of its neighbours share, and a mark reopened after another closes waits for the next letter. With
- * `escape`, every exact pair of * / or _ in the text gets a backslash; without it, none does.
- */
-export function writeLine(chars: { c: string; s: Style }[], escape: boolean): { text: string; styles: Style[] } {
+/** The formatting a line of characters holds once spaces and colons are written as they read back. */
+function stylesOf(chars: { c: string; s: Style }[]) {
   const st: Style[] = chars.map((x) => ({ b: x.s.b || undefined, i: x.s.i || undefined, u: x.s.u || undefined }))
   for (let a = 0; a < st.length; a++) {
     if (!space(chars[a].c)) continue
@@ -134,18 +129,21 @@ export function writeLine(chars: { c: string; s: Style }[], escape: boolean): { 
   // italic stays upright, and one just before italic leans with it.
   for (let k = st.length - 1; k >= 0; k--) if (st[k].i && chars[k].c === ':' && !st[k + 1]?.i) st[k] = { ...st[k], i: undefined }
   for (let k = st.length - 1; k > 0; k--) if (st[k].i && !st[k - 1].i && chars[k - 1].c === ':') st[k - 1] = { ...st[k - 1], i: true }
+  return st
+}
+
+/** The text for characters and their formatting, with a backslash before each pair marked in `esc`. */
+function renderLine(chars: { c: string; s: Style }[], st: Style[], esc: boolean[]) {
   const ends = (i: number, m: keyof Style) => {
     let j = i
     while (j < st.length && st[j][m]) j++
     return j
   }
-  // Addresses and paths are text as they are: nothing in them is escaped.
-  let plain = ''
-  const at = chars.map((x) => ((plain += x.c), plain.length - x.c.length))
-  const literal = escape ? literalSpans(plain) : null
   let text = ''
   const styles: Style[] = []
   const stack: (keyof Style)[] = []
+  // Where each escaped pair's backslash sits, so an escape that lands in an address or path is found.
+  const at: number[] = new Array(chars.length).fill(-1)
   for (let i = 0; i <= chars.length; i++) {
     const want = i < chars.length ? st[i] : {}
     // Close from the top down to the lowest mark that stops here; the ones above it reopen.
@@ -164,10 +162,39 @@ export function writeLine(chars: { c: string; s: Style }[], escape: boolean): { 
       }
     }
     styles.push({ b: stack.includes('b') || undefined, i: stack.includes('i') || undefined, u: stack.includes('u') || undefined })
-    const pair = DELIMS.includes(c) && chars[i + 1]?.c === c && chars[i - 1]?.c !== c && chars[i + 2]?.c !== c
-    text += escape && pair && !literal![at[i]] ? `\\${c}` : c
+    if (esc[i]) {
+      at[i] = text.length
+      text += '\\'
+    }
+    text += c
   }
-  return { text, styles }
+  return { text, styles, at }
+}
+
+/**
+ * One line of styled characters as text, marks nested so they stay open longest, and the formatting
+ * that text really holds. A delimiter must touch the text it wraps, so a space keeps only what both
+ * of its neighbours share, and a mark reopened after another closes waits for the next letter. With
+ * `escape`, exact pairs get a backslash, except where it would be part of an address or path.
+ */
+export function writeLine(chars: { c: string; s: Style }[], escape: boolean): { text: string; styles: Style[] } {
+  const st = stylesOf(chars)
+  const pair = (i: number) => {
+    const c = chars[i].c
+    return DELIMS.includes(c) && chars[i + 1]?.c === c && chars[i - 1]?.c !== c && chars[i + 2]?.c !== c
+  }
+  const esc = chars.map((_, i) => escape && pair(i))
+  let out = renderLine(chars, st, esc)
+  // An escape inside an address or path would be shown as text; that pair is already literal there,
+  // so the escape is dropped. One at a time: dropping an earlier escape can free a later one.
+  for (let k = 0; k < 32; k++) {
+    const literal = literalSpans(out.text)
+    const swallowed = chars.findIndex((_, i) => esc[i] && literal[out.at[i]] === 1)
+    if (swallowed < 0) break
+    esc[swallowed] = false
+    out = renderLine(chars, st, esc)
+  }
+  return { text: out.text, styles: out.styles }
 }
 
 /** The styled characters a line of text stands for. */

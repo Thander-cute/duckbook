@@ -34,6 +34,9 @@ async function health() {
 
 async function main() {
   execFileSync('git', ['worktree', 'add', '--detach', wt, OLD], { cwd: repo, stdio: 'ignore' })
+  // An old commit after sync existed still needs its one third-party package (yjs); a worktree has
+  // no node_modules of its own, so link this checkout's. Removed before the worktree goes away.
+  fs.symlinkSync(path.join(repo, 'node_modules'), path.join(wt, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir')
   let old: ChildProcess | null = null
   const browser = await puppeteer.launch({ executablePath: browserPath, headless: true })
   try {
@@ -81,6 +84,12 @@ async function main() {
     if (h?.pid) process.kill(h.pid)
     old?.kill()
     await sleep(300)
+    try {
+      if (process.platform === 'win32') fs.rmdirSync(path.join(wt, 'node_modules'))
+      else fs.unlinkSync(path.join(wt, 'node_modules'))
+    } catch {
+      /* no link, or the worktree was never made */
+    }
     execFileSync('git', ['worktree', 'remove', '--force', wt], { cwd: repo, stdio: 'ignore' })
     fs.rmSync(tmp, { recursive: true, force: true })
   }

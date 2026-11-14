@@ -8,7 +8,7 @@ import { baseKeymap, toggleMark } from 'prosemirror-commands'
 import { InputRule, inputRules, undoInputRule } from 'prosemirror-inputrules'
 import 'prosemirror-view/style/prosemirror.css'
 import '@fontsource/dancing-script/700.css'
-import { carry, schema, toDoc, toText } from '../lib/noteDoc'
+import { carry, markFixes, schema, toDoc, toText } from '../lib/noteDoc'
 import { merge3 } from '../lib/tree'
 
 export interface NoteProps {
@@ -20,6 +20,30 @@ export interface NoteProps {
 
 const { b, i, u } = schema.marks
 const { paragraph, rule } = schema.nodes
+
+/** The caret's character offset in the note's text, newlines included. */
+function textOffset(doc: Node, pos: number) {
+  let out = 0
+  doc.forEach((n, at) => {
+    const len = n.type === rule ? (n.attrs.text as string).length : n.textContent.length
+    if (at + n.nodeSize <= pos) out += len + 1
+    else if (at <= pos && pos <= at + n.nodeSize) out += Math.max(0, Math.min(pos - at - 1, len))
+  })
+  return out
+}
+
+/** The position for a character offset in the note's text. */
+function posOfTextOffset(doc: Node, offset: number) {
+  let left = offset
+  let out = -1
+  doc.forEach((n, at) => {
+    if (out >= 0) return
+    const len = n.type === rule ? (n.attrs.text as string).length : n.textContent.length
+    if (left <= len) out = n.type === rule ? at : at + 1 + left
+    else left -= len + 1
+  })
+  return out >= 0 ? out : doc.content.size
+}
 
 /** Typing `**word**` (and the like) makes the word bold and leaves the marks out, as Notion does. */
 const markRule = (re: RegExp, type: MarkType) =>
@@ -102,11 +126,10 @@ function pastedHTML(html: string) {
  */
 export default function NoteEditor({ value, onChange, ariaLabel, className = '' }: NoteProps) {
   const host = useRef<HTMLDivElement>(null)
-  // The text the notebook holds, which the editor shows as soon as it can; the text the editor shows;
-  // and the editor's own recent texts, which may still come back from the notebook.
+  // The text the notebook holds, which the editor shows as soon as it can; and the text the editor
+  // shows.
   const target = useRef(value)
   const shown = useRef(value)
-  const mine = useRef<string[]>([])
   const catchUp = useRef(() => {})
   const change = useRef(onChange)
   change.current = onChange
@@ -148,19 +171,42 @@ export default function NoteEditor({ value, onChange, ariaLabel, className = '' 
         attributes: { class: `write ink ${className} note-editor`, role: 'textbox', 'aria-multiline': 'true', 'aria-label': ariaLabel, spellcheck: 'false' },
         dispatchTransaction(tr) {
           const prev = v.state.doc
-          v.updateState(v.state.apply(tr))
-          if (!tr.docChanged || tr.getMeta('remote')) return
-          carry(prev, v.state.doc)
-          const before = shown.current
-          const text = toText(v.state.doc)
-          if (text === before) return
-          shown.current = text
-          // A change from elsewhere still waiting to be shown is kept in what is saved.
-          const merged = target.current === before ? text : merge3(before, text, target.current)
-          target.current = merged
-          mine.current = [...mine.current.slice(-19), merged]
-          change.current(merged)
-          if (merged !== text) sync()
+          let state = v.state.apply(tr)
+          if (tr.docChanged && !tr.getMeta('remote')) {
+            carry(prev, state.doc)
+            // The editor shows exactly what the stored text reads back as: formatting the text
+            // cannot hold is dropped, and text it cannot hold is shown as it reads back.
+            let text = toText(state.doc)
+            const back = toDoc(text)
+            if (back.textContent !== state.doc.textContent) {
+              const at = textOffset(state.doc, state.selection.head)
+              const fix = state.tr.replaceWith(0, state.doc.content.size, back.content)
+              fix.setSelection(TextSelection.near(fix.doc.resolve(posOfTextOffset(fix.doc, at))))
+              fix.setMeta('addToHistory', false)
+              state = state.apply(fix)
+              text = toText(state.doc)
+            } else {
+              const fixes = markFixes(state.doc, back)
+              if (fixes?.length) {
+                const fix = state.tr
+                for (const f of fixes) f.on ? fix.addMark(f.from, f.to, f.mark) : fix.removeMark(f.from, f.to, f.mark)
+                fix.setMeta('addToHistory', false)
+                state = state.apply(fix)
+                text = toText(state.doc)
+              }
+            }
+            v.updateState(state)
+            const before = shown.current
+            if (text === before) return
+            shown.current = text
+            // A change from elsewhere still waiting to be shown is kept in what is saved.
+            const merged = target.current === before ? text : merge3(before, text, target.current)
+            target.current = merged
+            change.current(merged)
+            if (merged !== text) sync()
+            return
+          }
+          v.updateState(state)
         },
         clipboardTextSerializer: (slice) => slice.content.textBetween(0, slice.content.size, '\n'),
         clipboardTextParser: (text, _$context, plain) => pastedText(text, plain),
@@ -176,12 +222,11 @@ export default function NoteEditor({ value, onChange, ariaLabel, className = '' 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Text that changed elsewhere (another tab, another device). An older text of the editor's own
-  // coming back is not a change.
+  // Text that changed elsewhere (another tab, another device). The notebook catching up with what
+  // the editor already holds is not a change; any other text is, even if the editor wrote it before.
   useEffect(() => {
-    if (value === target.current || mine.current.includes(value)) return
+    if (value === target.current) return
     target.current = value
-    mine.current = []
     catchUp.current()
   }, [value])
 

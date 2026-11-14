@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { fmtLong, fmtShort } from '../lib/date'
 import { addPhotos, removePhoto, usePhoto } from '../lib/photos'
 import { href } from '../lib/router'
-import { editDay, foldPhotoLines, MAX_DAY_PHOTOS, MAX_PHOTO_DESCRIPTION, MAX_PHOTO_LINES, MAX_PHOTO_TITLE, useDay, type DayPhoto } from '../lib/store'
+import { cutText, editDay, foldPhotoLines, MAX_DAY_PHOTOS, MAX_PHOTO_DESCRIPTION, MAX_PHOTO_LINES, MAX_PHOTO_TITLE, useDay, type DayPhoto } from '../lib/store'
 import { ConfirmRemove, Label, Write } from './ui'
 
 export interface Shown {
@@ -18,7 +18,7 @@ function setPhotoText(day: string, full: string, field: 'title' | 'description',
   editDay(day, (d) => {
     const photo = d.photos?.find((p) => p.full === full)
     if (!photo) return
-    const text = field === 'title' ? value.replace(/\s+/g, ' ').slice(0, MAX_PHOTO_TITLE) : foldPhotoLines(value).slice(0, MAX_PHOTO_DESCRIPTION)
+    const text = field === 'title' ? cutText(value.replace(/\s+/g, ' '), MAX_PHOTO_TITLE) : cutText(foldPhotoLines(value), MAX_PHOTO_DESCRIPTION)
     if (text.trim()) photo[field] = text
     else delete photo[field]
   })

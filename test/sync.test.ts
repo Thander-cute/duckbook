@@ -49,6 +49,16 @@ function assertReplays(d: Device) {
 
 const pages = (d: Device) => d.store.allDocs().map((x) => ({ key: x.key, value: x.value }))
 
+/** A page as an older duckbook stored it: written straight to the docs table and the op-log, without newer fields. */
+function saveOld(store: Store, key: string, value: unknown) {
+  store.sync.recordLocal(key, undefined, value)
+  const rev = (store.getMeta<number>('rev_counter') ?? 0) + 1
+  store.setMeta('rev_counter', rev)
+  const text = JSON.stringify(value)
+  store.db.prepare('INSERT INTO docs (key, value, rev, updated_at) VALUES (?, ?, ?, ?)').run(key, text, rev, new Date().toISOString())
+  store.db.prepare('INSERT INTO doc_revs (key, rev, value) VALUES (?, ?, ?)').run(key, rev, text)
+}
+
 test('op-log replays to the stored pages, including an existing notebook', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'duckbook-sync-'))
   try {
@@ -226,6 +236,36 @@ test('pages changed by an older duckbook are picked up when the notebook opens',
     store.close()
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a settings page saved by an older duckbook does not make its missing fields look edited', async () => {
+  const a = device()
+  const b = device()
+  try {
+    // An older release's settings: no monthSize, only the Focus Map module, none of the newer fields.
+    const old = { ink: 'serif', focusMin: 25, breakMin: 5, modules: { focusMap: false } }
+    saveOld(a.store, 'settings', old)
+    saveOld(b.store, 'settings', old)
+    // A turns Contacts and Copy-the-plan on; B, not yet synced, changes Focus minutes afterwards.
+    a.save('settings', { ...old, modules: { focusMap: false, contacts: true }, autoCopyWeek: true, autoCopiedWeek: '2026-11-02' })
+    await new Promise((r) => setTimeout(r, 5))
+    b.save('settings', { ...old, focusMin: 50 })
+    exchange(a, b)
+    for (const d of [a, b]) {
+      const s = d.get('settings')!.value as any
+      assert.equal(s.focusMin, 50, 'B’s change lands')
+      assert.equal(s.modules.contacts, true, 'A’s module toggle is not undone by B’s save')
+      assert.equal(s.autoCopyWeek, true, 'A’s Copy-the-plan switch stays on')
+      assert.equal(s.autoCopiedWeek, '2026-11-02')
+      assert.equal(s.monthSize, 15, 'fields neither device touched keep their default')
+    }
+    assert.deepEqual(pages(a), pages(b))
+    assertReplays(a)
+    assertReplays(b)
+  } finally {
+    a.close()
+    b.close()
   }
 })
 

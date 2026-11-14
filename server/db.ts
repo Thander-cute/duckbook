@@ -151,7 +151,10 @@ export class Store {
       const revs: Record<string, number> = {}
       for (const c of clean) {
         const cur = get.get(c.key) as { value: string } | undefined
-        this.sync.recordLocal(c.key, cur ? JSON.parse(cur.value) : undefined, c.value)
+        // Diff against the stored page as this version reads it: fields an older version did not
+        // write are already at their defaults, not edits made now (which would override another
+        // device's real change to them).
+        this.sync.recordLocal(c.key, cur ? repairDoc(c.key, JSON.parse(cur.value)).value : undefined, c.value)
         revs[c.key] = this.writeDoc(c.key, c.value, now)
       }
       this.touch()

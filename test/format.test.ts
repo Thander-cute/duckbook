@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { EditorState, type Transaction } from 'prosemirror-state'
 import { noteText, parseNote } from '../src/lib/format.ts'
-import { carry, schema, toDoc, toText } from '../src/lib/noteDoc.ts'
+import { carry, markFixes, schema, toDoc, toText } from '../src/lib/noteDoc.ts'
 
 const VI = 'Hôm nay trời đẹp, tôi đã viết nhật ký ở quán cà phê. Ước gì ngày mai cũng vậy.'
 const shape = (s: string) =>
@@ -202,4 +202,76 @@ test('an old version shows the stored text as it is: nothing in it is rewritten 
   const note = [...LITERAL_LINES, '**đậm** //nghiêng// __gạch__', '---'].join('\n')
   assert.equal(toText(toDoc(note)), note)
   assert.equal(noteText(parseNote(note)), note)
+})
+
+test('literal marks right after a one-letter colon stay text', () => {
+  // Escaping a pair after `A:` used to write `A:\**`, which reads as a Windows path and hides the
+  // wrong characters. `www.` and `//` are here because their spans move when a pair is escaped.
+  for (const s of ['A:**hi**', 'D:**2026**', 'C:__x__', 'A:__\\//__www.__', 'http://**a1.//\\__//']) {
+    const doc = schema.nodes.doc.create(null, [para([[s, []]])])
+    const text = toText(doc)
+    assert.deepEqual(seen(toDoc(text)), [s], `${s} → ${text}`)
+    assert.equal(toText(toDoc(text)), text, 'and reads the same text again')
+  }
+})
+
+test('formatting the text cannot hold is left out, not written and lost on reload', () => {
+  const plain = (parts: [string, string[]][]) => schema.nodes.doc.create(null, [para(parts.map(([t]) => [t, []]))])
+  for (const parts of [
+    [['*star*', ['b']]],
+    [['www.', []], ['x', ['b']]],
+    [['_x_', ['u']]],
+  ] as [string, string[]][][]) {
+    const doc = schema.nodes.doc.create(null, [para(parts)])
+    const text = toText(doc)
+    assert.equal(toDoc(text).textContent, doc.textContent, 'every character is kept')
+    assert.deepEqual(seen(toDoc(text)), seen(plain(parts)), 'and nothing the text cannot hold is shown')
+    assert.equal(toText(toDoc(text)), text, 'and reads the same text again')
+  }
+})
+
+test('the editor drops formatting the stored text cannot hold', () => {
+  const doc = schema.nodes.doc.create(null, [para([['*star*', ['b']]])])
+  const back = toDoc(toText(doc))
+  assert.deepEqual(markFixes(doc, back), [{ from: 1, to: 7, mark: schema.marks.b.create(), on: false }])
+})
+
+test('every edit of a note re-reads to the same characters', () => {
+  const words = ['hôm', 'nay', 'trời', 'đẹp', 'tôi', 'viết', 'nhật', 'ký', 'https://a.vn/x//y', 'file:///C:/a.txt', String.raw`C:\Users\me\__pycache__\x.py`, String.raw`\\server\share`, 'a//b', '1/2', 'snake_case', 'e.g.', '(xem', 'ok)', '5*3', '---', 'www.a//b//c', 'http://a//b//c']
+  const styles = [[], [], [], ['b'], ['i'], ['u'], ['b', 'i'], ['i', 'u']]
+  const typed = ['a', 'b', 'x', '1', ' ', 'đẹp', 'nhé', '//', '**', '__', 'www.', 'http://', '.', ',', '!', '?', '-', '(', ')']
+  let seed = 1234
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31
+  const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]
+  for (let n = 0; n < 1500; n++) {
+    const blocks = []
+    for (let p = 1 + Math.floor(rnd() * 3); p > 0; p--) {
+      const parts: [string, string[]][] = []
+      for (let k = 1 + Math.floor(rnd() * 6); k > 0; k--) parts.push([' ', []], [pick(words), pick(styles)])
+      blocks.push(para(parts))
+    }
+    const state = EditorState.create({ doc: schema.nodes.doc.create(null, blocks) })
+    let tr = state.tr
+    for (let e = 1 + Math.floor(rnd() * 3); e > 0; e--) {
+      const at = 1 + Math.floor(rnd() * (tr.doc.content.size - 1))
+      if (rnd() < 0.6) tr = tr.insertText(pick(typed), at)
+      else tr = tr.delete(at, Math.min(tr.doc.content.size, at + 1 + Math.floor(rnd() * 4)))
+    }
+    carry(state.doc, tr.doc)
+    const text = toText(tr.doc)
+    const back = toDoc(text)
+    assert.equal(back.textContent, tr.doc.textContent, JSON.stringify(text))
+    assert.equal(toText(back), text, 'and reads the same text again')
+  }
+})
+
+test('a paragraph the text cannot hold reads back as what the editor shows', () => {
+  // Two pairs after one-letter colons cannot be written as text: each needs an escape, and an escape
+  // there reads as a path. The editor shows what the text reads back as, so nothing changes silently.
+  const doc = schema.nodes.doc.create(null, [para([['A:**x**B:**y**', []]])])
+  const text = toText(doc)
+  const back = toDoc(text)
+  assert.notEqual(back.textContent, doc.textContent)
+  assert.equal(toText(back), text)
+  assert.equal(markFixes(doc, back), null, 'the characters differ, so the editor replaces the paragraph')
 })

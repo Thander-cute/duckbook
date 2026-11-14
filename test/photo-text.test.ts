@@ -20,6 +20,8 @@ const thumb = 'b'.repeat(64)
 const photo = (over: Record<string, unknown> = {}) => ({ full, thumb, w: 300, h: 200, ...over })
 const day = (photos?: unknown[]) => ({ grateful: '', tasks: [], notes: '', sentence: '', ...(photos ? { photos } : {}) })
 const dayKey = 'day:2026-11-11'
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/
+const codePoints = (s: string) => [...s].length
 
 test('a title is one line, trimmed and cut; a description keeps up to four lines and is cut', () => {
   assert.equal(photoTitle('  A   day\nout  '), 'A day out')
@@ -38,6 +40,33 @@ test('a title is one line, trimmed and cut; a description keeps up to four lines
   assert.equal(folded.split('\n').length, 4)
   assert.match(folded, /^line 1\nline 2\nline 3\nline 4 line 5 line 6 line 7 line 8 line 9 line 10$/)
   assert.equal(photoDescription('a'.repeat(MAX_PHOTO_DESCRIPTION) + '\nmore').length, MAX_PHOTO_DESCRIPTION)
+})
+
+test('a title and a description are cut on code points, never splitting an emoji', () => {
+  const emoji = '😀'
+  // The cut lands just after the emoji: a UTF-16 slice would keep only half of it.
+  const title = 'a'.repeat(MAX_PHOTO_TITLE - 1) + emoji + 'b'
+  assert.equal(photoTitle(title), 'a'.repeat(MAX_PHOTO_TITLE - 1) + emoji)
+  assert.equal(codePoints(photoTitle(title)), MAX_PHOTO_TITLE)
+  assert.doesNotMatch(photoTitle(title), LONE_SURROGATE)
+
+  const description = 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + emoji + 'c'
+  assert.equal(photoDescription(description), 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + emoji)
+  assert.equal(codePoints(photoDescription(description)), MAX_PHOTO_DESCRIPTION)
+  assert.doesNotMatch(photoDescription(description), LONE_SURROGATE)
+
+  // A cut that lands exactly before an emoji keeps only whole characters.
+  assert.equal(photoTitle('c'.repeat(MAX_PHOTO_TITLE) + emoji), 'c'.repeat(MAX_PHOTO_TITLE))
+  assert.equal(photoTitle(emoji.repeat(MAX_PHOTO_TITLE + 2)), emoji.repeat(MAX_PHOTO_TITLE))
+  assert.equal(photoDescription(emoji.repeat(MAX_PHOTO_DESCRIPTION + 2)), emoji.repeat(MAX_PHOTO_DESCRIPTION))
+
+  // The same cut is applied on a live save and on an import.
+  const saved = normalizeDoc(dayKey, day([photo({ title, description })])) as any
+  assert.equal(saved.photos[0].title, 'a'.repeat(MAX_PHOTO_TITLE - 1) + emoji)
+  assert.equal(saved.photos[0].description, 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + emoji)
+  const imported = normalizeState({ version: 1, days: { '2026-11-11': day([photo({ title, description })]) } })
+  assert.equal(imported.state.days['2026-11-11'].photos![0].title, 'a'.repeat(MAX_PHOTO_TITLE - 1) + emoji)
+  assert.equal(imported.state.days['2026-11-11'].photos![0].description, 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + emoji)
 })
 
 test('strict saves keep a photo title and description, cut to their limits, and omit empty ones', () => {
@@ -127,6 +156,16 @@ test('the server saves, cuts and exports a photo title and description; a bad on
     const exp = (await s.call('GET', '/api/export')).json
     assert.equal(exp.state.days['2026-11-11'].photos[0].title, 'A day out')
     assert.equal(exp.state.days['2026-11-11'].photos[0].description, 'one\ntwo\nthree\nfour five six')
+
+    // The cut is on code points on the server too: an emoji at the limit is kept whole, not halved.
+    const emojiTitle = 'a'.repeat(MAX_PHOTO_TITLE - 1) + '😀' + 'b'
+    const emojiDescription = 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + '😀' + 'c'
+    r = await s.call('PUT', '/api/docs', { changes: [{ key: dayKey, baseRev: doc.rev, value: day([photo({ title: emojiTitle, description: emojiDescription })]) }] })
+    assert.equal(r.status, 200)
+    doc = await find()
+    assert.equal(doc.value.photos[0].title, 'a'.repeat(MAX_PHOTO_TITLE - 1) + '😀')
+    assert.equal(doc.value.photos[0].description, 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + '😀')
+    assert.doesNotMatch(doc.value.photos[0].title + doc.value.photos[0].description, LONE_SURROGATE)
   } finally {
     await s.cleanup()
   }

@@ -91,6 +91,20 @@ const key = async (page: Page, k: string) => {
   await page.keyboard.press(k as never)
   await sleep(30)
 }
+/** Shift+paste: literal text, not marks (`clipboardTextParser` gets `plain`). */
+const pastePlain = async (page: Page, text: string) => {
+  await page.keyboard.down('Shift')
+  await page.$eval(
+    ED,
+    (ed, text) => {
+      const dt = new DataTransfer()
+      dt.setData('text/plain', text)
+      ed.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
+    },
+    text,
+  )
+  await page.keyboard.up('Shift')
+}
 /** Puts the caret in the note's `line`th paragraph, `offset` characters in (the end when left out). */
 const caret = async (page: Page, line: number, offset?: number) => {
   await page.click(ED)
@@ -252,6 +266,88 @@ try {
     await storedBecomes(page, '**trời đẹp** rồi //nghiêng// và __gạch__ và //cũng nghiêng// \n\\**sai\\**\nsnake_case và 2*3*4 và a__b')
   })
 
+  await step('literal marks after a one-letter colon stay text, typed or pasted', async () => {
+    // Typing `A:**hi**` fires the bold rule; Backspace takes it back. The stars must stay stars.
+    await reset(page, '')
+    await caret(page, 0)
+    await page.keyboard.type('A:**hi**')
+    assert.deepEqual(await tags(page, 'strong'), ['hi'], 'the bold rule fires')
+    await key(page, 'Backspace')
+    assert.deepEqual(await tags(page, 'strong'), [], 'Backspace takes the formatting back')
+    assert.equal((await shown(page))[0], 'A:**hi**')
+    await storedBecomes(page, 'A:**hi\\**')
+    await page.reload()
+    await page.waitForSelector(`${ED}.ProseMirror`)
+    assert.equal((await shown(page))[0], 'A:**hi**', 'the stars are still text after reload')
+    assert.deepEqual(await tags(page, 'strong'), [])
+
+    // Shift+paste is literal text, not marks.
+    for (const text of ['D:**2026**', 'C:__x__', 'A:__\\//__www.__']) {
+      await reset(page, '')
+      await caret(page, 0)
+      await pastePlain(page, text)
+      assert.equal((await shown(page))[0], text, `${text} is shown as written`)
+      assert.deepEqual(await tags(page, 'strong'), [])
+      assert.deepEqual(await tags(page, 'em'), [])
+      assert.deepEqual(await tags(page, 'u'), [])
+      // Wait for the save, then check that opening the stored text changes nothing.
+      let last = ''
+      for (let t = 0; t < 6000; t += 100) {
+        const now = await stored(page)
+        if (now && now === last) break
+        last = now
+        await sleep(100)
+      }
+      assert.notEqual(last, '', 'the pasted text is saved')
+      await page.reload()
+      await page.waitForSelector(`${ED}.ProseMirror`)
+      assert.equal((await shown(page))[0], text, `${text} reads back as written`)
+      assert.equal(await stored(page), last, 'opening it does not rewrite it')
+    }
+
+    // Text the format cannot hold is shown as it reads back, so a reload changes nothing either.
+    await reset(page, '')
+    await caret(page, 0)
+    await pastePlain(page, 'A:**x**B:**y**')
+    assert.equal(await page.$eval(ED, (e) => e.textContent), 'A:xB:y')
+    assert.deepEqual(await tags(page, 'strong'), ['x', 'y'])
+    await storedBecomes(page, 'A:**x**B:**y**')
+  })
+
+  await step('formatting the stored text cannot hold is not shown', async () => {
+    // Bold on `*star*` cannot be written, so it is not shown either.
+    await reset(page, '*star*')
+    await caret(page, 0)
+    await page.keyboard.down('Shift')
+    for (let k = 0; k < 6; k++) await key(page, 'ArrowLeft')
+    await page.keyboard.up('Shift')
+    await ctrl(page, 'b')
+    await sleep(300)
+    assert.deepEqual(await tags(page, 'strong'), [], 'bold the text cannot hold is not shown')
+    assert.equal((await shown(page))[0], '*star*')
+    await storedBecomes(page, '*star*')
+
+    // Typing a star at the start of a bold word makes the bold unholdable: it goes, visibly.
+    await reset(page, '**abc**')
+    await caret(page, 0, 0)
+    await key(page, '*')
+    await sleep(300)
+    assert.deepEqual(await tags(page, 'strong'), [])
+    assert.equal((await shown(page))[0], '*abc')
+    await storedBecomes(page, '*abc')
+
+    // A word right after an address cannot be bold either.
+    await reset(page, 'www.x')
+    await caret(page, 0)
+    await page.keyboard.down('Shift')
+    await key(page, 'ArrowLeft')
+    await page.keyboard.up('Shift')
+    await ctrl(page, 'b')
+    await sleep(300)
+    assert.deepEqual(await tags(page, 'strong'), [])
+    await storedBecomes(page, 'www.x')
+  })
+
   await step('--- then Enter makes a section line and writing goes on below it', async () => {
     await reset(page, 'trên')
     await caret(page, 0)
@@ -398,6 +494,25 @@ try {
     await page.waitForFunction((sel) => document.querySelector(sel)!.textContent!.includes('MỘT'), {}, ED)
     await page.keyboard.type('!')
     await storedBecomes(page, '**Từ nơi khác** dòng MỘT\ndòngX haiviệt!')
+  })
+
+  await step('a change from elsewhere that matches an older text of this tab is still shown', async () => {
+    // This tab typed `hello`, then deleted it. Device B saves exactly `hello`. It is not this tab's
+    // own text coming back, so it must arrive; typing on top keeps it.
+    await reset(page, '')
+    await caret(page, 0)
+    await page.keyboard.type('hello')
+    await storedBecomes(page, 'hello')
+    for (let k = 0; k < 5; k++) await key(page, 'Backspace')
+    await storedBecomes(page, '')
+    const d = await dayDoc(page)
+    const put = await call(page, 'PUT', '/api/docs', { changes: [{ key: d.key, baseRev: d.rev, value: { ...d.value, notes: 'hello' } }] })
+    assert.equal(put.status, 200, JSON.stringify(put.json))
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.waitForFunction((sel) => document.querySelector(sel)?.textContent === 'hello', {}, ED)
+    await ctrl(page, 'End')
+    await page.keyboard.type('x')
+    await storedBecomes(page, 'hellox')
   })
 
   for (const ink of ['serif', 'hand']) {

@@ -80,6 +80,58 @@ function checked(chars: Chars, escape: boolean): string | null {
   return ok ? line : null
 }
 
+/** Marks to take off or put on so the editor shows what its text reads back as. Null when the characters differ. */
+export function markFixes(doc: Node, back: Node): { from: number; to: number; mark: Mark; on: boolean }[] | null {
+  const out: { from: number; to: number; mark: Mark; on: boolean }[] = []
+  const a: { node: Node; pos: number }[] = []
+  const b: { node: Node; pos: number }[] = []
+  doc.forEach((n, pos) => a.push({ node: n, pos }))
+  back.forEach((n, pos) => b.push({ node: n, pos }))
+  if (a.length !== b.length) return null
+  for (let k = 0; k < a.length; k++) {
+    if (a[k].node.type !== b[k].node.type) return null
+    if (a[k].node.type === rule) continue
+    const mine: { c: string; marks: readonly Mark[]; pos: number }[] = []
+    a[k].node.forEach((t, offset) => {
+      let at = a[k].pos + 1 + offset
+      for (const c of t.text ?? '') {
+        mine.push({ c, marks: t.marks, pos: at })
+        at += c.length
+      }
+    })
+    const theirs: { c: string; marks: readonly Mark[] }[] = []
+    b[k].node.forEach((t) => {
+      for (const c of t.text ?? '') theirs.push({ c, marks: t.marks })
+    })
+    if (mine.length !== theirs.length) return null
+    for (let i = 0; i < mine.length; i++) if (mine[i].c !== theirs[i].c) return null
+    for (const m of ['b', 'i', 'u'] as const) {
+      let run: { from: number; to: number; on: boolean } | null = null
+      const flush = () => {
+        if (run) out.push({ ...run, mark: MARKS[m].create() })
+        run = null
+      }
+      for (let i = 0; i < mine.length; i++) {
+        const has = mine[i].marks.some((x) => x.type === MARKS[m])
+        const want = theirs[i].marks.some((x) => x.type === MARKS[m])
+        if (has === want) {
+          flush()
+          continue
+        }
+        const from = mine[i].pos
+        const to = from + mine[i].c.length
+        if (run && run.on === !has && run.to === from) run.to = to
+        else {
+          flush()
+          run = { from, to, on: !has }
+        }
+      }
+      flush()
+    }
+  }
+  return out
+}
+
 /** One paragraph as a line: as read if unedited, otherwise written so it reads back the same. */
 function lineOf(p: Node): string {
   const known = read.get(p) ?? written.get(p)

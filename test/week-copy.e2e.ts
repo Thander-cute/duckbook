@@ -599,7 +599,7 @@ try {
     assert.equal((await doc(reader, 'settings')).autoCopyWeek, false)
   })
 
-  await step('keep all that cannot save says so in the banner, and saves when it can', async () => {
+  await step('keep all that cannot save says so, records nothing, and saves when it can', async () => {
     await fresh(W2)
     refuse = isSave
     await page.click('.pencil-all')
@@ -607,9 +607,28 @@ try {
     assert.match(await page.$eval('.banner.is-warn', (e) => e.textContent!), /Not saved/)
     await shot(page, '8-kept-not-saved')
     assert.equal(await weekDoc(reader, W2), undefined)
+    // Nothing was kept: closing the tab now would lose the tasks, so the lines must come back.
+    assert.equal(await page.evaluate(() => localStorage.getItem('duckbook:pencil')), null, 'not recorded as kept before the save lands')
+    // The unsaved tasks make the app ask before leaving; accept, as a person closing the tab would.
+    page.once('dialog', (d) => void d.accept())
+    await page.reload()
+    await page.waitForSelector('.week-plan')
+    assert.equal(await page.$$eval('.pencil-keep', (els) => els.length), COPIED.length, 'the lines are offered again')
+    // Once the save lands, the kept lines are recorded on this device.
     refuse = () => false
-    await page.waitForSelector('[data-save="saved"]', { timeout: 15000 })
+    await page.click('.pencil-all')
+    await saved(page)
     assert.deepEqual(texts(await weekDoc(reader, W2)), COPIED)
+    const recorded = await page.waitForFunction(
+      (m) => {
+        const raw = localStorage.getItem('duckbook:pencil')
+        if (!raw) return null
+        return (JSON.parse(raw) as Record<string, string[]>)[m]?.length ?? null
+      },
+      { timeout: 5000 },
+      W2,
+    )
+    assert.equal(await recorded.jsonValue(), COPIED.length + 1, 'the six tasks and Self-care are recorded as kept')
   })
 
   await step('locked: a new week copies nothing until unlock, then exactly once', async () => {

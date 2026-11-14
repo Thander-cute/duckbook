@@ -44,8 +44,11 @@ export const MAX_PHOTO_DESCRIPTION = 280
 export const MAX_PHOTO_LINES = 4
 export const PHOTO_ID = /^[0-9a-f]{64}$/
 
+/** Cut to `max` code points, never between the two halves of an emoji (which would leave a lone surrogate). */
+export const cutText = (text: string, max: number) => Array.from(text).slice(0, max).join('')
+
 /** A title is one line: whitespace runs become one space, the ends are trimmed, then it is cut. */
-export const photoTitle = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, MAX_PHOTO_TITLE)
+export const photoTitle = (text: string) => cutText(text.replace(/\s+/g, ' ').trim(), MAX_PHOTO_TITLE)
 
 /** Normalise line endings and fold anything past the fourth line into it, joined with a space. */
 export const foldPhotoLines = (text: string) => {
@@ -60,7 +63,7 @@ export const foldPhotoLines = (text: string) => {
 }
 
 /** A description keeps its lines (up to four); only the ends are trimmed, then it is cut. */
-export const photoDescription = (text: string) => foldPhotoLines(text.trim()).slice(0, MAX_PHOTO_DESCRIPTION)
+export const photoDescription = (text: string) => cutText(foldPhotoLines(text.trim()), MAX_PHOTO_DESCRIPTION)
 
 export interface DayData {
   grateful: string

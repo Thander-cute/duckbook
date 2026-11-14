@@ -14,6 +14,12 @@ const TS = /^\d{13}\.\d{6}\.[0-9a-f]{16}$/
 const FIELD = /^(?:[A-Za-z@][A-Za-z0-9_-]{0,40}|\d{4}-\d{2}-\d{2})$/
 const MAX_OPS_FILE = 50 * 1024 * 1024
 /**
+ * The format of the files this build writes. 2 = pages may hold fields an older build drops
+ * (photo title/description, autoCopyWeek/autoCopiedWeek), so a build that only knows 1 must stop
+ * syncing and ask for an update rather than silently lose them. Builds that know 2 still read 1.
+ */
+const SYNC_FORMAT_VERSION = 2
+/**
  * New files are found by modification time as Drive records it (never this computer's clock),
  * re-listing this far back for uploads still finishing when the last listing ran.
  */
@@ -122,12 +128,12 @@ export class SyncRunner {
     if (mode === 'start') {
       if (notebook) throw new Error('This Drive already has a duckbook notebook. Take it, or merge with it.')
       notebookId = createHash('sha256').update(`${Date.now()}${Math.random()}`).digest('hex').slice(0, 16)
-      await remote.create(NOTEBOOK, Buffer.from(JSON.stringify({ format: 'duckbook-sync', version: 1, notebookId, createdAt: new Date().toISOString() })), 'application/json')
+      await remote.create(NOTEBOOK, Buffer.from(JSON.stringify({ format: 'duckbook-sync', version: SYNC_FORMAT_VERSION, notebookId, createdAt: new Date().toISOString() })), 'application/json')
     } else {
       if (!notebook) throw new Error('There is no duckbook notebook in this Drive yet.')
       const meta = JSON.parse((await remote.read(notebook)).toString('utf8'))
       if (!isObj(meta) || meta.format !== 'duckbook-sync' || typeof meta.notebookId !== 'string') throw new Error('The notebook file in Drive is not one duckbook can read.')
-      if (typeof meta.version !== 'number' || meta.version > 1) throw new Error('The notebook in Drive was made by a newer duckbook. Update this app first.')
+      if (typeof meta.version !== 'number' || meta.version > SYNC_FORMAT_VERSION) throw new Error('The notebook in Drive was made by a newer duckbook. Update this app first.')
       notebookId = meta.notebookId
     }
     let backup: string | null = null
@@ -214,7 +220,7 @@ export class SyncRunner {
       const batch = sync.localOps(after)
       if (!batch.length) return
       const last = batch[batch.length - 1].seq
-      const body = Buffer.from(JSON.stringify({ format: 'duckbook-ops', version: 1, dev: sync.device, ops: batch.map((b) => b.op) }))
+      const body = Buffer.from(JSON.stringify({ format: 'duckbook-ops', version: SYNC_FORMAT_VERSION, dev: sync.device, ops: batch.map((b) => b.op) }))
       await remote.create(`ops-${sync.device}-${String(last).padStart(12, '0')}.json`, body, 'application/json')
       this.store.setMeta('sync_pushed', last)
     }
@@ -225,7 +231,7 @@ export class SyncRunner {
     if (raw.length > MAX_OPS_FILE) throw new Error(`${f.name} is too large.`)
     const body = JSON.parse(raw.toString('utf8'))
     if (!isObj(body) || body.format !== 'duckbook-ops' || !Array.isArray(body.ops)) throw new Error(`${f.name} is not a duckbook changes file.`)
-    if (typeof body.version !== 'number' || body.version > 1) throw new Error('Another device runs a newer duckbook. Update this app to keep syncing.')
+    if (typeof body.version !== 'number' || body.version > SYNC_FORMAT_VERSION) throw new Error('Another device runs a newer duckbook. Update this app to keep syncing.')
     const dev = OPS_FILE.exec(f.name)![1]
     if (!body.ops.every((o: unknown) => validOp(o) && o.dev === dev)) throw new Error(`${f.name} has changes duckbook can't read.`)
     return body.ops as Op[]

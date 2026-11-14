@@ -704,8 +704,11 @@ export async function keepPencil(monday: string, keys: string[]): Promise<boolea
   if (!isUnlocked()) return false
   let kept: string[] = []
   update((s) => void (kept = keepSuggestions(s, monday, prevWeek(monday), weekStart(todayKey()), new Set(keys), emptyWeek)))
-  leave(monday, kept)
-  return flush()
+  // Record the lines as left only once the tasks are saved. If the save fails and the tab closes
+  // first, they must still be offered: nothing was kept.
+  const saved = await flush()
+  if (saved) leave(monday, kept)
+  return saved
 }
 
 /** Turning it on starts with the next week: the one under way is already being planned by hand. */

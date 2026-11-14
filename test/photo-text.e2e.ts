@@ -6,6 +6,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import puppeteer, { type Page } from 'puppeteer-core'
+import { MAX_PHOTO_DESCRIPTION, MAX_PHOTO_TITLE } from '../src/lib/schema.ts'
 
 const port = 5442
 const origin = `http://localhost:${port}`
@@ -54,6 +55,7 @@ const paste = async (page: Page, text: string) => {
   await page.keyboard.press('KeyV')
   await page.keyboard.up('Control')
 }
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/
 
 try {
   for (let i = 0; i < 50; i++) {
@@ -484,6 +486,55 @@ try {
     await page.keyboard.press('Escape')
     await page.keyboard.press('Escape')
     await page.waitForFunction(() => !document.querySelector('.viewer'))
+  })
+
+  await step('a title and a caption cut on code points, never leaving half an emoji', async () => {
+    const emoji = '😀'
+    const emojiTitle = 'a'.repeat(MAX_PHOTO_TITLE - 1) + emoji + 'b'
+    const emojiDescription = 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + emoji + 'c'
+    // A value past the input's own limit, as an older cut or another browser could hand it over.
+    await page.click('.polaroid-title', { count: 3 })
+    await page.waitForSelector('input.polaroid-title')
+    await page.$eval('input.polaroid-title', (e) => e.removeAttribute('maxlength'))
+    await page.keyboard.sendCharacter(emojiTitle)
+    await sleep(100)
+    await waitSaved(page)
+    assert.equal(await value(page, 'input.polaroid-title'), 'a'.repeat(MAX_PHOTO_TITLE - 1) + emoji)
+    let photo = (await apiDocs(page)).find((d) => d.key === 'day:2026-11-11')!.value.photos[0]
+    assert.equal(photo.title, 'a'.repeat(MAX_PHOTO_TITLE - 1) + emoji)
+    assert.doesNotMatch(photo.title, LONE_SURROGATE)
+    await page.$eval('input.polaroid-title', (e) => (e as HTMLInputElement).blur())
+
+    await page.click('.day-photos .polaroid-img')
+    await page.waitForSelector('.viewer-text')
+    await page.click('.viewer-pencil')
+    await page.waitForSelector('.viewer-note')
+    await page.click('.viewer-note')
+    await page.keyboard.down('Control')
+    await page.keyboard.press('KeyA')
+    await page.keyboard.up('Control')
+    await page.$eval('.viewer-note', (e) => e.removeAttribute('maxlength'))
+    await page.keyboard.sendCharacter(emojiDescription)
+    await sleep(100)
+    await waitSaved(page)
+    assert.equal(await value(page, '.viewer-note'), 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + emoji)
+    photo = (await apiDocs(page)).find((d) => d.key === 'day:2026-11-11')!.value.photos[0]
+    assert.equal(photo.description, 'b'.repeat(MAX_PHOTO_DESCRIPTION - 1) + emoji)
+    assert.doesNotMatch(photo.description, LONE_SURROGATE)
+
+    // Put back the text the next checks use.
+    await page.keyboard.down('Control')
+    await page.keyboard.press('KeyA')
+    await page.keyboard.up('Control')
+    await page.keyboard.type('pasted note')
+    await waitSaved(page)
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => !document.querySelector('.viewer-note'))
+    await page.keyboard.press('Escape')
+    await page.waitForFunction(() => !document.querySelector('.viewer'))
+    await page.click('.polaroid-title', { count: 3 })
+    await page.keyboard.type('pasted title')
+    await waitSaved(page)
   })
 
   await step('locking leaves no title or description text in the DOM', async () => {
